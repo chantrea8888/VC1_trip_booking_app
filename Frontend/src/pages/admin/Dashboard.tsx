@@ -1,4 +1,12 @@
-// Admin dashboard placeholder
-export default function Dashboard() {
-    return <div>Admin Dashboard</div>;
-}
+import React from 'react';
+
+const AdminDashboard = () => {
+  return (
+    <div className="p-8">
+      <h1 className="text-2xl font-bold mb-4">Admin Dashboard</h1>
+      <p className="text-slate-500">System-wide overview and management.</p>
+    </div>
+  );
+};
+
+export default AdminDashboard;
