@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'motion/react';
 
-const VisitHome = () => {
+const VisitorHome = () => {
   return (
     <div className="min-h-screen bg-white dark:bg-slate-900 transition-colors duration-300">
       {/* Hero Section */}
@@ -63,4 +63,4 @@ const VisitHome = () => {
   );
 };
 
-export default VisitHome;
+export default VisitorHome;

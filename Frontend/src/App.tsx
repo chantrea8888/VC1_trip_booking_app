@@ -1,25 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { AnimatePresence } from 'motion/react';
+import { AnimatePresence, motion } from 'motion/react';
 import { format, addDays } from 'date-fns';
 import { Navbar } from './components/layout/Navbar';
 import { Footer } from './components/layout/Footer';
-import { RecommendationModal } from './components/common/RecommendationModal';
-import { DestinationModal } from './components/common/DestinationModal';
 import { AppRoutes } from './routes/AppRoutes';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { ALL_HOTELS } from './data/hotels';
-import React, { useState } from 'react';
-import { AnimatePresence, motion } from 'motion/react';
-import { Navbar } from './components/layout/Navbar';
-import { Footer } from './components/layout/Footer';
-// import { RecommendationModal } from './components/common/RecommendationModal';
-// import { DestinationModal } from './components/common/DestinationModal';
-import { AppRoutes } from './routes/AppRoutes';
-import { Login } from './pages/auth/Login';
-import { Register } from './pages/auth/Register';
-import { useAuth } from './context/AuthContext';
-import { ThemeProvider } from './context/ThemeContext';
 
 const AppContent = () => {
   const [view, setView] = useState('landing');
@@ -270,25 +257,6 @@ const AppContent = () => {
       <AppRoutes 
         view={view}
         setView={setView}
-        onSelectRecommendation={handleSelectRecommendation}
-        onSelectDestination={handleSelectDestination}
-        onPromotionsClick={() => setView('promotions')}
-        onHotelsClick={() => setView('hotels')}
-        onRentalsClick={() => setView('rentals')}
-        onActivitiesClick={() => setView('activities')}
-        notifications={notifications}
-        onMarkAsRead={handleMarkAsRead}
-        onMarkAllAsRead={handleMarkAllAsRead}
-        activeProfileTab={activeProfileTab}
-        selectedHotel={selectedHotel}
-        setSelectedHotel={setSelectedHotel}
-        selectedActivityIds={selectedActivityIds}
-        setSelectedActivityIds={setSelectedActivityIds}
-        tripData={tripData}
-        setTripData={setTripData}
-        onSearch={handleSearch}
-        returnToPlanner={returnToPlanner}
-        setReturnToPlanner={setReturnToPlanner}
       />
 
       <Footer
@@ -308,20 +276,7 @@ const AppContent = () => {
         user={user}
       />
 
-      <AnimatePresence>
-        {selectedRecommendation && (
-          <RecommendationModal 
-            item={selectedRecommendation} 
-            onClose={() => setSelectedRecommendation(null)} 
-          />
-        )}
-        {selectedDestination && (
-          <DestinationModal 
-            dest={selectedDestination} 
-            onClose={() => setSelectedDestination(null)} 
-          />
-        )}
-      </AnimatePresence>
+      {/* Modals removed for now */}
     </div>
   );
 };
