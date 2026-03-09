@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
 interface ThemeContextType {
@@ -10,13 +9,8 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isDarkMode, setIsDarkMode] = useState(() => {
-    // Check for saved preference first
     const saved = localStorage.getItem('darkMode');
-    if (saved !== null) {
-      return JSON.parse(saved);
-    }
-    // If no saved preference, use system preference
-    return window.matchMedia('(prefers-color-scheme: dark)').matches;
+    return saved ? JSON.parse(saved) : true; // Default to dark mode
   });
 
   useEffect(() => {
@@ -27,21 +21,6 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       document.documentElement.classList.remove('dark');
     }
   }, [isDarkMode]);
-
-  // Listen for system theme changes
-  useEffect(() => {
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    const handleChange = (e: MediaQueryListEvent) => {
-      // Only update if user hasn't manually set a preference
-      const saved = localStorage.getItem('darkMode');
-      if (saved === null) {
-        setIsDarkMode(e.matches);
-      }
-    };
-
-    mediaQuery.addEventListener('change', handleChange);
-    return () => mediaQuery.removeEventListener('change', handleChange);
-  }, []);
 
   const toggleDarkMode = () => setIsDarkMode(!isDarkMode);
 
@@ -59,6 +38,3 @@ export const useTheme = () => {
   }
   return context;
 };
-=======
-export { ThemeProvider, useTheme } from './ThemeContect';
->>>>>>> chantrea/feature-customer

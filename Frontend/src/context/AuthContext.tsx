@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import React, { createContext, useContext, useMemo, useState } from 'react';
 import {
   clearAuthUser,
@@ -16,12 +17,21 @@ export interface User {
   name: string;
   email: string;
   role: UserRole;
+=======
+import React, { createContext, useContext, useState, useEffect } from 'react';
+
+export interface User {
+  name: string;
+  email: string;
+  role: 'customer' | 'owner' | 'admin';
+>>>>>>> chantrea/feature-customer
   avatar?: string;
   phone?: string;
   location?: string;
   bio?: string;
 }
 
+<<<<<<< HEAD
 interface LoginPayload {
   email: string;
   password: string;
@@ -40,11 +50,18 @@ interface AuthContextType {
   login: (payload: LoginPayload) => Promise<{ user: User; nextView: string }>;
   register: (payload: RegisterPayload) => Promise<{ user: User; nextView: string }>;
   logout: () => Promise<void>;
+=======
+interface AuthContextType {
+  user: User | null;
+  login: (email: string, role: User['role'], initialData?: Partial<User>) => void;
+  logout: () => void;
+>>>>>>> chantrea/feature-customer
   updateUser: (updates: Partial<User>) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+<<<<<<< HEAD
 const normalizeRole = (role: unknown): UserRole | null => {
   const value = String(role ?? '').toLowerCase();
   if (value === 'admin' || value === 'owner' || value === 'customer') {
@@ -140,6 +157,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+=======
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [user, setUser] = useState<User | null>(null);
+
+  const login = (email: string, role: User['role'], initialData?: Partial<User>) => {
+    setUser({
+      name: initialData?.name || email.split('@')[0],
+      email,
+      role,
+      avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${email}`,
+      ...initialData
+    });
+  };
+
+  const logout = () => {
+    setUser(null);
+  };
+
+  const updateUser = (updates: Partial<User>) => {
+    setUser(prev => prev ? { ...prev, ...updates } : null);
+  };
+
+  return (
+    <AuthContext.Provider value={{ user, login, logout, updateUser }}>
+      {children}
+    </AuthContext.Provider>
+  );
+>>>>>>> chantrea/feature-customer
 };
 
 export const useAuth = () => {

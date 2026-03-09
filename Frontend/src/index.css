@@ -97,5 +97,121 @@
 
   .pagination-dots {
     @apply px-1.5 text-slate-400 dark:text-slate-500 text-base leading-none font-semibold;
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  
+  --color-bg-primary: white;
+  --color-bg-secondary: #f8fafc;
+  --color-text-primary: #0f172a;
+  --color-text-secondary: #64748b;
+  --color-border-primary: #f1f5f9;
+}
+
+@layer utilities {
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 4px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #1e293b;
+    border-radius: 10px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #334155;
+  }
+}
+
+/* Custom variant for class-based dark mode in Tailwind 4 */
+@variant dark (&:where(.dark, .dark *));
+
+.dark {
+  --color-bg-primary: #0f172a;
+  --color-bg-secondary: #1e293b;
+  --color-text-primary: #f8fafc;
+  --color-text-secondary: #94a3b8;
+  --color-border-primary: #334155;
+}
+
+@layer base {
+  html {
+    @apply transition-colors duration-300;
+  }
+  body {
+    @apply bg-[color:var(--color-bg-primary)] text-[color:var(--color-text-primary)] antialiased transition-colors duration-300;
+  }
+}
+
+@media print {
+  /* Hide everything by default */
+  body * {
+    visibility: hidden;
+  }
+
+  /* Show only the receipt and its content */
+  #printable-receipt,
+  #printable-receipt * {
+    visibility: visible;
+  }
+
+  /* Position the receipt at the very top of the printed page */
+  #printable-receipt {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    border: none;
+    box-shadow: none;
+    background: white !important;
+    color: black !important;
+    visibility: visible !important;
+    display: block !important;
+  }
+
+  /* Aggressively hide non-essential elements that might cause extra pages */
+  nav, 
+  footer, 
+  .no-print,
+  button,
+  .breadcrumbs,
+  aside {
+    display: none !important;
+  }
+
+  /* Ensure the body doesn't have any background or margins that mess up the print */
+  body {
+    background: white !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Fix for elements that might be hidden due to parent visibility */
+  #root, 
+  #root > div,
+  main {
+    visibility: visible !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+
+  /* Ensure colors are printed */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Fix for Framer Motion / Motion components */
+  [style*="transform"], 
+  [style*="opacity"] {
+    transform: none !important;
+    opacity: 1 !important;
+    transition: none !important;
   }
 }
