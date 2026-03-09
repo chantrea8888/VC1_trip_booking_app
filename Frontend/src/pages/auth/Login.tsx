@@ -1,35 +1,37 @@
 import React, { useState } from 'react';
-import { motion } from 'motion/react';
-import { useAuth, User } from '../../context/AuthContext';
 import { AuthLayout } from '../../components/auth/AuthLayout';
 import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 
 interface LoginProps {
   onSwitchToRegister: () => void;
   onBack: () => void;
-  onSuccess: () => void;
+  onSuccess: (nextView: string) => void;
+  onClose?: () => void;
 }
 
-export const Login: React.FC<LoginProps> = ({ onSwitchToRegister, onBack, onSuccess }) => {
+export const Login: React.FC<LoginProps> = ({ onSwitchToRegister, onBack, onSuccess, onClose }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [role, setRole] = useState<User['role']>('customer');
+  const [errorMessage, setErrorMessage] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { login } = useAuth();
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (email) {
-      login(email, role);
-      onSuccess();
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setErrorMessage('');
+    setIsSubmitting(true);
+
+    try {
+      const result = await login({ email, password });
+      onSuccess(result.nextView);
+    } catch (error: any) {
+      setErrorMessage(error?.data?.message ?? 'Login failed');
+    } finally {
+      setIsSubmitting(false);
     }
   };
-
-  const demoAccounts = [
-    { email: 'admin@komrong.com', role: 'admin' as const, label: 'Admin' },
-    { email: 'owner@paradise.com', role: 'owner' as const, label: 'Owner' },
-    { email: 'customer@traveler.com', role: 'customer' as const, label: 'Customer' },
-  ];
 
   return (
     <AuthLayout
@@ -38,73 +40,60 @@ export const Login: React.FC<LoginProps> = ({ onSwitchToRegister, onBack, onSucc
       activeTab="login"
       onTabChange={(tab) => tab === 'register' && onSwitchToRegister()}
       onBack={onBack}
+      onClose={onClose}
     >
-      <div className="mb-6 flex flex-wrap gap-2 justify-center">
-        {demoAccounts.map((acc) => (
-          <button
-            key={acc.email}
-            onClick={() => {
-              setEmail(acc.email);
-              setRole(acc.role);
-              setPassword('password123');
-            }}
-            className={`text-[10px] font-bold px-3 py-1.5 rounded-full border transition-all ${
-              email === acc.email 
-                ? 'bg-emerald-600 border-emerald-600 text-white shadow-md' 
-                : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500 hover:border-emerald-500'
-            }`}
-          >
-            {acc.label} Demo
-          </button>
-        ))}
-      </div>
-
-      <form className="space-y-5" onSubmit={handleSubmit}>
+      <form className="space-y-4" onSubmit={handleSubmit}>
         <div className="space-y-1.5">
-          <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 ml-1">Email Address</label>
+          <label className="ml-1 text-sm font-medium text-slate-700">Email Addres</label>
           <div className="relative group">
-            <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-emerald-500 transition-colors" />
-            <input 
-              type="email" 
+            <input
+              type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="name@example.com" 
+              placeholder="name@example.com"
               required
-              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-12 pr-4 py-3.5 text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all dark:text-white"
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3.5 pl-4 pr-12 text-sm text-slate-700 outline-none transition-all placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
             />
+            <Mail className="absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400 transition-colors group-focus-within:text-primary" />
           </div>
         </div>
 
         <div className="space-y-1.5">
-          <div className="flex justify-between items-center ml-1">
-            <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Password</label>
-            <a href="#" className="text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline">Forgot password?</a>
+          <div className="ml-1 flex items-center justify-between">
+            <label className="text-sm font-medium text-slate-700">Password</label>
           </div>
           <div className="relative group">
-            <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-emerald-500 transition-colors" />
-            <input 
-              type={showPassword ? "text" : "password"} 
+            <input
+              type={showPassword ? 'text' : 'password'}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••" 
+              placeholder="********"
               required
-              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-12 pr-12 py-3.5 text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all dark:text-white"
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3.5 pl-4 pr-12 text-sm text-slate-700 outline-none transition-all placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
             />
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 transition-colors hover:text-slate-600"
             >
               {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
             </button>
           </div>
+          <a href="#" className="ml-auto text-xs font-medium text-primary hover:underline">Forgot password?</a>
         </div>
 
-        <button 
-          type="submit" 
-          className="w-full bg-emerald-500 hover:bg-emerald-600 text-white py-4 rounded-xl font-bold shadow-lg shadow-emerald-100 dark:shadow-none transition-all active:scale-[0.98] mt-4"
+        {errorMessage && (
+          <p className="rounded-lg border border-rose-400/40 bg-rose-500/10 px-3 py-2 text-sm text-rose-300">
+            {errorMessage}
+          </p>
+        )}
+
+        <button
+          type="submit"
+          disabled={isSubmitting}
+          className="mt-2 w-full rounded-xl bg-primary py-3.5 font-bold text-white shadow-[0_10px_20px_rgba(0,82,204,0.3)] transition-all active:scale-[0.98] hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-70"
         >
-          Login to Account
+          {isSubmitting ? 'Logging in...' : 'Login to Account'}
         </button>
       </form>
     </AuthLayout>

@@ -1,0 +1,12 @@
+export { Dashboard } from './dashboard/Dashboard';
+export { UserManagement } from './users/ManageUsers';
+export { OwnerManagement } from './owners/ManageOwners';
+export { ViewDetails as OwnerDetailsPage } from './owners/ViewDetails';
+export { ViewAllApplications } from './owners/ViewAllApplications';
+export { OwnerApplicationDetails } from './owners/OwnerApplicationDetails';
+export { Destinations } from './destinations/ManageDestinations';
+export { Bookings } from './bookings/BookingMonitor';
+export { Finances } from './finance/IncomeReport';
+export { AuditLogs } from './reports/SystemReports';
+export { Settings } from './settings/Settings';
+export { AdminProfile } from './profile/AdminProfile';
