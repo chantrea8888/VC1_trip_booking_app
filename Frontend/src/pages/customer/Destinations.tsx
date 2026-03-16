@@ -79,11 +79,10 @@ const normalizeDestination = (destination: DestinationApiRecord): DestinationIte
 export default function Destinations() {
   const [searchTerm, setSearchTerm] = React.useState('');
   const [destinations, setDestinations] = React.useState<DestinationItem[]>([]);
-  const [isLoading, setIsLoading] = React.useState(true);
+  const [hasLoaded, setHasLoaded] = React.useState(false);
   const [loadError, setLoadError] = React.useState('');
 
   const loadDestinations = React.useCallback(async () => {
-    setIsLoading(true);
     setLoadError('');
 
     try {
@@ -93,7 +92,7 @@ export default function Destinations() {
     } catch (error) {
       setLoadError(getErrorMessage(error, 'Failed to load destinations. Please try again.'));
     } finally {
-      setIsLoading(false);
+      setHasLoaded(true);
     }
   }, []);
 
@@ -146,11 +145,7 @@ export default function Destinations() {
         </div>
       )}
 
-      {isLoading ? (
-        <div className="rounded-2xl border border-slate-200 bg-white px-6 py-16 text-center text-slate-500 shadow-sm dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">
-          Loading destinations...
-        </div>
-      ) : filteredDestinations.length > 0 ? (
+      {filteredDestinations.length > 0 ? (
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
           {filteredDestinations.map((destination) => (
             <article
@@ -192,14 +187,14 @@ export default function Destinations() {
             </article>
           ))}
         </div>
-      ) : (
+      ) : hasLoaded ? (
         <div className="rounded-2xl border border-slate-200 bg-white px-6 py-16 text-center shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100">No destinations found</h2>
           <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
             Try another search term or come back after owners publish more destinations.
           </p>
         </div>
-      )}
+      ) : null}
     </section>
   );
 }

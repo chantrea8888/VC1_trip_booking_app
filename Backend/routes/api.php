@@ -21,6 +21,9 @@ use App\Http\Controllers\Owner\PromotionController;
 // use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\BookingController; // ADD THIS
 
+// Public destinations for customers
+Route::get('/destinations/public/all', [DestinationController::class, 'getAllPublic']);
+
 Route::prefix('auth')->group(function () {
 
     Route::post('/register', [RegisterController::class, 'register']);

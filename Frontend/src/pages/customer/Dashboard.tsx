@@ -35,6 +35,36 @@ import {
 import { ALL_HOTELS } from '../../data/hotels';
 import { useAuth } from '../../context/AuthContext';
 import { bookingService } from '@/src/services/bookingService';
+import { apiRequest } from '@/src/services/api';
+
+type DestinationStatus = 'active' | 'draft';
+
+interface DestinationApiRecord {
+  id: string | number;
+  name?: string;
+  type?: string;
+  description?: string | null;
+  location?: string;
+  price?: number | string | null;
+  image?: string | null;
+  images?: string[] | null;
+  rating?: number | string | null;
+  status?: DestinationStatus;
+}
+
+interface HomeDestination {
+  id: string;
+  name: string;
+  type: string;
+  description: string;
+  location: string;
+  price: number;
+  image: string;
+  rating: number;
+  status: DestinationStatus;
+}
+
+const DEFAULT_DESTINATION_IMAGE = 'https://picsum.photos/seed/home-destination/800/600';
 
 // --- Sub-components (could be further split) ---
 const normalizeSearchText = (value: string): string =>
@@ -42,6 +72,35 @@ const normalizeSearchText = (value: string): string =>
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase();
+
+const toNumber = (value: number | string | null | undefined, fallback = 0) => {
+  const parsed = typeof value === 'number' ? value : parseFloat(String(value ?? ''));
+  return Number.isFinite(parsed) ? parsed : fallback;
+};
+
+const getErrorMessage = (error: any, fallback: string) => {
+  if (typeof error?.data?.message === 'string' && error.data.message.trim()) return error.data.message;
+  if (typeof error?.message === 'string' && error.message.trim()) return error.message;
+  return fallback;
+};
+
+const normalizeDestination = (destination: DestinationApiRecord): HomeDestination => {
+  const imageList = Array.isArray(destination.images)
+    ? destination.images.filter((image): image is string => typeof image === 'string' && image.trim().length > 0)
+    : [];
+
+  return {
+    id: String(destination.id),
+    name: destination.name?.trim() || 'Untitled destination',
+    type: destination.type?.trim() || 'Boutique Hotel',
+    description: destination.description?.trim() || 'Discover this destination and start planning your stay.',
+    location: destination.location?.trim() || 'Unknown location',
+    price: toNumber(destination.price, 0),
+    image: (typeof destination.image === 'string' && destination.image.trim()) || imageList[0] || DEFAULT_DESTINATION_IMAGE,
+    rating: toNumber(destination.rating, 0),
+    status: destination.status === 'active' ? 'active' : 'draft',
+  };
+};
 
 const parseDateValue = (value: unknown): Date | null => {
   if (!value) return null;
@@ -662,54 +721,17 @@ const RecommendedForYou = ({ onSelect }: { onSelect: (item: any) => void }) => {
   );
 };
 
-const TrendingDestinations = ({ onSelect }: { onSelect: (dest: any) => void }) => {
-  const destinations = [
-    { 
-      id: 1, 
-      name: "Siem Reap", 
-      count: "1,200+ experiences", 
-      image: "https://images.unsplash.com/photo-1528127269322-539801943592?auto=format&fit=crop&q=80&w=800",
-      description: "The gateway to the ancient world of Angkor.",
-      source: "trending",
-      popularSpots: ["Angkor Wat", "Pub Street", "Tonle Sap Lake"]
-    },
-    { 
-      id: 2, 
-      name: "Koh Rong", 
-      count: "450+ experiences", 
-      image: "https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&q=80&w=800",
-      description: "Cambodia's second largest island.",
-      source: "trending",
-      popularSpots: ["Long Beach", "Koh Touch", "Coconut Beach"]
-    },
-    { 
-      id: 3, 
-      name: "Phnom Penh", 
-      count: "800+ experiences", 
-      image: "https://images.unsplash.com/photo-1563200193-066366530438?auto=format&fit=crop&q=80&w=800",
-      description: "The bustling capital of Cambodia.",
-      source: "trending",
-      popularSpots: ["Royal Palace", "Central Market", "Riverside"]
-    },
-    { 
-      id: 4, 
-      name: "Kep", 
-      count: "230+ experiences", 
-      image: "https://images.unsplash.com/photo-1596394516093-501ba68a0ba6?auto=format&fit=crop&q=80&w=800",
-      description: "A charming seaside town.",
-      source: "trending",
-      popularSpots: ["Crab Market", "Kep National Park", "Rabbit Island"]
-    },
-    { 
-      id: 5, 
-      name: "Kampot", 
-      count: "310+ experiences", 
-      image: "https://images.unsplash.com/photo-1581852017103-68ac65514cf7?auto=format&fit=crop&q=80&w=800",
-      description: "Riverside town with a laid-back atmosphere.",
-      source: "trending",
-      popularSpots: ["Bokor Mountain", "River Cruises", "Pepper Plantations"]
-    }
-  ];
+const TrendingDestinations = ({
+  onSelect,
+  destinations,
+  isLoading,
+  errorMessage
+}: {
+  onSelect: (dest: HomeDestination) => void;
+  destinations: HomeDestination[];
+  isLoading: boolean;
+  errorMessage: string;
+}) => {
 
   return (
     <section className="py-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
@@ -727,35 +749,62 @@ const TrendingDestinations = ({ onSelect }: { onSelect: (dest: any) => void }) =
           </button>
         </div>
       </div>
-      <div className="flex gap-8 overflow-x-auto pb-12 scrollbar-hide -mx-4 px-4">
-        {destinations.map((dest) => (
-          <motion.div 
-            key={dest.id}
-            whileHover={{ scale: 1.02 }}
-            onClick={() => onSelect(dest)}
-            className="relative min-w-[320px] h-[450px] rounded-[3rem] overflow-hidden cursor-pointer flex-shrink-0 group"
-          >
-            <img 
-              src={dest.image} 
-              alt={dest.name}
-              className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-              referrerPolicy="no-referrer"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent" />
-            <div className="absolute bottom-10 left-10 right-10">
-              <p className="text-white/60 text-[10px] font-bold uppercase tracking-[0.2em] mb-2">{dest.count}</p>
-              <h3 className="text-white font-bold text-3xl mb-4">{dest.name}</h3>
-              <div className="flex flex-wrap gap-2 opacity-0 group-hover:opacity-100 transition-all translate-y-4 group-hover:translate-y-0">
-                {dest.popularSpots.map((spot, i) => (
-                  <span key={i} className="px-3 py-1 bg-white/10 backdrop-blur-md border border-white/20 rounded-full text-[9px] font-bold text-white uppercase tracking-wider">
-                    {spot}
-                  </span>
-                ))}
-              </div>
-            </div>
-          </motion.div>
-        ))}
-      </div>
+      {errorMessage && (
+        <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900/30 dark:bg-red-900/20 dark:text-red-300">
+          {errorMessage}
+        </div>
+      )}
+      {isLoading ? (
+        <div className="flex items-center justify-center py-12">
+          <div className="h-10 w-10 animate-spin rounded-full border-2 border-slate-200 border-t-blue-600" />
+        </div>
+      ) : destinations.length > 0 ? (
+        <div className="flex gap-8 overflow-x-auto pb-12 scrollbar-hide -mx-4 px-4">
+          {destinations.map((dest) => {
+            const tags = [
+              dest.type ? dest.type.toUpperCase() : null,
+              dest.rating > 0 ? `${dest.rating.toFixed(1)} STAR` : null,
+              dest.price > 0 ? `$${dest.price.toFixed(0)} / NIGHT` : null
+            ].filter(Boolean).slice(0, 3);
+
+            return (
+              <motion.div 
+                key={dest.id}
+                whileHover={{ scale: 1.02 }}
+                onClick={() => onSelect(dest)}
+                className="relative min-w-[320px] h-[450px] rounded-[3rem] overflow-hidden cursor-pointer flex-shrink-0 group"
+              >
+                <img 
+                  src={dest.image} 
+                  alt={dest.name}
+                  className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                  referrerPolicy="no-referrer"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent" />
+                <div className="absolute bottom-10 left-10 right-10">
+                  <p className="text-white/60 text-[10px] font-bold uppercase tracking-[0.2em] mb-2">{dest.location}</p>
+                  <h3 className="text-white font-bold text-3xl mb-3">{dest.name}</h3>
+                  <p className="text-white/80 text-xs mb-4 line-clamp-2">{dest.description}</p>
+                  <div className="flex flex-wrap gap-2 opacity-0 group-hover:opacity-100 transition-all translate-y-4 group-hover:translate-y-0">
+                    {tags.map((tag) => (
+                      <span key={tag} className="px-3 py-1 bg-white/10 backdrop-blur-md border border-white/20 rounded-full text-[9px] font-bold text-white uppercase tracking-wider">
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </motion.div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="rounded-2xl border border-slate-200 bg-white px-6 py-16 text-center shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">No destinations yet</h3>
+          <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+            Owners have not published any active destinations.
+          </p>
+        </div>
+      )}
     </section>
   );
 };
@@ -1020,6 +1069,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const { user, isAuthenticated } = useAuth();
   const [myBookings, setMyBookings] = useState<any[]>([]);
   const [myBookingsLoading, setMyBookingsLoading] = useState(false);
+  const [homeDestinations, setHomeDestinations] = useState<HomeDestination[]>([]);
+  const [homeDestinationsLoading, setHomeDestinationsLoading] = useState(false);
+  const [homeDestinationsError, setHomeDestinationsError] = useState('');
 
   useEffect(() => {
     const run = async () => {
@@ -1042,6 +1094,26 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
     run();
   }, [isAuthenticated, user?.id, user?.role]);
+
+  useEffect(() => {
+    const run = async () => {
+      setHomeDestinationsError('');
+      setHomeDestinationsLoading(true);
+
+      try {
+        const response = await apiRequest('/destinations/public/all');
+        const data = Array.isArray(response?.data) ? response.data : [];
+        setHomeDestinations(data.map((item: DestinationApiRecord) => normalizeDestination(item)));
+      } catch (error) {
+        setHomeDestinationsError(getErrorMessage(error, 'Failed to load destinations.'));
+        setHomeDestinations([]);
+      } finally {
+        setHomeDestinationsLoading(false);
+      }
+    };
+
+    run();
+  }, []);
 
   useEffect(() => {
     setLocation(String(tripData?.destination?.name || ''));
@@ -1254,7 +1326,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
           <EcoTourPromotion onClick={onPromotionsClick} />
           <RecommendedForYou onSelect={onSelectRecommendation} />
           <AngkorWatGallery />
-          <TrendingDestinations onSelect={onSelectDestination} />
+          <TrendingDestinations
+            onSelect={onSelectDestination}
+            destinations={homeDestinations}
+            isLoading={homeDestinationsLoading}
+            errorMessage={homeDestinationsError}
+          />
           <SplitBillFeature />
           <Newsletter />
         </>

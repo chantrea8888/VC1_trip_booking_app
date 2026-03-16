@@ -42,7 +42,6 @@ const Promotions = () => {
   const [categoryFilter, setCategoryFilter] = React.useState<'all' | PromotionServiceCategory>('all');
   const [searchTerm, setSearchTerm] = React.useState('');
   const [promotions, setPromotions] = React.useState<Promotion[]>([]);
-  const [loading, setLoading] = React.useState(true);
 
   // Fetch promotions from database on mount
   React.useEffect(() => {
@@ -71,8 +70,6 @@ const Promotions = () => {
       } catch (error) {
         console.error('Failed to fetch promotions:', error);
         setPromotions([]);
-      } finally {
-        setLoading(false);
       }
     };
 

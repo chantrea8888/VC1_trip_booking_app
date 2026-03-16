@@ -468,7 +468,7 @@ const AddProperty = () => {
           </button>
           <button 
             disabled={isLoading}
-            onClick={() => step < 4 ? handleNextStep() : handleSubmit()}
+            onClick={() => step < 0 ? handleNextStep() : handleSubmit()}
             className="px-8 py-2.5 bg-blue-600 text-white rounded-xl font-bold text-sm hover:bg-blue-700 disabled:opacity-50 transition-all shadow-lg shadow-blue-500/20 active:scale-95 flex items-center gap-2"
           >
             {isLoading ? 'Publishing...' : (step === 4 ? 'Publish Property' : 'Continue')}

@@ -19,6 +19,7 @@ import { useNavigate } from 'react-router-dom';
 import { cn } from '@/src/utils/utils';
 import { bookingService } from '@/src/services/bookingService';
 import { useAuth } from '../../context/AuthContext';
+import { div } from 'motion/react-client';
 
 const Bookings = () => {
   const navigate = useNavigate();
@@ -994,15 +995,8 @@ const Bookings = () => {
           </div>
         )}
 
-        {/* Loading State */}
-        {loading ? (
-          <div className="flex justify-center items-center py-20">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-          </div>
-        ) : (
-          <>
-            {/* Bookings Table */}
-            <div className="overflow-x-auto">
+        {/* Bookings Table */}
+        <div className="overflow-x-auto">
               <table className="w-full text-left">
                 <thead>
                   <tr className="bg-slate-50/50 dark:bg-slate-800/30 text-[10px] uppercase font-bold tracking-widest text-slate-500">
@@ -1196,8 +1190,6 @@ const Bookings = () => {
                 </button>
               </div>
             </div>
-          </>
-        )}
       </section>
     </div>
   );

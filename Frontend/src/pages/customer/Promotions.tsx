@@ -117,7 +117,6 @@ export const Promotions: React.FC<PromotionsProps> = ({ onBack, onClaim }) => {
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [email, setEmail] = useState('');
   const [isSubscribed, setIsSubscribed] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const filteredPromotions = promotions.filter(p => 
     activeFilter === 'all' ? true : p.type === activeFilter
@@ -129,14 +128,10 @@ export const Promotions: React.FC<PromotionsProps> = ({ onBack, onClaim }) => {
     setTimeout(() => setCopiedCode(null), 2000);
   };
 
-  const handleSubscribe = async (e: React.FormEvent) => {
+  const handleSubscribe = (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !email.includes('@')) return;
 
-    setIsSubmitting(true);
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    setIsSubmitting(false);
     setIsSubscribed(true);
     setEmail('');
   };
@@ -367,14 +362,9 @@ export const Promotions: React.FC<PromotionsProps> = ({ onBack, onClaim }) => {
                 />
                 <button 
                   type="submit"
-                  disabled={isSubmitting}
-                  className="bg-white text-blue-600 px-8 py-4 rounded-2xl font-bold hover:bg-blue-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center min-w-[160px]"
+                  className="bg-white text-blue-600 px-8 py-4 rounded-2xl font-bold hover:bg-blue-50 transition-all flex items-center justify-center min-w-[160px]"
                 >
-                  {isSubmitting ? (
-                    <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-                  ) : (
-                    'Subscribe Now'
-                  )}
+                  Subscribe Now
                 </button>
               </form>
             ) : (

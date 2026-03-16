@@ -11,27 +11,22 @@ const formatDate = (value: any) => {
 
 export const CustomerBookings: React.FC = () => {
   const { user, isAuthenticated } = useAuth();
-  const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [bookings, setBookings] = React.useState<any[]>([]);
 
   React.useEffect(() => {
     const run = async () => {
       if (!isAuthenticated || !user?.id) {
-        setLoading(false);
         return;
       }
 
       try {
-        setLoading(true);
         setError(null);
         const response = await bookingService.getCustomerBookings(user.id);
         setBookings(Array.isArray(response.data) ? response.data : []);
       } catch (err: any) {
         setError(err?.data?.message ?? err?.message ?? 'Failed to load bookings');
         setBookings([]);
-      } finally {
-        setLoading(false);
       }
     };
 
@@ -76,11 +71,7 @@ export const CustomerBookings: React.FC = () => {
       )}
 
       <div className="mt-8 card overflow-hidden">
-        {loading ? (
-          <div className="flex justify-center items-center py-16">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-          </div>
-        ) : bookings.length === 0 ? (
+        {bookings.length === 0 ? (
           <div className="py-16 text-center">
             <p className="text-slate-600 dark:text-slate-300 font-semibold">No bookings found.</p>
             <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Create your first trip booking.</p>

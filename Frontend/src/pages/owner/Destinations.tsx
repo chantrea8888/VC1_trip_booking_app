@@ -63,7 +63,6 @@ interface PropertyCardProps {
 
 interface DestinationModalProps {
   isOpen: boolean;
-  isSubmitting: boolean;
   title: string;
   formData: DestinationFormData;
   formErrors: Record<string, string>;
@@ -71,6 +70,7 @@ interface DestinationModalProps {
   onClose: () => void;
   onSubmit: () => void;
   onFieldChange: (field: keyof DestinationFormData, value: string) => void;
+  onImageUpload: (file: File) => void;
 }
 
 const DEFAULT_IMAGE = 'https://picsum.photos/seed/destination-default/800/600';
@@ -267,7 +267,6 @@ const PropertyCard = ({ property, onView, onEdit, onDelete, activePromotion }: P
 
 const DestinationModal = ({
   isOpen,
-  isSubmitting,
   title,
   formData,
   formErrors,
@@ -275,6 +274,7 @@ const DestinationModal = ({
   onClose,
   onSubmit,
   onFieldChange,
+  onImageUpload,
 }: DestinationModalProps) => {
   if (!isOpen) return null;
 
@@ -380,13 +380,30 @@ const DestinationModal = ({
             </div>
 
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-2">Image URL</label>
-              <input
-                value={formData.image}
-                onChange={(event) => onFieldChange('image', event.target.value)}
-                className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="https://example.com/photo.jpg"
-              />
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-2">Image</label>
+              <div className="flex flex-col gap-4 md:flex-row md:items-center">
+                <div className="w-full md:w-56 h-32 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 overflow-hidden flex items-center justify-center">
+                  {formData.image ? (
+                    <img src={formData.image} alt="Destination preview" className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-xs text-slate-500">No image selected</span>
+                  )}
+                </div>
+                <label className="inline-flex items-center justify-center gap-3 px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      if (file) onImageUpload(file);
+                      event.currentTarget.value = '';
+                    }}
+                  />
+                  Upload Image
+                </label>
+              </div>
+              <p className="mt-2 text-xs text-slate-500">Upload an image file for the destination.</p>
             </div>
 
             <div className="md:col-span-2">
@@ -417,17 +434,15 @@ const DestinationModal = ({
         <div className="p-6 border-t border-slate-200 dark:border-slate-800 flex justify-end gap-3">
           <button
             onClick={onClose}
-            disabled={isSubmitting}
-            className="px-5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-medium hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors disabled:opacity-60"
+            className="px-5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-medium hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
           >
             Cancel
           </button>
           <button
             onClick={onSubmit}
-            disabled={isSubmitting}
-            className="px-5 py-2.5 rounded-xl bg-blue-600 text-white font-medium hover:bg-blue-700 transition-colors disabled:opacity-60"
+            className="px-5 py-2.5 rounded-xl bg-blue-600 text-white font-medium hover:bg-blue-700 transition-colors"
           >
-            {isSubmitting ? 'Saving...' : title}
+            {title}
           </button>
         </div>
       </div>
@@ -440,7 +455,7 @@ const Destinations = () => {
   const [searchTerm, setSearchTerm] = React.useState('');
   const [filterStatus, setFilterStatus] = React.useState<'all' | DestinationStatus>('all');
   const [properties, setProperties] = React.useState<DestinationItem[]>([]);
-  const [isLoading, setIsLoading] = React.useState(true);
+  const [hasLoaded, setHasLoaded] = React.useState(false);
   const [loadError, setLoadError] = React.useState('');
   const [feedbackMessage, setFeedbackMessage] = React.useState('');
   const [showFormModal, setShowFormModal] = React.useState(false);
@@ -448,14 +463,11 @@ const Destinations = () => {
   const [formData, setFormData] = React.useState<DestinationFormData>(createEmptyFormData());
   const [formErrors, setFormErrors] = React.useState<Record<string, string>>({});
   const [submitError, setSubmitError] = React.useState('');
-  const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [showDeleteModal, setShowDeleteModal] = React.useState(false);
   const [propertyToDelete, setPropertyToDelete] = React.useState<DestinationItem | null>(null);
   const [deleteError, setDeleteError] = React.useState('');
-  const [isDeleting, setIsDeleting] = React.useState(false);
 
   const loadDestinations = React.useCallback(async () => {
-    setIsLoading(true);
     setLoadError('');
 
     try {
@@ -465,19 +477,13 @@ const Destinations = () => {
     } catch (error) {
       setLoadError(getErrorMessage(error, 'Failed to load destinations. Please try again.'));
     } finally {
-      setIsLoading(false);
+      setHasLoaded(true);
     }
   }, []);
 
   React.useEffect(() => {
     void loadDestinations();
   }, [loadDestinations]);
-
-  React.useEffect(() => {
-    if (!feedbackMessage) return undefined;
-    const timeoutId = window.setTimeout(() => setFeedbackMessage(''), 3500);
-    return () => window.clearTimeout(timeoutId);
-  }, [feedbackMessage]);
 
   const activeHotelPromotion = React.useMemo(() => {
     try {
@@ -527,7 +533,6 @@ const Destinations = () => {
   };
 
   const handleCloseForm = () => {
-    if (isSubmitting) return;
     setShowFormModal(false);
     setEditingProperty(null);
     setFormData(createEmptyFormData());
@@ -573,8 +578,6 @@ const Destinations = () => {
 
   const handleSubmitForm = async () => {
     if (!validateForm()) return;
-
-    setIsSubmitting(true);
     setSubmitError('');
 
     const payload = {
@@ -615,9 +618,22 @@ const Destinations = () => {
           editingProperty ? 'Failed to update destination. Please try again.' : 'Failed to create destination. Please try again.',
         ),
       );
-    } finally {
-      setIsSubmitting(false);
     }
+  };
+
+  const handleImageUpload = (file: File) => {
+    if (!file.type.startsWith('image/')) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        setFormData((previous) => ({
+          ...previous,
+          image: reader.result,
+        }));
+      }
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleDelete = (property: DestinationItem) => {
@@ -627,7 +643,6 @@ const Destinations = () => {
   };
 
   const cancelDelete = () => {
-    if (isDeleting) return;
     setShowDeleteModal(false);
     setPropertyToDelete(null);
     setDeleteError('');
@@ -635,8 +650,6 @@ const Destinations = () => {
 
   const confirmDelete = async () => {
     if (!propertyToDelete) return;
-
-    setIsDeleting(true);
     setDeleteError('');
 
     try {
@@ -647,8 +660,6 @@ const Destinations = () => {
       setPropertyToDelete(null);
     } catch (error) {
       setDeleteError(getErrorMessage(error, 'Failed to delete destination. Please try again.'));
-    } finally {
-      setIsDeleting(false);
     }
   };
 
@@ -732,9 +743,7 @@ const Destinations = () => {
           </div>
         </div>
 
-        {isLoading ? (
-          <div className="text-center py-16 text-gray-500 dark:text-gray-400">Loading destinations...</div>
-        ) : filteredProperties.length > 0 ? (
+        {filteredProperties.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {filteredProperties.map((property) => (
               <PropertyCard
@@ -747,16 +756,15 @@ const Destinations = () => {
               />
             ))}
           </div>
-        ) : (
+        ) : hasLoaded ? (
           <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-xl shadow-sm">
             <p className="text-gray-500 dark:text-gray-400 text-lg">No destinations found</p>
             <p className="text-gray-400 dark:text-gray-500 mt-2">Try adjusting your search or filters, or add a new destination.</p>
           </div>
-        )}
+        ) : null}
 
         <DestinationModal
           isOpen={showFormModal}
-          isSubmitting={isSubmitting}
           title={editingProperty ? 'Update Destination' : 'Create Destination'}
           formData={formData}
           formErrors={formErrors}
@@ -764,6 +772,7 @@ const Destinations = () => {
           onClose={handleCloseForm}
           onSubmit={() => void handleSubmitForm()}
           onFieldChange={handleFormFieldChange}
+          onImageUpload={handleImageUpload}
         />
 
         {showDeleteModal && (
@@ -792,17 +801,15 @@ const Destinations = () => {
               <div className="flex gap-3">
                 <button
                   onClick={cancelDelete}
-                  disabled={isDeleting}
-                  className="flex-1 px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg font-medium hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors disabled:opacity-60"
+                  className="flex-1 px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg font-medium hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={() => void confirmDelete()}
-                  disabled={isDeleting}
-                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors disabled:opacity-60"
+                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors"
                 >
-                  {isDeleting ? 'Deleting...' : 'Delete Property'}
+                  Delete Property
                 </button>
               </div>
             </div>

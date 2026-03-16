@@ -21,11 +21,15 @@ import {
   Plus,
   Eye
 } from 'lucide-react';
+import { apiRequest } from '@/src/services/api';
 
 const PropertyDetail = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const property = location.state?.property;
+  const propertyId = React.useMemo(() => location.pathname.split('/').pop() ?? '', [location.pathname]);
+  const [property, setProperty] = React.useState<any | null>(location.state?.property ?? null);
+  const [isLoading, setIsLoading] = React.useState(!location.state?.property);
+  const [loadError, setLoadError] = React.useState('');
 
   // Sample room data - in real app this would come from API or state
   const defaultRooms = [
@@ -132,6 +136,56 @@ const PropertyDetail = () => {
   const [showRoomModal, setShowRoomModal] = React.useState(false);
 
   React.useEffect(() => {
+    let isMounted = true;
+
+    if (location.state?.property) {
+      setProperty(location.state.property);
+      setIsLoading(false);
+      setLoadError('');
+      return () => {
+        isMounted = false;
+      };
+    }
+
+    if (!propertyId) {
+      setLoadError('Property not found.');
+      setIsLoading(false);
+      return () => {
+        isMounted = false;
+      };
+    }
+
+    const loadProperty = async () => {
+      setIsLoading(true);
+      setLoadError('');
+
+      try {
+        const response = await apiRequest(`/destinations/${propertyId}`);
+        if (isMounted) {
+          setProperty(response?.data ?? null);
+          if (!response?.data) {
+            setLoadError('Property not found.');
+          }
+        }
+      } catch (error: any) {
+        if (isMounted) {
+          setLoadError(error?.message || 'Failed to load property details.');
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    void loadProperty();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [location.state, propertyId]);
+
+  React.useEffect(() => {
     if (!property?.id) return;
     const storedRooms = JSON.parse(localStorage.getItem('rooms') || '[]');
     const propertyRooms = storedRooms.filter((r: any) => r.propertyId === property.id);
@@ -160,11 +214,22 @@ const PropertyDetail = () => {
     setShowRoomModal(true);
   };
 
-  if (!property) {
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+        <div className="text-center text-gray-600 dark:text-gray-300">Loading property details...</div>
+      </div>
+    );
+  }
+
+  if (!property || loadError) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center">
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Property not found</h2>
+          {loadError && (
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">{loadError}</p>
+          )}
           <button
             onClick={() => navigate('/destinations')}
             className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
@@ -279,10 +344,6 @@ const PropertyDetail = () => {
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Hotel Information</h3>
                 <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-4">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
-                    <div className="flex justify-between gap-3">
-                      <span className="text-gray-600 dark:text-gray-400">id</span>
-                      <span className="font-semibold text-gray-900 dark:text-white text-right">{safeText(property.id)}</span>
-                    </div>
                     <div className="flex justify-between gap-3">
                       <span className="text-gray-600 dark:text-gray-400">hotel_name</span>
                       <span className="font-semibold text-gray-900 dark:text-white text-right">{safeText(property.name)}</span>

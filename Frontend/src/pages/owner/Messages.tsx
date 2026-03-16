@@ -133,7 +133,7 @@ const Messages = () => {
     setDraft('');
 
     window.setTimeout(() => {
-      const replyText = 'Ok 👍';
+      const replyText = 'Hello Bro Vannak, I have a question about the upcoming Siem Reap route.';
       const reply: ChatMessage = {
         id: `${activeChatId}-${Date.now()}-r`,
         sender: 'them',
