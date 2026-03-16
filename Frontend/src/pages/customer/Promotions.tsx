@@ -17,6 +17,7 @@ interface Promotion {
   description: string;
   discount: string;
   type: 'hotel' | 'transport' | 'all';
+  service_category?: 'hotel' | 'transport' | 'all';
   image: string;
   expiry: string;
   code: string;
@@ -320,7 +321,7 @@ export const Promotions: React.FC<PromotionsProps> = ({ onBack, onClaim }) => {
                       </div>
                     </div>
                     <button 
-                      onClick={() => onClaim(promo)}
+                      onClick={() => onClaim({ ...promo, service_category: promo.type })}
                       className="w-full bg-slate-900 dark:bg-blue-600 hover:bg-slate-800 dark:hover:bg-blue-700 text-white py-4 rounded-2xl font-bold text-sm transition-all flex items-center justify-center gap-2 group/btn"
                     >
                       Claim Now

@@ -20,6 +20,8 @@ type PromotionType = 'Percentage Discount' | 'Fixed Amount Off' | 'Bundle Offer'
 const CreatePromotion = () => {
   const navigate = useNavigate();
   const [step, setStep] = React.useState(1);
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [submitError, setSubmitError] = React.useState('');
 
   const [promotionType, setPromotionType] = React.useState<PromotionType | null>(null);
   const [serviceCategory, setServiceCategory] = React.useState<PromotionServiceCategory>('hotel');
@@ -52,7 +54,7 @@ const CreatePromotion = () => {
     return v;
   };
 
-  const launchCampaign = () => {
+  const launchCampaign = async () => {
     if (!promotionType) {
       setStep(1);
       return;
@@ -62,28 +64,34 @@ const CreatePromotion = () => {
       return;
     }
 
-    const next = {
-      id: `PROM-${Math.floor(100000 + Math.random() * 900000)}`,
-      name: campaignName.trim(),
-      type: promotionType,
-      discount: formatDiscount(),
-      status: 'active',
-      reach: '-',
-      conversions: '-',
-      end: endDate || '-',
-      serviceCategory,
-      createdAt: new Date().toISOString(),
-    };
+    setIsSubmitting(true);
+    setSubmitError('');
 
     try {
-      const stored = JSON.parse(localStorage.getItem('ownerPromotions') || '[]');
-      const arr = Array.isArray(stored) ? stored : [];
-      localStorage.setItem('ownerPromotions', JSON.stringify([next, ...arr]));
-    } catch {
-      localStorage.setItem('ownerPromotions', JSON.stringify([next]));
-    }
+      await createPromotion({
+        title: campaignName.trim(),
+        type: promotionType,
+        discount: formatDiscount(),
+        code: promoCode.trim() ? promoCode.trim() : null,
+        color: promoColor,
+        start_date: startDate || null,
+        expiry: endDate || null,
+        is_active: true,
+        service_category: serviceCategory,
+      });
 
-    navigate('/promotions');
+      navigate('/promotions');
+    } catch (error: any) {
+      const msg =
+        typeof error?.data?.message === 'string' && error.data.message.trim()
+          ? error.data.message
+          : typeof error?.message === 'string' && error.message.trim()
+          ? error.message
+          : 'Failed to create promotion. Please try again.';
+      setSubmitError(msg);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -124,6 +132,11 @@ const CreatePromotion = () => {
       </div>
 
       <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+        {submitError && (
+          <div className="p-6 border-b border-red-200/70 dark:border-red-900/30 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-200 text-sm font-medium">
+            {submitError}
+          </div>
+        )}
         {step === 1 && (
           <div className="p-8 space-y-8">
             <h4 className="font-bold text-lg">Select Promotion Type</h4>
@@ -219,7 +232,7 @@ const CreatePromotion = () => {
                     type="date"
                     value={endDate}
                     onChange={(e) => setEndDate(e.target.value)}
-                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border-transparent rounded-xl text-sm focus:bg-white dark:focus:bg-slate-900 focus focus:ring-blue-600/10:ring-2 transition-all font-medium"
+                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border-transparent rounded-xl text-sm focus:bg-white dark:focus:bg-slate-900 focus:ring-2 focus:ring-blue-600/10 transition-all font-medium"
                   />
                 </div>
                 <div className="space-y-2">
@@ -316,11 +329,12 @@ const CreatePromotion = () => {
                 setStep((s) => s + 1);
                 return;
               }
-              launchCampaign();
+              void launchCampaign();
             }}
-            className="px-8 py-2.5 bg-blue-600 text-white rounded-xl font-bold text-sm hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/20 active:scale-95 flex items-center gap-2"
+            disabled={isSubmitting}
+            className="px-8 py-2.5 bg-blue-600 disabled:bg-blue-600/60 text-white rounded-xl font-bold text-sm hover:bg-blue-700 disabled:hover:bg-blue-600/60 transition-all shadow-lg shadow-blue-500/20 active:scale-95 flex items-center gap-2"
           >
-            {step === 4 ? 'Launch Campaign' : 'Continue'}
+            {step === 4 ? (isSubmitting ? 'Launching...' : 'Launch Campaign') : 'Continue'}
             <ChevronRight size={18} />
           </button>
         </div>

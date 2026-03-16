@@ -82,6 +82,7 @@ type ClaimedPromotion = {
   code: string;
   originalPrice: string;
   promoPrice: string;
+  service_category?: 'hotel' | 'transport' | 'all';
 };
 
 type AdminView =

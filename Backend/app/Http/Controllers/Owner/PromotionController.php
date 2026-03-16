@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Owner;
 use App\Http\Controllers\Controller;
 use App\Models\Promotion;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 
 class PromotionController extends Controller
 {
@@ -31,9 +32,17 @@ class PromotionController extends Controller
             'type' => 'required|string',
             'expiry' => 'nullable|date',
             'is_active' => 'nullable|boolean',
+            'service_category' => 'nullable|string|in:hotel,transport',
         ]);
 
+        if (!Schema::hasColumn('promotions', 'service_category')) {
+            unset($validated['service_category']);
+        }
+
         $validated['owner_id'] = auth()->id();
+        if (Schema::hasColumn('promotions', 'service_category') && !isset($validated['service_category'])) {
+            $validated['service_category'] = 'hotel';
+        }
 
         $promotion = Promotion::create($validated);
 
@@ -69,7 +78,12 @@ class PromotionController extends Controller
             'type' => 'sometimes|string',
             'expiry' => 'nullable|date',
             'is_active' => 'nullable|boolean',
+            'service_category' => 'nullable|string|in:hotel,transport',
         ]);
+
+        if (!Schema::hasColumn('promotions', 'service_category')) {
+            unset($validated['service_category']);
+        }
 
         $promotion->update($validated);
 

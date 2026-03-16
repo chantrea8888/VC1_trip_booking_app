@@ -16,6 +16,7 @@ class Promotion extends Model
         'discount',
         'type',
         'expiry',
-        'is_active'
+        'is_active',
+        'service_category'
     ];
 }

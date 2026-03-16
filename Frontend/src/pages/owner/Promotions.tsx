@@ -64,7 +64,7 @@ const Promotions = () => {
           end_date: p.expiry,
           code: p.code || '',
           color: p.color || '#3B82F6',
-          service_category: 'hotel',
+          service_category: p.service_category === 'transport' ? 'transport' : 'hotel',
           created_at: p.created_at,
         }));
         setPromotions(transformedPromotions);

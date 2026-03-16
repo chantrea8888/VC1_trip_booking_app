@@ -163,10 +163,10 @@ export const TripPlanner: React.FC<TripPlannerProps> = ({
 
   const selectedActivitiesTotal = selectedActivities.reduce((sum, a) => sum + (a.price * a.guests), 0);
   const activitiesSelected = selectedActivities.length > 0;
-  const baseTotal =
-    (hotelSelected ? tripData.hotel.price : 0) +
-    (rentalSelected ? tripData.rental.price : 0) +
-    (activitiesSelected ? selectedActivitiesTotal : 0);
+  const hotelSubtotal = hotelSelected ? Number(tripData?.hotel?.price || 0) : 0;
+  const rentalSubtotal = rentalSelected ? Number(tripData?.rental?.price || 0) : 0;
+  const activitiesSubtotal = activitiesSelected ? selectedActivitiesTotal : 0;
+  const baseTotal = hotelSubtotal + rentalSubtotal + activitiesSubtotal;
 
   const promotion = tripData?.promotion as
     | {
@@ -176,13 +176,26 @@ export const TripPlanner: React.FC<TripPlannerProps> = ({
         code: string;
         originalPrice: string;
         promoPrice: string;
+        service_category?: 'hotel' | 'transport' | 'all';
       }
     | undefined;
 
   const promoPercent = promotion?.discount?.includes('%')
     ? Number.parseFloat(String(promotion.discount).replace(/[^0-9.]/g, ''))
     : null;
-  const promoDiscountAmount = promoPercent && promoPercent > 0 && baseTotal > 0 ? baseTotal * (promoPercent / 100) : 0;
+
+  const promoTarget = String(promotion?.service_category || '').toLowerCase();
+  const promoBaseForDiscount =
+    promoTarget === 'hotel'
+      ? hotelSubtotal
+      : promoTarget === 'transport'
+      ? rentalSubtotal
+      : baseTotal;
+
+  const promoDiscountAmount =
+    promoPercent && promoPercent > 0 && promoBaseForDiscount > 0
+      ? promoBaseForDiscount * (promoPercent / 100)
+      : 0;
   const totalAfterPromo = Math.max(0, baseTotal - promoDiscountAmount);
 
   useEffect(() => {
