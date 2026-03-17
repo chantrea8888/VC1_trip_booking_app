@@ -7,6 +7,7 @@ use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\LogoutController;
 use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\Owner\TransportController;
 use App\Http\Controllers\Owner\MessageController;
 use App\Http\Controllers\Customer\MessageController as CustomerMessageController;
 
@@ -17,8 +18,6 @@ use App\Http\Controllers\Customer\MessageController as CustomerMessageController
 */
 use App\Http\Controllers\Owner\DestinationController;
 use App\Http\Controllers\Owner\PromotionController;
-// use Illuminate\Http\Request;
-// use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\BookingController; // ADD THIS
 
 // Public destinations for customers
@@ -52,6 +51,12 @@ Route::prefix('auth')->group(function () {
     });
 });
 
+Route::get('/transports', [TransportController::class, 'publicIndex']);
+Route::get('/destinations/public/all', [DestinationController::class, 'getAllPublic']);
+
+Route::middleware(['auth:sanctum', 'role:admin'])->get('/admin/access', function () {
+    return response()->json(['message' => 'Admin access granted']);
+});
 /*
 |--------------------------------------------------------------------------
 | Role Protected Routes
@@ -82,6 +87,13 @@ Route::middleware(['auth:sanctum', 'role:owner'])->group(function () {
     Route::apiResource('promotions', PromotionController::class);
 });
 
+Route::middleware(['auth:sanctum', 'role:owner'])->get('/owner/transports', [TransportController::class, 'index']);
+Route::middleware(['auth:sanctum', 'role:owner'])->post('/owner/transports', [TransportController::class, 'store']);
+Route::middleware(['auth:sanctum', 'role:owner'])->put('/owner/transports/{transport}', [TransportController::class, 'update']);
+Route::middleware(['auth:sanctum', 'role:owner'])->patch('/owner/transports/{transport}', [TransportController::class, 'update']);
+Route::middleware(['auth:sanctum', 'role:owner'])->delete('/owner/transports/{transport}', [TransportController::class, 'destroy']);
+
+Route::apiResource('users', AuthController::class);
 
 
 // PROTECTED ROUTES (require authentication)

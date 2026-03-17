@@ -15,7 +15,7 @@ return new class extends Migration
             $table->id('transport_id');
             $table->foreignId('owner_id')->constrained('users')->cascadeOnDelete();
             $table->string('service_name');
-            $table->enum('transport_type', ['Car Rental', 'Shuttle', 'Bus', 'Other'])->default('Car Rental');
+            $table->enum('transport_type', ['Car Rental', 'Train', 'Bus', 'Other'])->default('Car Rental');
             $table->decimal('price_per_km', 10, 2);
             $table->text('route_description')->nullable();
             $table->text('service_details')->nullable();

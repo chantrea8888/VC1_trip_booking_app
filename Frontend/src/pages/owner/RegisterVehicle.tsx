@@ -12,14 +12,16 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/src/utils/utils';
+import { apiRequest } from '@/src/services/api';
+import { getAuthToken } from '@/src/services/authService';
 
 const RegisterVehicle = () => {
   const navigate = useNavigate();
 
   const [formData, setFormData] = React.useState({
     name: '',
-    type: 'Car Rental' as 'Flight' | 'Bus' | 'Train' | 'Car Rental',
-    status: 'Active' as 'Active' | 'Maintenance' | 'Inactive',
+    type: 'Car Rental' as 'Car Rental' | 'Shuttle' | 'Bus' | 'Other',
+    status: 'pending' as 'active' | 'inactive' | 'pending',
     route: '',
     details: '',
     price_per_KM: '',
@@ -27,8 +29,13 @@ const RegisterVehicle = () => {
   });
 
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
+  const imagePreviewRef = React.useRef<string | null>(null);
+  const [imageFile, setImageFile] = React.useState<File | null>(null);
+  const [imagePreview, setImagePreview] = React.useState('');
 
   const [errors, setErrors] = React.useState<Record<string, string>>({});
+  const [submitError, setSubmitError] = React.useState('');
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
 
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {};
@@ -43,26 +50,49 @@ const RegisterVehicle = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!validate()) return;
+    setSubmitError('');
 
-    const newService = {
-      id: Date.now().toString(),
-      name: formData.name,
-      type: formData.type,
-      status: formData.status,
-      route: formData.route,
-      details: formData.details,
-      price_per_KM: parseFloat(formData.price_per_KM),
-      image: formData.image,
-      createdAt: new Date().toISOString()
-    };
+    const token = getAuthToken();
+    if (!token) {
+      setSubmitError('Authentication token missing. Please login again.');
+      return;
+    }
 
-    const existing = JSON.parse(localStorage.getItem('transportServices') || '[]');
-    const updated = [...existing, newService];
-    localStorage.setItem('transportServices', JSON.stringify(updated));
+    setIsSubmitting(true);
+    try {
+      const payload = new FormData();
+      payload.append('service_name', formData.name.trim());
+      payload.append('transport_type', formData.type);
+      payload.append('price_per_km', String(parseFloat(formData.price_per_KM)));
+      payload.append('route_description', formData.route.trim());
+      if (formData.details.trim()) {
+        payload.append('service_details', formData.details.trim());
+      }
+      payload.append('status', formData.status);
+      if (imageFile) {
+        payload.append('vehicle_photo', imageFile);
+      } else if (formData.image) {
+        payload.append('vehicle_photo_url', formData.image);
+      }
 
-    navigate('/transport');
+      await apiRequest('/owner/transports', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: payload,
+      });
+
+      navigate('/transport');
+    } catch (error: any) {
+      const status = error?.status ? `Status ${error.status}` : 'Request failed';
+      const message = error?.data?.message ?? error?.message ?? 'Failed to create transport service.';
+      setSubmitError(`${status}: ${message}`);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const onPickPhoto = () => {
@@ -74,14 +104,14 @@ const RegisterVehicle = () => {
     if (!file) return;
     if (!file.type.startsWith('image/')) return;
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result;
-      if (typeof result === 'string') {
-        setFormData((prev) => ({ ...prev, image: result }));
-      }
-    };
-    reader.readAsDataURL(file);
+    if (imagePreviewRef.current) {
+      URL.revokeObjectURL(imagePreviewRef.current);
+    }
+    const nextPreview = URL.createObjectURL(file);
+    imagePreviewRef.current = nextPreview;
+    setImageFile(file);
+    setImagePreview(nextPreview);
+    setFormData((prev) => ({ ...prev, image: '' }));
   };
 
   return (
@@ -128,10 +158,10 @@ const RegisterVehicle = () => {
                     onChange={(e) => setFormData({ ...formData, type: e.target.value as any })}
                     className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border-transparent rounded-xl text-sm focus:bg-white dark:focus:bg-slate-900 focus:ring-2 focus:ring-blue-600/10 transition-all font-medium appearance-none"
                   >
-                    <option value="Flight">Flight</option>
-                    <option value="Bus">Bus</option>
-                    <option value="Train">Train</option>
                     <option value="Car Rental">Car Rental</option>
+                    <option value="Shuttle">Shuttle</option>
+                    <option value="Bus">Bus</option>
+                    <option value="Other">Other</option>
                   </select>
                 </div>
                 <div className="space-y-2">
@@ -177,6 +207,12 @@ const RegisterVehicle = () => {
             </div>
           </div>
 
+          {submitError && (
+            <p className="rounded-lg border border-rose-400/40 bg-rose-500/10 px-3 py-2 text-sm text-rose-300">
+              {submitError}
+            </p>
+          )}
+
           <div className="flex justify-end gap-4">
             <button 
               onClick={() => navigate('/transport')}
@@ -186,9 +222,10 @@ const RegisterVehicle = () => {
             </button>
             <button 
               onClick={handleSubmit}
-              className="px-8 py-2.5 bg-blue-600 text-white rounded-xl font-bold text-sm hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/20 active:scale-95"
+              disabled={isSubmitting}
+              className="px-8 py-2.5 bg-blue-600 text-white rounded-xl font-bold text-sm hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/20 active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed"
             >
-              Add Transport
+              {isSubmitting ? 'Saving...' : 'Add Transport'}
             </button>
           </div>
         </div>
@@ -213,6 +250,8 @@ const RegisterVehicle = () => {
             >
               {formData.image ? (
                 <img alt="Vehicle" src={formData.image} className="w-full h-full object-cover" />
+              ) : imagePreview ? (
+                <img alt="Vehicle" src={imagePreview} className="w-full h-full object-cover" />
               ) : (
                 <>
                   <Plus size={24} className="text-slate-400 group-hover:text-blue-600 mb-2" />
