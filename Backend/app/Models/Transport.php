@@ -15,6 +15,7 @@ class Transport extends Model
         'service_name',
         'transport_type',
         'price_per_km',
+        'is_free',
         'route_description',
         'service_details',
         'vehicle_photo_url',

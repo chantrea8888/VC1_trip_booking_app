@@ -41,12 +41,15 @@ class TransportController extends Controller
             'service_name' => ['required', 'string', 'max:255'],
             'transport_type' => ['nullable', 'in:Car Rental,Train,Bus,Other'],
             'price_per_km' => ['required', 'numeric', 'min:0'],
+            'is_free' => ['nullable', 'boolean'],
             'route_description' => ['nullable', 'string'],
             'service_details' => ['nullable', 'string'],
             'vehicle_photo_url' => ['nullable', 'string', 'max:500'],
             'vehicle_photo' => ['nullable', 'image', 'max:10240'],
             'status' => ['nullable', 'in:active,inactive,pending'],
         ]);
+
+        $isFree = filter_var($validated['is_free'] ?? false, FILTER_VALIDATE_BOOLEAN);
 
         $photoPath = $validated['vehicle_photo_url'] ?? null;
         if ($request->hasFile('vehicle_photo')) {
@@ -59,7 +62,8 @@ class TransportController extends Controller
             'owner_id' => $request->user()->id,
             'service_name' => $validated['service_name'],
             'transport_type' => $validated['transport_type'] ?? 'Car Rental',
-            'price_per_km' => $validated['price_per_km'],
+            'price_per_km' => $isFree ? 0 : $validated['price_per_km'],
+            'is_free' => $isFree,
             'route_description' => $validated['route_description'] ?? null,
             'service_details' => $validated['service_details'] ?? null,
             'vehicle_photo_url' => $photoPath,
@@ -108,12 +112,15 @@ class TransportController extends Controller
             'service_name' => ['required', 'string', 'max:255'],
             'transport_type' => ['nullable', 'in:Car Rental,Train,Bus,Other'],
             'price_per_km' => ['required', 'numeric', 'min:0'],
+            'is_free' => ['nullable', 'boolean'],
             'route_description' => ['nullable', 'string'],
             'service_details' => ['nullable', 'string'],
             'vehicle_photo_url' => ['nullable', 'string', 'max:500'],
             'vehicle_photo' => ['nullable', 'image', 'max:10240'],
             'status' => ['nullable', 'in:active,inactive,pending'],
         ]);
+
+        $isFree = filter_var($validated['is_free'] ?? $transport->is_free ?? false, FILTER_VALIDATE_BOOLEAN);
 
         $photoPath = $validated['vehicle_photo_url'] ?? $transport->vehicle_photo_url;
         if ($request->hasFile('vehicle_photo')) {
@@ -134,7 +141,8 @@ class TransportController extends Controller
         $transport->update([
             'service_name' => $validated['service_name'],
             'transport_type' => $validated['transport_type'] ?? $transport->transport_type ?? 'Car Rental',
-            'price_per_km' => $validated['price_per_km'],
+            'price_per_km' => $isFree ? 0 : $validated['price_per_km'],
+            'is_free' => $isFree,
             'route_description' => $validated['route_description'] ?? null,
             'service_details' => $validated['service_details'] ?? null,
             'vehicle_photo_url' => $photoPath,
