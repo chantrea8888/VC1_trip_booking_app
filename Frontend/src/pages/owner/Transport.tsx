@@ -22,8 +22,8 @@ import { getAuthToken } from '../../services/authService';
 interface TransportService {
   id: string;
   name: string;
-  type: 'Flight' | 'Bus' | 'Train' | 'Car Rental';
-  status: 'Active' | 'Maintenance' | 'Inactive' | 'Pending';
+  type: 'Bus' | 'Train' | 'Car Rental' | 'Other';
+  status: 'active' | 'inactive' | 'pending';
   route: string;
   details: string;
   image: string;
@@ -44,10 +44,11 @@ const Transport = () => {
     type: 'Car Rental' as TransportService['type'],
     route: '',
     details: '',
-    status: 'Active' as TransportService['status'],
+    status: 'pending' as TransportService['status'],
     price_per_KM: '',
     image: ''
   });
+  const [editPhotoFile, setEditPhotoFile] = React.useState<File | null>(null);
 
   const editPhotoInputRef = React.useRef<HTMLInputElement | null>(null);
 
@@ -136,6 +137,46 @@ const Transport = () => {
   const [loadError, setLoadError] = React.useState('');
   const allServices = services;
 
+  const formatStatus = (status: TransportService['status']) =>
+    status === 'active' ? 'Active' : status === 'inactive' ? 'Inactive' : 'Pending';
+
+  const mapTransportRecord = (item: any): TransportService => {
+    const rawType = String(item?.transport_type ?? 'Car Rental');
+    const type = rawType === 'Shuttle' ? 'Bus' : rawType === 'Other' ? 'Other' : rawType;
+    const rawStatus = String(item?.status ?? 'pending');
+    const status = rawStatus === 'active' ? 'active' : rawStatus === 'inactive' ? 'inactive' : 'pending';
+    const backendOrigin =
+      import.meta.env.VITE_BACKEND_ORIGIN ||
+      (import.meta.env.VITE_API_BASE_URL?.replace(/\/api$/, '') ?? 'http://127.0.0.1:8000');
+    const rawImage = String(item?.vehicle_photo_url ?? '');
+    const normalizeImageUrl = (value: string) => {
+      const trimmed = value.trim();
+      if (!trimmed) return '';
+      if (trimmed.startsWith('data:')) return trimmed;
+      if (trimmed.startsWith('http://localhost/storage')) {
+        return `${backendOrigin}/storage${trimmed.replace('http://localhost/storage', '')}`;
+      }
+      if (trimmed.startsWith('http://127.0.0.1/storage')) {
+        return `${backendOrigin}/storage${trimmed.replace('http://127.0.0.1/storage', '')}`;
+      }
+      return trimmed.startsWith('http') ? trimmed : `${backendOrigin}/${trimmed.replace(/^\/+/, '')}`;
+    };
+    const image = normalizeImageUrl(rawImage) || 'https://upload.wikimedia.org/wikipedia/commons/a/a2/Traffic_in_Cambodia..JPG';
+
+    return {
+      id: String(item?.transport_id ?? item?.id ?? ''),
+      name: String(item?.service_name ?? ''),
+      type: (type as TransportService['type']) ?? 'Car Rental',
+      status: status as TransportService['status'],
+      route: String(item?.route_description ?? ''),
+      details: String(item?.service_details ?? ''),
+      image,
+      price_per_KM: typeof item?.price_per_km === 'number'
+        ? item.price_per_km
+        : (item?.price_per_km ? parseFloat(item.price_per_km) : undefined),
+    };
+  };
+
   React.useEffect(() => {
     const loadOwnerTransports = async () => {
       try {
@@ -151,31 +192,7 @@ const Transport = () => {
           },
         }) as { data?: any[] };
 
-        const backendOrigin =
-          import.meta.env.VITE_BACKEND_ORIGIN ||
-          (import.meta.env.VITE_API_BASE_URL?.replace(/\/api$/, '') ?? 'http://127.0.0.1:8001');
-        const mapped = (response?.data ?? []).map((item: any) => {
-          const rawType = String(item?.transport_type ?? 'Car Rental');
-          const type = rawType === 'Shuttle' ? 'Bus' : rawType === 'Other' ? 'Car Rental' : rawType;
-          const rawStatus = String(item?.status ?? 'pending');
-          const status = rawStatus === 'active' ? 'Active' : rawStatus === 'inactive' ? 'Inactive' : 'Pending';
-          const rawImage = String(item?.vehicle_photo_url ?? '');
-          const image = rawImage
-            ? (rawImage.startsWith('http') ? rawImage : `${backendOrigin}/${rawImage.replace(/^\/+/, '')}`)
-            : 'https://upload.wikimedia.org/wikipedia/commons/a/a2/Traffic_in_Cambodia..JPG';
-          return {
-            id: String(item?.transport_id ?? item?.id ?? ''),
-            name: String(item?.service_name ?? ''),
-            type: (type as TransportService['type']) ?? 'Car Rental',
-            status: (status as TransportService['status']) ?? 'Pending',
-            route: String(item?.route_description ?? ''),
-            details: String(item?.service_details ?? ''),
-            image,
-            price_per_KM: typeof item?.price_per_km === 'number'
-              ? item.price_per_km
-              : (item?.price_per_km ? parseFloat(item.price_per_km) : undefined),
-          };
-        });
+        const mapped = (response?.data ?? []).map((item: any) => mapTransportRecord(item));
 
         setServices(mapped);
         setLoadError('');
@@ -199,6 +216,7 @@ const Transport = () => {
       price_per_KM: typeof service.price_per_KM === 'number' ? service.price_per_KM.toString() : '',
       image: service.image || ''
     });
+    setEditPhotoFile(null);
   };
 
   const closeEdit = () => {
@@ -213,23 +231,50 @@ const Transport = () => {
     setViewing(null);
   };
 
-  const saveEdit = () => {
+  const saveEdit = async () => {
     if (!editing) return;
 
     const parsedPrice = editForm.price_per_KM.trim() ? parseFloat(editForm.price_per_KM) : undefined;
-    const updatedService: TransportService = {
-      ...editing,
-      name: editForm.name,
-      type: editForm.type,
-      route: editForm.route,
-      details: editForm.details,
-      status: editForm.status,
-      image: editForm.image,
-      price_per_KM: typeof parsedPrice === 'number' && !Number.isNaN(parsedPrice) ? parsedPrice : undefined
-    };
+    const token = getAuthToken();
+    if (!token) {
+      setLoadError('Please sign in to update a transport service.');
+      return;
+    }
 
-    setServices(prev => prev.map(s => (s.id === editing.id ? updatedService : s)));
-    closeEdit();
+    const payload = new FormData();
+    payload.append('_method', 'PUT');
+    payload.append('service_name', editForm.name.trim());
+    payload.append('transport_type', editForm.type);
+    payload.append('route_description', editForm.route.trim());
+    if (editForm.details.trim()) payload.append('service_details', editForm.details.trim());
+    payload.append('status', editForm.status);
+    if (typeof parsedPrice === 'number' && !Number.isNaN(parsedPrice)) {
+      payload.append('price_per_km', String(parsedPrice));
+    }
+
+    if (editPhotoFile) {
+      payload.append('vehicle_photo', editPhotoFile);
+    } else if (editForm.image && !editForm.image.startsWith('data:')) {
+      payload.append('vehicle_photo_url', editForm.image);
+    }
+
+    try {
+      const response = await apiRequest(`/owner/transports/${editing.id}`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: payload,
+      });
+
+      const updated = mapTransportRecord(response?.data ?? editing);
+      setServices((prev) => prev.map((s) => (s.id === editing.id ? updated : s)));
+      setLoadError('');
+      closeEdit();
+    } catch (error: any) {
+      const message = error?.data?.message ?? error?.message ?? 'Failed to update transport.';
+      setLoadError(message);
+    }
   };
 
   const onPickEditPhoto = () => {
@@ -249,6 +294,7 @@ const Transport = () => {
       }
     };
     reader.readAsDataURL(file);
+    setEditPhotoFile(file);
   };
 
   const deleteService = (service: TransportService) => {
@@ -276,16 +322,15 @@ const Transport = () => {
   };
 
   const tabs = [
-    { id: 'all', label: 'All Services', count: 42 },
-    { id: 'flights', label: 'Flights', count: 15 },
-    { id: 'buses', label: 'Buses', count: 12 },
-    { id: 'trains', label: 'Trains', count: 8 },
-    { id: 'car-rentals', label: 'Car Rentals', count: 7 }
+    { id: 'all', label: 'All Services', count: allServices.length },
+    { id: 'buses', label: 'Buses', count: allServices.filter((s) => s.type === 'Bus').length },
+    { id: 'trains', label: 'Trains', count: allServices.filter((s) => s.type === 'Train').length },
+    { id: 'car-rentals', label: 'Car Rentals', count: allServices.filter((s) => s.type === 'Car Rental').length },
+    { id: 'other', label: 'Other', count: allServices.filter((s) => s.type === 'Other').length }
   ];
 
   const getTypeIcon = (type: string) => {
     switch (type) {
-      case 'Flight': return Plane;
       case 'Bus': return Bus;
       case 'Train': return Train;
       case 'Car Rental': return Car;
@@ -295,7 +340,6 @@ const Transport = () => {
 
   const getTypeColor = (type: string) => {
     switch (type) {
-      case 'Flight': return 'bg-blue-100 text-blue-600';
       case 'Bus': return 'bg-green-100 text-green-600';
       case 'Train': return 'bg-purple-100 text-purple-600';
       case 'Car Rental': return 'bg-orange-100 text-orange-600';
@@ -305,10 +349,9 @@ const Transport = () => {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'Active': return 'bg-green-100 text-green-800';
-      case 'Maintenance': return 'bg-yellow-100 text-yellow-800';
-      case 'Inactive': return 'bg-red-100 text-red-800';
-      case 'Pending': return 'bg-slate-100 text-slate-800';
+      case 'active': return 'bg-green-100 text-green-800';
+      case 'inactive': return 'bg-red-100 text-red-800';
+      case 'pending': return 'bg-slate-100 text-slate-800';
       default: return 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200';
     }
   };
@@ -317,10 +360,10 @@ const Transport = () => {
     const matchesSearch = service.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          service.route.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesTab = activeTab === 'all' || 
-                      (activeTab === 'flights' && service.type === 'Flight') ||
                       (activeTab === 'buses' && service.type === 'Bus') ||
                       (activeTab === 'trains' && service.type === 'Train') ||
-                      (activeTab === 'car-rentals' && service.type === 'Car Rental');
+                      (activeTab === 'car-rentals' && service.type === 'Car Rental') ||
+                      (activeTab === 'other' && service.type === 'Other');
     return matchesSearch && matchesTab;
   });
 
@@ -457,7 +500,7 @@ const Transport = () => {
                   <h3 className="font-semibold text-slate-900 dark:text-slate-100 mb-2">{service.name}</h3>
                   <div className="flex items-center justify-between mb-3">
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(service.status)}`}>
-                      {service.status}
+                      {formatStatus(service.status)}
                     </span>
                     <div className="flex items-center text-slate-500 text-sm">
                       <Clock size={14} className="mr-1" />
@@ -621,10 +664,10 @@ const Transport = () => {
                     onChange={(e) => setEditForm({ ...editForm, type: e.target.value as TransportService['type'] })}
                     className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
-                    <option value="Flight">Flight</option>
                     <option value="Bus">Bus</option>
                     <option value="Train">Train</option>
                     <option value="Car Rental">Car Rental</option>
+                    <option value="Other">Other</option>
                   </select>
                 </div>
                 <div className="space-y-1">
@@ -634,9 +677,9 @@ const Transport = () => {
                     onChange={(e) => setEditForm({ ...editForm, status: e.target.value as TransportService['status'] })}
                     className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
-                    <option value="Active">Active</option>
-                    <option value="Maintenance">Maintenance</option>
-                    <option value="Inactive">Inactive</option>
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                    <option value="pending">Pending</option>
                   </select>
                 </div>
                 <div className="space-y-1">
@@ -698,7 +741,7 @@ const Transport = () => {
                       {viewing.type}
                     </span>
                     <span className={cn("px-2.5 py-1 rounded-full text-xs font-semibold", getStatusColor(viewing.status))}>
-                      {viewing.status}
+                      {formatStatus(viewing.status)}
                     </span>
                   </div>
 

@@ -26,7 +26,7 @@ class RegisterController extends Controller
         $validatedData = $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users',
-            'password' => ['required', 'confirmed', Password::min(8)->letters()->mixedCase()->numbers()->symbols()],
+            'password' => ['required', 'confirmed', Password::min(8)],
             // Public registration should not create admin accounts.
             'role' => 'nullable|in:customer,owner',
         ]);

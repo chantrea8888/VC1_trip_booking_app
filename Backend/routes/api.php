@@ -8,6 +8,7 @@ use App\Http\Controllers\Auth\LogoutController;
 use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\Owner\TransportController;
+use App\Http\Controllers\Owner\RoomController;
 use App\Http\Controllers\Owner\MessageController;
 use App\Http\Controllers\Customer\MessageController as CustomerMessageController;
 
@@ -80,6 +81,9 @@ Route::middleware(['auth:sanctum', 'role:owner'])->group(function () {
     
     // Owner promotions routes
     Route::apiResource('promotions', PromotionController::class);
+
+    // Owner rooms routes
+    Route::get('/owner/rooms', [RoomController::class, 'index']);
 });
 
 Route::middleware(['auth:sanctum', 'role:owner'])->get('/owner/transports', [TransportController::class, 'index']);

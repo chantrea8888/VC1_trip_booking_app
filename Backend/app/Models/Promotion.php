@@ -17,6 +17,9 @@ class Promotion extends Model
         'type',
         'expiry',
         'is_active',
-        'service_category'
+        'service_category',
+        'destination_id',
+        'room_id',
+        'transport_id',
     ];
 }

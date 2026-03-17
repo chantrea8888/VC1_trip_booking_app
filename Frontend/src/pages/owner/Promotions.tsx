@@ -16,7 +16,7 @@ import { useNavigate } from 'react-router-dom';
 import { cn } from '@/src/utils/utils';
 import { getPromotions } from '@/src/services/promotionService';
 
-type PromotionServiceCategory = 'hotel' | 'transport';
+type PromotionServiceCategory = 'destination' | 'room' | 'transport';
 
 type PromotionStatus = 'active' | 'scheduled' | 'expired';
 
@@ -33,6 +33,7 @@ type Promotion = {
   end: string;
   end_date?: string;
   service_category?: PromotionServiceCategory;
+  service_name?: string | null;
   created_at?: string;
 };
 
@@ -49,6 +50,13 @@ const Promotions = () => {
       try {
         const data = await getPromotions();
         // Transform database data to match frontend format
+        const normalizeCategory = (value: string | undefined) => {
+          const v = String(value ?? '').toLowerCase();
+          if (v === 'hotel') return 'destination';
+          if (v === 'destination' || v === 'room' || v === 'transport') return v;
+          return 'destination';
+        };
+
         const transformedPromotions = data.map((p: any) => ({
           ...p,
           id: p.id,
@@ -63,7 +71,8 @@ const Promotions = () => {
           end_date: p.expiry,
           code: p.code || '',
           color: p.color || '#3B82F6',
-          service_category: p.service_category === 'transport' ? 'transport' : 'hotel',
+          service_category: normalizeCategory(p.service_category),
+          service_name: p.service_name ?? null,
           created_at: p.created_at,
         }));
         setPromotions(transformedPromotions);
@@ -164,15 +173,26 @@ const Promotions = () => {
                 All
               </button>
               <button
-                onClick={() => setCategoryFilter('hotel')}
+                onClick={() => setCategoryFilter('destination')}
                 className={cn(
                   "px-4 py-2 text-xs font-bold rounded-lg transition-colors",
-                  categoryFilter === 'hotel'
+                  categoryFilter === 'destination'
                     ? "bg-blue-600 text-white shadow-lg shadow-blue-500/20"
                     : "text-slate-500 hover:text-slate-900 dark:hover:text-slate-100",
                 )}
               >
-                Hotel
+                Destinations
+              </button>
+              <button
+                onClick={() => setCategoryFilter('room')}
+                className={cn(
+                  "px-4 py-2 text-xs font-bold rounded-lg transition-colors",
+                  categoryFilter === 'room'
+                    ? "bg-blue-600 text-white shadow-lg shadow-blue-500/20"
+                    : "text-slate-500 hover:text-slate-900 dark:hover:text-slate-100",
+                )}
+              >
+                Rooms
               </button>
               <button
                 onClick={() => setCategoryFilter('transport')}
@@ -216,8 +236,13 @@ const Promotions = () => {
                   </td>
                   <td className="px-6 py-4">
                     <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                      {campaign.service_category ? campaign.service_category : 'hotel'}
+                      {campaign.service_category ? campaign.service_category : 'destination'}
                     </span>
+                    {campaign.service_name && (
+                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-1">
+                        {campaign.service_name}
+                      </p>
+                    )}
                   </td>
                   <td className="px-6 py-4">
                     <span className="text-xs font-medium text-slate-600 dark:text-slate-400">{campaign.type}</span>

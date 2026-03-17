@@ -483,10 +483,11 @@ const Destinations = () => {
     try {
       const stored = JSON.parse(localStorage.getItem('ownerPromotions') || '[]');
       const promotions = Array.isArray(stored) ? stored : [];
-      const hotelPromotions = promotions.filter(
-        (promotion: any) =>
-          promotion?.serviceCategory === 'hotel' && (promotion?.status === 'active' || !promotion?.status),
-      );
+      const hotelPromotions = promotions.filter((promotion: any) => {
+        const category = String(promotion?.serviceCategory ?? '').toLowerCase();
+        const normalized = category === 'hotel' ? 'destination' : category;
+        return normalized === 'destination' && (promotion?.status === 'active' || !promotion?.status);
+      });
       return hotelPromotions[0] ?? null;
     } catch {
       return null;

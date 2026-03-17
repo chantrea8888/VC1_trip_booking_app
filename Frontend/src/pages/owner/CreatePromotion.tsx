@@ -13,8 +13,9 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/src/utils/utils';
 import { createPromotion } from '@/src/services/promotionService';
+import { apiRequest } from '@/src/services/api';
 
-type PromotionServiceCategory = 'hotel' | 'transport';
+type PromotionServiceCategory = 'destination' | 'room' | 'transport';
 
 type PromotionType = 'Percentage Discount' | 'Fixed Amount Off' | 'Bundle Offer' | 'Early Bird Special';
 const CreatePromotion = () => {
@@ -24,7 +25,10 @@ const CreatePromotion = () => {
   const [submitError, setSubmitError] = React.useState('');
 
   const [promotionType, setPromotionType] = React.useState<PromotionType | null>(null);
-  const [serviceCategory, setServiceCategory] = React.useState<PromotionServiceCategory>('hotel');
+  const [serviceCategory, setServiceCategory] = React.useState<PromotionServiceCategory>('destination');
+  const [serviceTargets, setServiceTargets] = React.useState<Array<{ id: string; label: string }>>([]);
+  const [serviceTargetId, setServiceTargetId] = React.useState('');
+  const [isLoadingTargets, setIsLoadingTargets] = React.useState(false);
   const [campaignName, setCampaignName] = React.useState('');
   const [discountValue, setDiscountValue] = React.useState('');
   const [promoCode, setPromoCode] = React.useState('');
@@ -54,6 +58,55 @@ const CreatePromotion = () => {
     return v;
   };
 
+  React.useEffect(() => {
+    const loadTargets = async () => {
+      setIsLoadingTargets(true);
+      setServiceTargets([]);
+      setServiceTargetId('');
+
+      try {
+        if (serviceCategory === 'destination') {
+          const response = await apiRequest('/destinations');
+          const data = Array.isArray(response?.data) ? response.data : [];
+          setServiceTargets(
+            data.map((item: any) => ({
+              id: String(item?.destination_id ?? item?.id ?? ''),
+              label: [item?.name, item?.location].filter(Boolean).join(' • ') || 'Unnamed destination',
+            })),
+          );
+        }
+
+        if (serviceCategory === 'transport') {
+          const response = await apiRequest('/owner/transports');
+          const data = Array.isArray(response?.data) ? response.data : [];
+          setServiceTargets(
+            data.map((item: any) => ({
+              id: String(item?.transport_id ?? item?.id ?? ''),
+              label: item?.service_name ?? 'Unnamed transport',
+            })),
+          );
+        }
+
+        if (serviceCategory === 'room') {
+          const response = await apiRequest('/owner/rooms');
+          const data = Array.isArray(response?.data) ? response.data : [];
+          setServiceTargets(
+            data.map((item: any) => ({
+              id: String(item?.id ?? ''),
+              label: `${item?.hotel_name ?? 'Hotel'} - Room ${item?.room_number ?? ''}`.trim(),
+            })),
+          );
+        }
+      } catch {
+        setServiceTargets([]);
+      } finally {
+        setIsLoadingTargets(false);
+      }
+    };
+
+    void loadTargets();
+  }, [serviceCategory]);
+
   const launchCampaign = async () => {
     if (!promotionType) {
       setStep(1);
@@ -63,11 +116,21 @@ const CreatePromotion = () => {
       setStep(2);
       return;
     }
+    if (!serviceTargetId) {
+      setStep(2);
+      setSubmitError('Please select a destination, room, or transport to promote.');
+      return;
+    }
 
     setIsSubmitting(true);
     setSubmitError('');
 
     try {
+      const targetId = parseInt(serviceTargetId, 10);
+      const destinationId = serviceCategory === 'destination' ? targetId : null;
+      const roomId = serviceCategory === 'room' ? targetId : null;
+      const transportId = serviceCategory === 'transport' ? targetId : null;
+
       await createPromotion({
         title: campaignName.trim(),
         type: promotionType,
@@ -78,6 +141,9 @@ const CreatePromotion = () => {
         expiry: endDate || null,
         is_active: true,
         service_category: serviceCategory,
+        destination_id: destinationId,
+        room_id: roomId,
+        transport_id: transportId,
       });
 
       navigate('/promotions');
@@ -188,8 +254,24 @@ const CreatePromotion = () => {
                     onChange={(e) => setServiceCategory(e.target.value as PromotionServiceCategory)}
                     className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border-transparent rounded-xl text-sm focus:bg-white dark:focus:bg-slate-900 focus:ring-2 focus:ring-blue-600/10 transition-all font-medium"
                   >
-                    <option value="hotel">Hotel</option>
+                    <option value="destination">Destination</option>
+                    <option value="room">Room</option>
                     <option value="transport">Transport</option>
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] uppercase font-bold tracking-widest text-slate-400">Service Item</label>
+                  <select
+                    value={serviceTargetId}
+                    onChange={(e) => setServiceTargetId(e.target.value)}
+                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border-transparent rounded-xl text-sm focus:bg-white dark:focus:bg-slate-900 focus:ring-2 focus:ring-blue-600/10 transition-all font-medium"
+                  >
+                    <option value="">{isLoadingTargets ? 'Loading...' : 'Select a service'}</option>
+                    {serviceTargets.map((target) => (
+                      <option key={target.id} value={target.id}>
+                        {target.label}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <div className="space-y-2">

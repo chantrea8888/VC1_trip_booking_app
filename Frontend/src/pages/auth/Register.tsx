@@ -13,7 +13,7 @@ interface RegisterProps {
 export const Register: React.FC<RegisterProps> = ({ onSwitchToLogin, onBack, onSuccess, onClose }) => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [role] = useState<'owner' | 'customer'>('customer');
+  const [role, setRole] = useState<'owner' | 'customer'>('customer');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -107,6 +107,18 @@ export const Register: React.FC<RegisterProps> = ({ onSwitchToLogin, onBack, onS
               {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
             </button>
           </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <label className="ml-1 text-sm font-medium text-slate-700">Account Type</label>
+          <select
+            value={role}
+            onChange={(event) => setRole(event.target.value as 'owner' | 'customer')}
+            className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3.5 pl-4 pr-12 text-sm text-slate-700 outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20"
+          >
+            <option value="customer">Customer</option>
+            <option value="owner">Owner</option>
+          </select>
         </div>
 
         {errorMessage && (

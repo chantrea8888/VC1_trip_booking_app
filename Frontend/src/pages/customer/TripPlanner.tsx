@@ -184,13 +184,14 @@ export const TripPlanner: React.FC<TripPlannerProps> = ({
     ? Number.parseFloat(String(promotion.discount).replace(/[^0-9.]/g, ''))
     : null;
 
-  const promoTarget = String(promotion?.service_category || '').toLowerCase();
-  const promoBaseForDiscount =
-    promoTarget === 'hotel'
-      ? hotelSubtotal
-      : promoTarget === 'transport'
-      ? rentalSubtotal
-      : baseTotal;
+  const promoTargetRaw = String(promotion?.service_category || '').toLowerCase();
+  const promoTarget = promoTargetRaw === 'hotel' ? 'destination' : promoTargetRaw;
+    const promoBaseForDiscount =
+      promoTarget === 'destination' || promoTarget === 'room'
+        ? hotelSubtotal
+        : promoTarget === 'transport'
+        ? rentalSubtotal
+        : baseTotal;
 
   const promoDiscountAmount =
     promoPercent && promoPercent > 0 && promoBaseForDiscount > 0
