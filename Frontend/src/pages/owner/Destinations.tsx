@@ -254,22 +254,6 @@ const PropertyCard = ({ property, onView, onEdit, onDelete, activePromotion }: P
             )}
           </div>
         </div>
-        <div className="text-right">
-          {activePromotion && (
-            <span className="inline-flex items-center px-2 py-1 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 mb-1">
-              {activePromotion.discount}
-            </span>
-          )}
-          {typeof basePrice === 'number' && (
-            <div>
-              {hasDiscount && (
-                <p className="text-xs text-gray-400 line-through">${basePrice.toFixed(0)}</p>
-              )}
-              <p className="text-lg font-bold text-gray-900 dark:text-white">${(finalPrice ?? basePrice).toFixed(0)}</p>
-              <p className="text-[10px] text-gray-500 dark:text-gray-400 font-semibold">per night</p>
-            </div>
-          )}
-        </div>
       </div>
     </div>
   );

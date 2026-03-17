@@ -52,11 +52,6 @@ Route::prefix('auth')->group(function () {
 });
 
 Route::get('/transports', [TransportController::class, 'publicIndex']);
-Route::get('/destinations/public/all', [DestinationController::class, 'getAllPublic']);
-
-Route::middleware(['auth:sanctum', 'role:admin'])->get('/admin/access', function () {
-    return response()->json(['message' => 'Admin access granted']);
-});
 /*
 |--------------------------------------------------------------------------
 | Role Protected Routes
@@ -116,22 +111,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::patch('/bookings/{id}/status', [BookingController::class, 'updateStatus']);
     });
     
-    // Admin only routes
-    Route::middleware(['role:admin'])->group(function () {
-        Route::get('/admin/access', function () {
-            return response()->json(['message' => 'Admin access granted']);
-        });
-    });
-    
-    // Customer routes
-    Route::middleware(['role:customer'])->get('/customer/access', function () {
-        return response()->json(['message' => 'Customer access granted']);
-    });
-    
-    // Owner routes
-    Route::middleware(['role:owner'])->get('/owner/access', function () {
-        return response()->json(['message' => 'Owner access granted']);
-    });
+
 });
 
 /*
