@@ -1,59 +1,9 @@
-name: Deploy Application
-
-on:
-  push:
-    branches:
-      - main
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-
-    steps:
+steps:
     - name: Checkout Code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4  # Updated to v4
 
     - name: Login Docker Hub
-      uses: docker/login-action@v2
+      uses: docker/login-action@v3  # Updated to v3
       with:
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
-
-    - name: Build Backend Image
-      run: |
-        docker build -t ${{ secrets.DOCKER_USERNAME }}/trip-booking-backend ./backend
-
-    - name: Build Frontend Image
-      run: |
-        # Note: Ensure your React Dockerfile is inside the /frontend folder
-        docker build -t ${{ secrets.DOCKER_USERNAME }}/trip-booking-frontend ./frontend
-
-    - name: Push Images
-      run: |
-        docker push ${{ secrets.DOCKER_USERNAME }}/trip-booking-backend
-        docker push ${{ secrets.DOCKER_USERNAME }}/trip-booking-frontend
-
-    - name: Deploy to Server
-      uses: appleboy/ssh-action@v0.1.6
-      with:
-        host: ${{ secrets.SERVER_IP }}
-        username: ${{ secrets.SERVER_USER }}
-        key: ${{ secrets.SSH_PRIVATE_KEY }}
-        script: |
-          # 1. Pull the latest images
-          docker pull ${{ secrets.DOCKER_USERNAME }}/trip-booking-backend
-          docker pull ${{ secrets.DOCKER_USERNAME }}/trip-booking-frontend
-
-          # 2. Stop and remove existing React/Laravel containers
-          docker stop laravel_backend react_frontend || true
-          docker rm laravel_backend react_frontend || true
-
-          # 3. Clean up old images to save disk space
-          docker image prune -f
-
-          # 4. Run Backend
-          docker run -d -p 9000:9000 --name laravel_backend ${{ secrets.DOCKER_USERNAME }}/trip-booking-backend
-          
-          # 5. Run React Frontend
-          # Change 5173 to 3000 if you are using Create React App instead of Vite
-          docker run -d -p 5173:5173 --name react_frontend ${{ secrets.DOCKER_USERNAME }}/trip-booking-frontend
