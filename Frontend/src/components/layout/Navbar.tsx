@@ -16,10 +16,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useTheme } from '../../context/ThemeContext';
-<<<<<<< HEAD
 import { LogoutConfirmModal } from '../common/LogoutConfirmModal';
-=======
->>>>>>> chantrea/feature-customer
 
 interface NavbarProps {
   onLoginClick: () => void;
@@ -59,7 +56,6 @@ export const Navbar: React.FC<NavbarProps> = ({
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isPlanTripOpen, setIsPlanTripOpen] = useState(false);
-<<<<<<< HEAD
   const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
   const { isDarkMode, toggleDarkMode } = useTheme();
   const planMenuItemVariants = {
@@ -71,9 +67,6 @@ export const Navbar: React.FC<NavbarProps> = ({
       transition: { delay: 0.04 * index, duration: 0.2, ease: 'easeOut' },
     }),
   };
-=======
-  const { isDarkMode, toggleDarkMode } = useTheme();
->>>>>>> chantrea/feature-customer
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
@@ -85,7 +78,6 @@ export const Navbar: React.FC<NavbarProps> = ({
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-<<<<<<< HEAD
   const handleRequestLogout = () => {
     setIsProfileOpen(false);
     setIsMobileMenuOpen(false);
@@ -97,8 +89,6 @@ export const Navbar: React.FC<NavbarProps> = ({
     onLogout();
   };
 
-=======
->>>>>>> chantrea/feature-customer
   return (
     <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${isScrolled ? 'bg-white dark:bg-slate-900 shadow-md py-3' : 'bg-white dark:bg-slate-900 py-4'}`}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
@@ -126,7 +116,6 @@ export const Navbar: React.FC<NavbarProps> = ({
           
           <div 
             className="relative"
-<<<<<<< HEAD
             onMouseEnter={() => setIsPlanTripOpen(true)}
             onMouseLeave={() => setIsPlanTripOpen(false)}
           >
@@ -148,24 +137,6 @@ export const Navbar: React.FC<NavbarProps> = ({
               >
                 <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${isPlanTripOpen ? 'rotate-180' : ''}`} />
               </motion.button>
-=======
-            onMouseLeave={() => setIsPlanTripOpen(false)}
-          >
-            <div className="flex items-center gap-1">
-              <button 
-                onClick={onTripPlannerClick}
-                className={`text-sm font-medium transition-colors py-2 ${currentView === 'trip-planner' ? 'text-blue-600' : 'text-slate-600 dark:text-slate-400 hover:text-blue-600'}`}
-              >
-                My Plan
-              </button>
-              <button 
-                onMouseEnter={() => setIsPlanTripOpen(true)}
-                onClick={() => setIsPlanTripOpen(!isPlanTripOpen)}
-                className={`flex items-center gap-1.5 text-sm font-medium transition-colors py-2 ${['hotels', 'rentals', 'activities'].includes(currentView) ? 'text-blue-600' : 'text-slate-600 dark:text-slate-400 hover:text-blue-600'}`}
-              >
-                <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${isPlanTripOpen ? 'rotate-180' : ''}`} />
-              </button>
->>>>>>> chantrea/feature-customer
             </div>
 
             <AnimatePresence>
@@ -179,87 +150,60 @@ export const Navbar: React.FC<NavbarProps> = ({
                   <div className="px-6 py-2 mb-2">
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Plan Your Journey</span>
                   </div>
-<<<<<<< HEAD
                   <motion.button
                     custom={1}
                     variants={planMenuItemVariants}
                     initial="hidden"
                     animate="visible"
-=======
-                  <button 
->>>>>>> chantrea/feature-customer
                     onClick={() => {
                       onHotelsClick();
                       setIsPlanTripOpen(false);
                     }}
-<<<<<<< HEAD
                     whileHover={{ x: 4, scale: 1.01 }}
                     whileTap={{ scale: 0.98 }}
-=======
->>>>>>> chantrea/feature-customer
                     className={`w-full text-left px-6 py-4 text-sm font-bold flex items-center gap-4 transition-all ${currentView === 'hotels' ? 'text-blue-600 bg-blue-50 dark:bg-blue-900/20' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5'}`}
                   >
                     <div className="w-8 h-8 rounded-xl bg-blue-500/10 flex items-center justify-center">
                       <Hotel className="w-4 h-4 text-blue-500" />
                     </div>
                     Hotel
-<<<<<<< HEAD
                   </motion.button>
                   <motion.button
                     custom={2}
                     variants={planMenuItemVariants}
                     initial="hidden"
                     animate="visible"
-=======
-                  </button>
-                  <button 
->>>>>>> chantrea/feature-customer
                     onClick={() => {
                       onRentalsClick();
                       setIsPlanTripOpen(false);
                     }}
-<<<<<<< HEAD
                     whileHover={{ x: 4, scale: 1.01 }}
                     whileTap={{ scale: 0.98 }}
-=======
->>>>>>> chantrea/feature-customer
                     className={`w-full text-left px-6 py-4 text-sm font-bold flex items-center gap-4 transition-all ${currentView === 'rentals' ? 'text-blue-600 bg-blue-50 dark:bg-blue-900/20' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5'}`}
                   >
                     <div className="w-8 h-8 rounded-xl bg-emerald-500/10 flex items-center justify-center">
                       <Ship className="w-4 h-4 text-emerald-500" />
                     </div>
                     Rental
-<<<<<<< HEAD
                   </motion.button>
                   <motion.button
                     custom={3}
                     variants={planMenuItemVariants}
                     initial="hidden"
                     animate="visible"
-=======
-                  </button>
-                  <button 
->>>>>>> chantrea/feature-customer
                     onClick={() => {
                       onActivitiesClick();
                       setIsPlanTripOpen(false);
                     }}
-<<<<<<< HEAD
                     whileHover={{ x: 4, scale: 1.01 }}
                     whileTap={{ scale: 0.98 }}
-=======
->>>>>>> chantrea/feature-customer
                     className={`w-full text-left px-6 py-4 text-sm font-bold flex items-center gap-4 transition-all ${currentView === 'activities' ? 'text-blue-600 bg-blue-50 dark:bg-blue-900/20' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5'}`}
                   >
                     <div className="w-8 h-8 rounded-xl bg-amber-500/10 flex items-center justify-center">
                       <Compass className="w-4 h-4 text-amber-500" />
                     </div>
                     Activities
-<<<<<<< HEAD
                   </motion.button>
-=======
-                  </button>
->>>>>>> chantrea/feature-customer
                 </motion.div>
               )}
             </AnimatePresence>
@@ -419,17 +363,10 @@ export const Navbar: React.FC<NavbarProps> = ({
                     </button>
                     <div className="h-px bg-slate-100 dark:bg-slate-700 my-2 mx-4" />
                     <button 
-<<<<<<< HEAD
                       onClick={handleRequestLogout}
                       className="w-full text-left px-6 py-2.5 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 font-bold flex items-center gap-3 transition-colors"
                     >
                       <LogOut className="w-4 h-4" /> Logout
-=======
-                      onClick={onLogout}
-                      className="w-full text-left px-6 py-2.5 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 font-bold flex items-center gap-3 transition-colors"
-                    >
-                      <LogOut className="w-4 h-4" /> Log out
->>>>>>> chantrea/feature-customer
                     </button>
                   </motion.div>
                 )}
@@ -440,11 +377,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               onClick={onLoginClick}
               className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-xl text-sm font-bold transition-all shadow-lg shadow-blue-200"
             >
-<<<<<<< HEAD
               Login
-=======
-              Log in
->>>>>>> chantrea/feature-customer
             </button>
           )}
 
@@ -540,11 +473,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     </div>
                   </div>
                   <button 
-<<<<<<< HEAD
                     onClick={handleRequestLogout}
-=======
-                    onClick={onLogout}
->>>>>>> chantrea/feature-customer
                     className="w-full bg-red-50 dark:bg-red-900/20 text-red-600 px-4 py-4 rounded-2xl font-bold text-center"
                   >
                     Log out
@@ -562,15 +491,12 @@ export const Navbar: React.FC<NavbarProps> = ({
           </motion.div>
         )}
       </AnimatePresence>
-<<<<<<< HEAD
 
       <LogoutConfirmModal
         isOpen={isLogoutConfirmOpen}
         onCancel={() => setIsLogoutConfirmOpen(false)}
         onConfirm={handleConfirmLogout}
       />
-=======
->>>>>>> chantrea/feature-customer
     </nav>
   );
 };
