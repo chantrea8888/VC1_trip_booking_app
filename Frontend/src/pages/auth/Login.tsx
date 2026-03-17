@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { AuthLayout } from '../../components/auth/AuthLayout';
-import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
+import { User, Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { User as UserType } from '../../types/auth';
 
 interface LoginProps {
   onSwitchToRegister: () => void;
@@ -30,14 +31,11 @@ export const Login: React.FC<LoginProps> = ({
     setIsSubmitting(true);
 
     try {
-      const result = await login({
-        email,
-        password,
-      });
+      const result = await login(email, password);
 
-      onSuccess(result.nextView);
+      onSuccess(result.next_view);
     } catch (error: any) {
-      setErrorMessage(error?.data?.message ?? 'Login failed');
+      setErrorMessage(error.message || 'Login failed');
     } finally {
       setIsSubmitting(false);
     }
