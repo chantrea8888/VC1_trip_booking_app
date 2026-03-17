@@ -42,9 +42,58 @@ export const Profile: React.FC<ProfileProps> = ({
   const [profileData, setProfileData] = useState({
     phone: user?.phone || '+855 12 345 678',
     location: user?.location || 'Phnom Penh, Cambodia',
-    language: 'English (US)',
+    language: (() => {
+      try {
+        return localStorage.getItem('customer_language') || 'English (US)';
+      } catch {
+        return 'English (US)';
+      }
+    })(),
     currency: 'USD ($)'
   });
+
+  const isKhmer = profileData.language === 'Khmer' || profileData.language === 'ខ្មែរ';
+  const t = (key: string): string => {
+    const km: Record<string, string> = {
+      profile: 'ប្រវត្តិរូប',
+      documents: 'ឯកសារ',
+      notifications: 'ការជូនដំណឹង',
+      settings: 'ការកំណត់',
+      security: 'សុវត្ថិភាព',
+      edit_profile: 'កែប្រែប្រវត្តិរូប',
+      save_changes: 'រក្សាទុកការផ្លាស់ប្តូរ',
+      contact_information: 'ព័ត៌មានទំនាក់ទំនង',
+      travel_preferences: 'ចំណូលចិត្តការធ្វើដំណើរ',
+      email_address: 'អាសយដ្ឋានអ៊ីមែល',
+      phone_number: 'លេខទូរស័ព្ទ',
+      location: 'ទីតាំង',
+      language: 'ភាសា',
+      currency: 'រូបិយប័ណ្ណ',
+      english_us: 'អង់គ្លេស (អាមេរិក)',
+      khmer: 'ខ្មែរ',
+    };
+
+    const en: Record<string, string> = {
+      profile: 'Profile',
+      documents: 'Documents',
+      notifications: 'Notifications',
+      settings: 'Settings',
+      security: 'Security',
+      edit_profile: 'Edit Profile',
+      save_changes: 'Save Changes',
+      contact_information: 'Contact Information',
+      travel_preferences: 'Travel Preferences',
+      email_address: 'Email Address',
+      phone_number: 'Phone Number',
+      location: 'Location',
+      language: 'Language',
+      currency: 'Currency',
+      english_us: 'English (US)',
+      khmer: 'Khmer',
+    };
+
+    return (isKhmer ? km : en)[key] ?? key;
+  };
 
   const [settings, setSettings] = useState({
     push: true,
@@ -76,15 +125,23 @@ export const Profile: React.FC<ProfileProps> = ({
   };
 
   React.useEffect(() => {
+    try {
+      localStorage.setItem('customer_language', profileData.language);
+    } catch {
+      // ignore
+    }
+  }, [profileData.language]);
+
+  React.useEffect(() => {
     setActiveTab(initialTab);
   }, [initialTab]);
 
   const tabs = [
-    { id: 'profile', label: 'Profile', icon: User },
-    { id: 'documents', label: 'Documents', icon: FileText },
-    { id: 'notifications', label: 'Notifications', icon: Bell },
-    { id: 'settings', label: 'Settings', icon: Settings },
-    { id: 'security', label: 'Security', icon: Shield },
+    { id: 'profile', label: t('profile'), icon: User },
+    { id: 'documents', label: t('documents'), icon: FileText },
+    { id: 'notifications', label: t('notifications'), icon: Bell },
+    { id: 'settings', label: t('settings'), icon: Settings },
+    { id: 'security', label: t('security'), icon: Shield },
   ];
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -126,20 +183,20 @@ export const Profile: React.FC<ProfileProps> = ({
               : 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:opacity-90'
           }`}
         >
-          {isEditing ? 'Save Changes' : 'Edit Profile'}
+          {isEditing ? t('save_changes') : t('edit_profile')}
         </button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="bg-white dark:bg-slate-800 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-700 shadow-sm">
-          <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-6">Contact Information</h3>
+          <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-6">{t('contact_information')}</h3>
           <div className="space-y-6">
             <div className="flex items-center gap-4">
               <div className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-700/50 flex items-center justify-center text-slate-400">
                 <Mail className="w-5 h-5" />
               </div>
               <div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Email Address</p>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{t('email_address')}</p>
                 <p className="text-sm font-medium text-slate-700 dark:text-slate-200">{user?.email}</p>
               </div>
             </div>
@@ -148,7 +205,7 @@ export const Profile: React.FC<ProfileProps> = ({
                 <Phone className="w-5 h-5" />
               </div>
               <div className="flex-1">
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Phone Number</p>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{t('phone_number')}</p>
                 {isEditing ? (
                   <input 
                     type="tel"
@@ -166,7 +223,7 @@ export const Profile: React.FC<ProfileProps> = ({
                 <MapPin className="w-5 h-5" />
               </div>
               <div className="flex-1">
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Location</p>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{t('location')}</p>
                 {isEditing ? (
                   <input 
                     type="text"
@@ -183,12 +240,12 @@ export const Profile: React.FC<ProfileProps> = ({
         </div>
 
         <div className="bg-white dark:bg-slate-800 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-700 shadow-sm">
-          <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-6">Travel Preferences</h3>
+          <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-6">{t('travel_preferences')}</h3>
           <div className="space-y-4">
             <div className="flex items-center justify-between p-4 rounded-2xl bg-slate-50 dark:bg-slate-700/50">
               <div className="flex items-center gap-3">
                 <Globe className="w-5 h-5 text-blue-500" />
-                <span className="text-sm font-medium text-slate-700 dark:text-slate-200">Language</span>
+                <span className="text-sm font-medium text-slate-700 dark:text-slate-200">{t('language')}</span>
               </div>
               {isEditing ? (
                 <select 
@@ -196,18 +253,17 @@ export const Profile: React.FC<ProfileProps> = ({
                   onChange={(e) => setProfileData({ ...profileData, language: e.target.value })}
                   className="bg-transparent text-xs font-bold text-blue-600 outline-none cursor-pointer"
                 >
-                  <option value="English (US)">English (US)</option>
-                  <option value="Khmer">Khmer</option>
-                  <option value="French">French</option>
+                  <option value="English (US)">{t('english_us')}</option>
+                  <option value="Khmer">{t('khmer')}</option>
                 </select>
               ) : (
-                <span className="text-xs font-bold text-blue-600">{profileData.language}</span>
+                <span className="text-xs font-bold text-blue-600">{profileData.language === 'Khmer' ? t('khmer') : t('english_us')}</span>
               )}
             </div>
             <div className="flex items-center justify-between p-4 rounded-2xl bg-slate-50 dark:bg-slate-700/50">
               <div className="flex items-center gap-3">
                 <CreditCard className="w-5 h-5 text-emerald-500" />
-                <span className="text-sm font-medium text-slate-700 dark:text-slate-200">Currency</span>
+                <span className="text-sm font-medium text-slate-700 dark:text-slate-200">{t('currency')}</span>
               </div>
               {isEditing ? (
                 <select 
@@ -217,7 +273,6 @@ export const Profile: React.FC<ProfileProps> = ({
                 >
                   <option value="USD ($)">USD ($)</option>
                   <option value="KHR (៛)">KHR (៛)</option>
-                  <option value="EUR (€)">EUR (€)</option>
                 </select>
               ) : (
                 <span className="text-xs font-bold text-emerald-600">{profileData.currency}</span>

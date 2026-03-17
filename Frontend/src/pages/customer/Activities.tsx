@@ -20,7 +20,7 @@ import {
 import { motion } from 'motion/react';
 
 interface ActivityOption {
-  id: string;
+  id: number;
   name: string;
   price: number;
   description: string;
@@ -29,91 +29,91 @@ interface ActivityOption {
 
 const activityOptions: ActivityOption[] = [
   {
-    id: 'swimming',
+    id: 1,
     name: 'Swimming',
     price: 50,
     description: 'Access to heated pool and private beach area.',
     icon: <Waves className="w-5 h-5" />
   },
   {
-    id: 'fishing',
+    id: 2,
     name: 'Fishing',
     price: 75,
     description: 'Equipment rental and local guide for 4 hours.',
     icon: <Fish className="w-5 h-5" />
   },
   {
-    id: 'bbq',
+    id: 3,
     name: 'BBQ / Food',
     price: 40,
     description: 'Ready-to-grill meat and veggie pack.',
     icon: <Utensils className="w-5 h-5" />
   },
   {
-    id: 'camping',
+    id: 4,
     name: 'Camping',
     price: 100,
     description: 'Full tent set-up under the stars.',
     icon: <Tent className="w-5 h-5" />
   },
   {
-    id: 'tour-guide',
+    id: 5,
     name: 'Tour Guide',
     price: 120,
     description: 'Local expert for wilderness hiking.',
     icon: <Compass className="w-5 h-5" />
   },
   {
-    id: 'photography',
+    id: 6,
     name: 'Photography',
     price: 150,
     description: 'Professional 1-hour session.',
     icon: <Camera className="w-5 h-5" />
   },
   {
-    id: 'sunset-cruise',
+    id: 7,
     name: 'Sunset Cruise',
     price: 90,
     description: 'Golden-hour boat ride with refreshments.',
     icon: <Waves className="w-5 h-5" />
   },
   {
-    id: 'night-fishing',
+    id: 8,
     name: 'Night Fishing',
     price: 95,
     description: 'Evening fishing session with local crew.',
     icon: <Fish className="w-5 h-5" />
   },
   {
-    id: 'private-chef',
+    id: 9,
     name: 'Private Chef Dinner',
     price: 130,
     description: 'Personalized Khmer menu at your cabin.',
     icon: <Utensils className="w-5 h-5" />
   },
   {
-    id: 'campfire-movie',
+    id: 10,
     name: 'Campfire Movie Night',
     price: 55,
     description: 'Outdoor cinema set-up with snacks.',
     icon: <Tent className="w-5 h-5" />
   },
   {
-    id: 'jungle-trek',
+    id: 11,
     name: 'Jungle Trek',
     price: 110,
     description: 'Half-day guided hike through forest trails.',
     icon: <Compass className="w-5 h-5" />
   },
   {
-    id: 'drone-footage',
+    id: 12,
     name: 'Drone Footage',
     price: 140,
     description: 'Aerial highlight clips of your retreat.',
     icon: <Camera className="w-5 h-5" />
   },
   {
-    id: 'kayak-race',
+    id: 13,
     name: 'Kayak Challenge',
     price: 65,
     description: 'Friendly race setup with safety briefing.',
@@ -121,22 +121,61 @@ const activityOptions: ActivityOption[] = [
   }
 ];
 
-export const Activities: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
+export const Activities: React.FC<{
+  onBack?: () => void;
+  onRequireLogin?: () => void;
+  onConfirmBooking?: () => void;
+  isAuthenticated?: boolean;
+  selectedActivityIds?: number[];
+  setSelectedActivityIds?: React.Dispatch<React.SetStateAction<number[]>>;
+}> = ({
+  onBack,
+  onRequireLogin,
+  onConfirmBooking,
+  isAuthenticated,
+  selectedActivityIds,
+  setSelectedActivityIds,
+}) => {
   const ITEMS_PER_PAGE = 6;
-  const [selectedOptions, setSelectedOptions] = useState<string[]>(['swimming', 'bbq']);
+  const [selectedOptions, setSelectedOptions] = useState<number[]>([1, 3]);
   const [currentPage, setCurrentPage] = useState(1);
+  const [showGuestPrompt, setShowGuestPrompt] = useState(false);
+  const [showConfirmed, setShowConfirmed] = useState(false);
   const basePrice = 250;
 
-  const toggleOption = (id: string) => {
-    setSelectedOptions(prev => 
-      prev.includes(id) ? prev.filter(o => o !== id) : [...prev, id]
-    );
+  const effectiveSelectedIds = selectedActivityIds ?? selectedOptions;
+
+  const toggleOption = (id: number) => {
+    if (setSelectedActivityIds) {
+      setSelectedActivityIds((prev) => {
+        const safePrev = Array.isArray(prev) ? prev : [];
+        return safePrev.includes(id) ? safePrev.filter((o) => o !== id) : [...safePrev, id];
+      });
+      return;
+    }
+
+    setSelectedOptions((prev) => (prev.includes(id) ? prev.filter((o) => o !== id) : [...prev, id]));
   };
 
-  const selectedExtras = activityOptions.filter(o => selectedOptions.includes(o.id));
+  const selectedExtras = activityOptions.filter(o => effectiveSelectedIds.includes(o.id));
   const totalCost = basePrice + selectedExtras.reduce((sum, o) => sum + o.price, 0);
   const totalPages = Math.max(1, Math.ceil(activityOptions.length / ITEMS_PER_PAGE));
   const paginatedOptions = activityOptions.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+
+  const handleConfirm = () => {
+    if (isAuthenticated === false) {
+      setShowGuestPrompt(true);
+      setShowConfirmed(false);
+      onRequireLogin?.();
+      return;
+    }
+
+    setShowGuestPrompt(false);
+    setShowConfirmed(true);
+    setTimeout(() => setShowConfirmed(false), 2500);
+
+    onConfirmBooking?.();
+  };
 
   const handlePageChange = (nextPage: number) => {
     const safePage = Math.min(Math.max(nextPage, 1), totalPages);
@@ -205,13 +244,13 @@ export const Activities: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
                   key={option.id}
                   onClick={() => toggleOption(option.id)}
                   className={`flex items-start gap-4 p-5 rounded-3xl border-2 transition-all text-left group ${
-                    selectedOptions.includes(option.id)
+                    effectiveSelectedIds.includes(option.id)
                       ? 'border-blue-600 bg-blue-50/50 dark:bg-blue-900/20'
                       : 'border-slate-100 dark:border-slate-800 hover:border-blue-200 dark:hover:border-blue-800'
                   }`}
                 >
                   <div className={`w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 transition-colors ${
-                    selectedOptions.includes(option.id)
+                    effectiveSelectedIds.includes(option.id)
                       ? 'bg-blue-600 text-white'
                       : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 group-hover:bg-blue-100 dark:group-hover:bg-blue-900/40'
                   }`}>
@@ -222,7 +261,7 @@ export const Activities: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
                       <span className="font-bold text-slate-900 dark:text-white">{option.name}</span>
                       <div className="flex items-center gap-2">
                         <span className="text-blue-600 font-bold">${option.price}</span>
-                        {selectedOptions.includes(option.id) && (
+                        {effectiveSelectedIds.includes(option.id) && (
                           <div className="w-5 h-5 bg-blue-600 rounded-full flex items-center justify-center">
                             <Check className="w-3 h-3 text-white" />
                           </div>
@@ -302,68 +341,87 @@ export const Activities: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
 
         {/* Sidebar */}
         <div className="lg:col-span-1">
-          <div className="sticky top-28 space-y-6">
-            <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] p-8 shadow-xl border border-slate-100 dark:border-slate-700">
-              <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-6">Booking Summary</h3>
+          <div className="sticky top-28 space-y-6 self-start">
+            <div className="rounded-[2.75rem] p-[1px] bg-gradient-to-br from-slate-800/70 via-slate-900 to-slate-950 shadow-2xl">
+              <div className="bg-gradient-to-b from-slate-900 to-slate-950 rounded-[2.7rem] p-8 border border-white/5">
+                <h3 className="text-xl font-bold text-white mb-6">Booking Summary</h3>
               
-              <div className="space-y-4 mb-6">
-                <div className="flex justify-between text-sm">
-                  <span className="text-slate-500 dark:text-slate-400">Base Price (1 Day)</span>
-                  <span className="font-bold text-slate-900 dark:text-white">${basePrice.toFixed(2)}</span>
-                </div>
+                <div className="space-y-4 mb-6">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-slate-300/70">Base Price (1 Day)</span>
+                    <span className="font-bold text-white">${basePrice.toFixed(2)}</span>
+                  </div>
                 
-                {selectedExtras.length > 0 && (
-                  <div className="pt-4 border-t border-slate-100 dark:border-slate-700">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Selected Extras</p>
-                    {selectedExtras.map(extra => (
-                      <div key={extra.id} className="flex justify-between text-sm mb-2">
-                        <span className="text-slate-500 dark:text-slate-400">{extra.name}</span>
-                        <span className="font-bold text-slate-900 dark:text-white">${extra.price.toFixed(2)}</span>
-                      </div>
-                    ))}
+                  {selectedExtras.length > 0 && (
+                    <div className="pt-4 border-t border-white/10">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Selected Extras</p>
+                      {selectedExtras.map(extra => (
+                        <div key={extra.id} className="flex justify-between text-sm mb-2">
+                          <span className="text-slate-300/70">{extra.name}</span>
+                          <span className="font-bold text-white">${extra.price.toFixed(2)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="pt-6 border-t border-white/10 mb-8">
+                  <div className="flex items-start justify-between mb-1">
+                    <div>
+                      <p className="text-base font-bold text-white">Total Cost</p>
+                      <p className="text-[10px] text-slate-400">Inclusive of all local taxes and service fees.</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-4xl font-bold text-blue-500 tracking-tight">${totalCost.toFixed(2)}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 mb-6">
+                  <div className="bg-white/5 p-3 rounded-2xl border border-white/10">
+                    <p className="text-[9px] font-bold text-slate-400 uppercase mb-1">Check-in</p>
+                    <div className="flex items-center gap-2 text-xs font-bold text-white">
+                      <Calendar className="w-3 h-3 text-blue-500" />
+                      Oct 24, 2023
+                    </div>
+                  </div>
+                  <div className="bg-white/5 p-3 rounded-2xl border border-white/10">
+                    <p className="text-[9px] font-bold text-slate-400 uppercase mb-1">Guests</p>
+                    <div className="flex items-center gap-2 text-xs font-bold text-white">
+                      <Users className="w-3 h-3 text-blue-500" />
+                      2 Adults
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  onClick={handleConfirm}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-2xl font-bold shadow-[0_16px_40px_rgba(37,99,235,0.35)] transition-all flex items-center justify-center gap-2 mb-3 active:scale-[0.99]"
+                >
+                  <Calendar className="w-5 h-5" /> Confirm Booking
+                </button>
+              
+                <button className="w-full bg-white/5 hover:bg-white/10 text-slate-200 py-4 rounded-2xl font-bold transition-all flex items-center justify-center gap-2 mb-4">
+                  Save to Wishlist
+                </button>
+
+                {showGuestPrompt && (
+                  <div className="rounded-2xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 mb-4">
+                    <p className="text-xs font-bold text-amber-200">Login required</p>
+                    <p className="text-[11px] text-amber-100/80 mt-1">Please login to confirm booking.</p>
                   </div>
                 )}
-              </div>
 
-              <div className="pt-6 border-t border-slate-100 dark:border-slate-700 mb-8">
-                <div className="flex items-start justify-between mb-1">
-                  <div>
-                    <p className="text-base font-bold text-slate-900 dark:text-white">Total Cost</p>
-                    <p className="text-[10px] text-slate-400">Inclusive of all local taxes and service fees.</p>
+                {showConfirmed && (
+                  <div className="rounded-2xl border border-emerald-400/30 bg-emerald-400/10 px-4 py-3 mb-4">
+                    <p className="text-xs font-bold text-emerald-200">Confirmed</p>
+                    <p className="text-[11px] text-emerald-100/80 mt-1">Your activities have been saved.</p>
                   </div>
-                  <div className="text-right">
-                    <p className="text-3xl font-bold text-blue-600 tracking-tight">${totalCost.toFixed(2)}</p>
-                  </div>
+                )}
+
+                <div className="flex items-center justify-center gap-2 text-[10px] text-emerald-300 font-bold">
+                  <Check className="w-3 h-3" /> Free cancellation until 48h before arrival
                 </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3 mb-6">
-                <div className="bg-slate-50 dark:bg-slate-900/50 p-3 rounded-2xl border border-slate-100 dark:border-slate-800">
-                  <p className="text-[9px] font-bold text-slate-400 uppercase mb-1">Check-in</p>
-                  <div className="flex items-center gap-2 text-xs font-bold text-slate-900 dark:text-white">
-                    <Calendar className="w-3 h-3 text-blue-600" />
-                    Oct 24, 2023
-                  </div>
-                </div>
-                <div className="bg-slate-50 dark:bg-slate-900/50 p-3 rounded-2xl border border-slate-100 dark:border-slate-800">
-                  <p className="text-[9px] font-bold text-slate-400 uppercase mb-1">Guests</p>
-                  <div className="flex items-center gap-2 text-xs font-bold text-slate-900 dark:text-white">
-                    <Users className="w-3 h-3 text-blue-600" />
-                    2 Adults
-                  </div>
-                </div>
-              </div>
-
-              <button className="w-full bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-2xl font-bold shadow-lg shadow-blue-200 transition-all flex items-center justify-center gap-2 mb-3">
-                <Calendar className="w-5 h-5" /> Confirm Booking
-              </button>
-              
-              <button className="w-full bg-slate-50 dark:bg-slate-900/50 hover:bg-slate-100 dark:hover:bg-slate-900 text-slate-600 dark:text-slate-300 py-4 rounded-2xl font-bold transition-all flex items-center justify-center gap-2 mb-6">
-                Save to Wishlist
-              </button>
-
-              <div className="flex items-center justify-center gap-2 text-[10px] text-emerald-600 font-bold">
-                <Check className="w-3 h-3" /> Free cancellation until 48h before arrival
               </div>
             </div>
 

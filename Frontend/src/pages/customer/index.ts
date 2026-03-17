@@ -1,0 +1,16 @@
+export { Dashboard } from './Dashboard';
+export { Destinations } from './Destinations';
+export { TripPlanner } from './TripPlanner';
+export { BookingHistory } from './BookingHistory';
+export { GroupInvite } from './GroupInvite';
+export { Payment } from './Payment';
+export { Activities } from './Activities';
+export { Profile } from './Profile';
+export { Promotions } from './Promotions';
+export { Rentals } from './Rentals';
+export { HotelDetails } from './HotelDetails';
+export { DestinationPlanner } from './DestinationPlanner';
+export { GroupPlanning } from './GroupPlanning';
+export { ScanToPay } from './ScanTopay';
+export { BookTrip } from './BookTrip';
+export { CustomerBookings } from './CustomerBookings';

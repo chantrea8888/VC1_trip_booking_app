@@ -1,38 +1,65 @@
-import { format, addDays } from 'date-fns';
+export type AvailableActivity = {
+  id: number;
+  name: string;
+  price: number;
+  guests: number;
+  image: string;
+  date: string;
+};
 
-const today = new Date('2026-03-03T00:34:03-08:00');
-
-export const AVAILABLE_ACTIVITIES = [
+export const AVAILABLE_ACTIVITIES: AvailableActivity[] = [
   {
     id: 1,
-    name: "Angkor Wat Sunrise Guided Tour",
-    date: `${format(addDays(today, 9), 'MMMM d, yyyy')} • 05:00`,
-    price: 85.00,
+    name: 'Angkor Wat Sunrise Tour',
+    price: 35,
     guests: 2,
-    image: "https://images.unsplash.com/photo-1544013587-41428e7177e9?auto=format&fit=crop&q=80&w=400"
+    image:
+      'https://images.unsplash.com/photo-1545048702-79362596cdc9?auto=format&fit=crop&q=80&w=800',
+    date: 'Day 1',
   },
   {
     id: 2,
-    name: "Phare, The Cambodian Circus",
-    date: `${format(addDays(today, 11), 'MMMM d, yyyy')} • 19:30`,
-    price: 35.00,
+    name: 'Floating Village Experience',
+    price: 28,
     guests: 2,
-    image: "https://images.unsplash.com/photo-1500048993953-d23a436266cf?auto=format&fit=crop&q=80&w=400"
+    image:
+      'https://images.unsplash.com/photo-1524492449094-dc2f73c30b6a?auto=format&fit=crop&q=80&w=800',
+    date: 'Day 2',
   },
   {
     id: 3,
-    name: "Surfing Lesson in Kuta",
-    date: `${format(addDays(today, 12), 'MMMM d, yyyy')} • 09:00`,
-    price: 45.00,
+    name: 'Khmer Cooking Class',
+    price: 22,
     guests: 2,
-    image: "https://images.unsplash.com/photo-1502680390469-be75c86b636f?auto=format&fit=crop&q=80&w=400"
+    image:
+      'https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?auto=format&fit=crop&q=80&w=800',
+    date: 'Day 3',
   },
   {
     id: 4,
-    name: "Mondulkiri Elephant Trek",
-    date: `${format(addDays(today, 13), 'MMMM d, yyyy')} • 08:30`,
-    price: 120.00,
+    name: 'Phnom Penh City Highlights',
+    price: 30,
     guests: 2,
-    image: "https://images.unsplash.com/photo-1581852017103-68ac65514cf7?auto=format&fit=crop&q=80&w=400"
-  }
+    image:
+      'https://images.unsplash.com/photo-1585653621032-0b2b0c1c2b8a?auto=format&fit=crop&q=80&w=800',
+    date: 'Day 4',
+  },
+  {
+    id: 5,
+    name: 'Kampot Pepper Farm Visit',
+    price: 18,
+    guests: 2,
+    image:
+      'https://images.unsplash.com/photo-1523413651479-597eb2da0ad6?auto=format&fit=crop&q=80&w=800',
+    date: 'Day 5',
+  },
+  {
+    id: 6,
+    name: 'Koh Rong Island Day Trip',
+    price: 45,
+    guests: 2,
+    image:
+      'https://images.unsplash.com/photo-1500375592092-40eb2168fd21?auto=format&fit=crop&q=80&w=800',
+    date: 'Day 6',
+  },
 ];

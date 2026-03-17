@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
 interface ThemeContextType {
@@ -59,6 +58,3 @@ export const useTheme = () => {
   }
   return context;
 };
-=======
-export { ThemeProvider, useTheme } from './ThemeContect';
->>>>>>> chantrea/feature-customer

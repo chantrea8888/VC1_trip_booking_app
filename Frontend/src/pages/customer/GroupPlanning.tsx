@@ -48,6 +48,11 @@ interface Message {
   text: string;
   created_at: string;
   type?: 'system' | 'user';
+  attachment?: {
+    name: string;
+    mimeType: string;
+    dataUrl?: string;
+  };
 }
 
 interface Member {
@@ -70,6 +75,50 @@ interface ItineraryItem {
   votes: number;
 }
 
+interface StoredGroup {
+  id: string;
+  accessCode: string;
+  name: string;
+  members: Member[];
+  messages: Message[];
+  polls: Poll[];
+  itinerary: ItineraryItem[];
+}
+
+const GROUP_STORE_KEY = 'group_planning_groups_v1';
+
+const normalizeAccessCode = (code: string): string => code.replace(/\s+/g, '').trim().toUpperCase();
+
+const loadGroupsFromStorage = (): Record<string, StoredGroup> => {
+  try {
+    const raw = localStorage.getItem(GROUP_STORE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+};
+
+const saveGroupsToStorage = (groups: Record<string, StoredGroup>) => {
+  localStorage.setItem(GROUP_STORE_KEY, JSON.stringify(groups));
+};
+
+const upsertGroupInStorage = (group: StoredGroup) => {
+  const groups = loadGroupsFromStorage();
+  groups[group.id] = group;
+  saveGroupsToStorage(groups);
+};
+
+const findGroupByCode = (code: string): StoredGroup | null => {
+  const groups = loadGroupsFromStorage();
+  const normalized = normalizeAccessCode(code);
+  const match = Object.values(groups).find((g) => g.accessCode.toUpperCase() === normalized);
+  return match ?? null;
+};
+
+const createId = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+
 interface GroupPlanningProps {
   onBack: () => void;
   tripTitle?: string;
@@ -79,6 +128,19 @@ export const GroupPlanning: React.FC<GroupPlanningProps> = ({ onBack, tripTitle 
   const [activeTab, setActiveTab] = useState<'dashboard' | 'itinerary' | 'polls'>('dashboard');
   const [newMessage, setNewMessage] = useState('');
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const messageInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [pendingAttachment, setPendingAttachment] = useState<
+    | {
+        name: string;
+        mimeType: string;
+        dataUrl?: string;
+      }
+    | null
+  >(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<BlobPart[]>([]);
+  const [isRecording, setIsRecording] = useState(false);
   
   // Auth/Group State
   const [userEmail] = useState('hanchantrea38@gmail.com');
@@ -93,110 +155,325 @@ export const GroupPlanning: React.FC<GroupPlanningProps> = ({ onBack, tripTitle 
   const [polls, setPolls] = useState<Poll[]>([]);
   const [itinerary, setItinerary] = useState<ItineraryItem[]>([]);
   const [groupName, setGroupName] = useState(tripTitle);
+  const [isMembersOpen, setIsMembersOpen] = useState(false);
+  const [isAddMemberOpen, setIsAddMemberOpen] = useState(false);
+  const [newMemberName, setNewMemberName] = useState('');
+  const [newMemberEmail, setNewMemberEmail] = useState('');
 
   useEffect(() => {
     if (!groupId) return;
 
-    const fetchGroupData = async () => {
-      try {
-        const res = await fetch(`/api/groups/${groupId}?email=${userEmail}`);
-        if (!res.ok) throw new Error('Failed to fetch group');
-        const data = await res.json();
-        setMembers(data.members);
-        setMessages(data.messages);
-        setItinerary(data.itinerary);
-        setPolls(data.polls);
-        setGroupName(data.name);
-      } catch (err) {
+    try {
+      const groups = loadGroupsFromStorage();
+      const group = groups[groupId];
+      if (!group) {
         setError('Access denied or group not found');
         setGroupId(null);
         localStorage.removeItem('activeGroupId');
+        return;
       }
-    };
 
-    fetchGroupData();
+      setMembers(group.members);
+      setMessages(group.messages);
+      setItinerary(group.itinerary);
+      setPolls(group.polls);
+      setGroupName(group.name);
 
-    const socket = socketService.connect();
-    socket.emit('join-group', { groupId, email: userEmail });
+      const socket = socketService.connect();
+      socket.emit('join-group', { groupId, email: userEmail });
 
-    socket.on('new-message', (msg: Message) => {
-      setMessages(prev => [...prev, msg]);
-    });
+      const onNewMessage = (msg: Message) => {
+        setMessages((prev) => {
+          if (prev.some((existing) => existing.id === msg.id)) return prev;
+          const next = [...prev, msg];
+          upsertGroupInStorage({ ...group, messages: next });
+          return next;
+        });
+      };
 
-    socket.on('itinerary-updated', (items: ItineraryItem[]) => {
-      setItinerary(items);
-    });
+      const onItineraryUpdated = (items: ItineraryItem[]) => {
+        setItinerary(items);
+        upsertGroupInStorage({ ...group, itinerary: items });
+      };
 
-    socket.on('poll-created', (poll: Poll) => {
-      setPolls(prev => [...prev, poll]);
-    });
+      const onPollCreated = (poll: Poll) => {
+        setPolls((prev) => {
+          if (prev.some((existing) => existing.id === poll.id)) return prev;
+          const next = [...prev, poll];
+          upsertGroupInStorage({ ...group, polls: next });
+          return next;
+        });
+      };
 
-    socket.on('poll-updated', (poll: Poll) => {
-      setPolls(prev => prev.map(p => p.id === poll.id ? poll : p));
-    });
+      const onPollUpdated = (poll: Poll) => {
+        setPolls((prev) => {
+          const next = prev.map((p) => (p.id === poll.id ? poll : p));
+          upsertGroupInStorage({ ...group, polls: next });
+          return next;
+        });
+      };
 
-    return () => {
-      socket.off('new-message');
-      socket.off('itinerary-updated');
-      socket.off('poll-created');
-      socket.off('poll-updated');
-    };
+      socket.on('new-message', onNewMessage);
+      socket.on('itinerary-updated', onItineraryUpdated);
+      socket.on('poll-created', onPollCreated);
+      socket.on('poll-updated', onPollUpdated);
+
+      return () => {
+        socket.off('new-message', onNewMessage);
+        socket.off('itinerary-updated', onItineraryUpdated);
+        socket.off('poll-created', onPollCreated);
+        socket.off('poll-updated', onPollUpdated);
+      };
+    } catch {
+      setError('Access denied or group not found');
+      setGroupId(null);
+      localStorage.removeItem('activeGroupId');
+    }
   }, [groupId, userEmail]);
 
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages.length]);
+
+  const addMemberToGroup = () => {
+    if (!groupId) return;
+    const name = newMemberName.trim();
+    const email = newMemberEmail.trim().toLowerCase();
+    if (!name || !email) return;
+
+    const groups = loadGroupsFromStorage();
+    const group = groups[groupId];
+    if (!group) return;
+
+    if (group.members.some((m) => m.user_email.toLowerCase() === email)) {
+      setIsAddMemberOpen(false);
+      setNewMemberName('');
+      setNewMemberEmail('');
+      return;
+    }
+
+    const nextMembers: Member[] = [...group.members, { user_email: email, user_name: name, role: 'Member' }];
+    const systemMsg: Message = {
+      id: createId(),
+      sender_name: 'System',
+      sender_email: 'system',
+      text: `${name} was added to the group`,
+      created_at: new Date().toISOString(),
+      type: 'system'
+    };
+    const nextMessages = [...group.messages, systemMsg];
+    const nextGroup: StoredGroup = { ...group, members: nextMembers, messages: nextMessages };
+    upsertGroupInStorage(nextGroup);
+    setMembers(nextMembers);
+    setMessages(nextMessages);
+    socketService.getSocket()?.emit('new-message', systemMsg);
+
+    setIsAddMemberOpen(false);
+    setNewMemberName('');
+    setNewMemberEmail('');
+  };
+
   const handleCreateGroup = async () => {
+    setError(null);
     const code = Math.random().toString(36).substring(2, 8).toUpperCase();
-    const res = await fetch('/api/groups', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: tripTitle,
-        creatorEmail: userEmail,
-        creatorName: userName,
-        accessCode: code
-      })
-    });
-    const data = await res.json();
-    setGroupId(data.id);
-    localStorage.setItem('activeGroupId', data.id);
+    const id = code;
+
+    const creator: Member = { user_email: userEmail, user_name: userName, role: 'Leader' };
+    const group: StoredGroup = {
+      id,
+      accessCode: code,
+      name: tripTitle,
+      members: [creator],
+      messages: [
+        {
+          id: createId(),
+          sender_name: 'System',
+          sender_email: 'system',
+          text: `${userName} created the group`,
+          created_at: new Date().toISOString(),
+          type: 'system'
+        }
+      ],
+      polls: [],
+      itinerary: []
+    };
+
+    upsertGroupInStorage(group);
+    setMembers(group.members);
+    setMessages(group.messages);
+    setItinerary(group.itinerary);
+    setPolls(group.polls);
+    setGroupName(group.name);
+    setGroupId(group.id);
+    localStorage.setItem('activeGroupId', group.id);
   };
 
   const handleJoinGroup = async (e: React.FormEvent) => {
     e.preventDefault();
-    const res = await fetch('/api/groups/join', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        groupId: accessCode, // Using code as ID for simplicity in this demo
-        accessCode: accessCode,
-        userEmail,
-        userName
-      })
+    setIsJoining(true);
+    setError(null);
+
+    try {
+      const code = normalizeAccessCode(accessCode);
+      const found = findGroupByCode(code);
+      if (!found) {
+        setError('Invalid access code');
+        return;
+      }
+
+      const alreadyMember = found.members.some((m) => m.user_email === userEmail);
+      const nextMembers = alreadyMember
+        ? found.members
+        : [...found.members, { user_email: userEmail, user_name: userName, role: 'Member' as const }];
+
+      const nextMessages = alreadyMember
+        ? found.messages
+        : [
+            ...found.messages,
+            {
+              id: createId(),
+              sender_name: 'System',
+              sender_email: 'system',
+              text: `${userName} joined the group`,
+              created_at: new Date().toISOString(),
+              type: 'system' as const
+            }
+          ];
+
+      const nextGroup: StoredGroup = {
+        ...found,
+        members: nextMembers,
+        messages: nextMessages
+      };
+
+      upsertGroupInStorage(nextGroup);
+      setMembers(nextGroup.members);
+      setMessages(nextGroup.messages);
+      setItinerary(nextGroup.itinerary);
+      setPolls(nextGroup.polls);
+      setGroupName(nextGroup.name);
+      setGroupId(nextGroup.id);
+      localStorage.setItem('activeGroupId', nextGroup.id);
+      setAccessCode('');
+    } finally {
+      setIsJoining(false);
+    }
+  };
+
+  const sendMessage = () => {
+    if (!groupId) return;
+    const trimmed = newMessage.trim();
+    if (!trimmed && !pendingAttachment) return;
+
+    const attachmentLabel = pendingAttachment ? `📎 ${pendingAttachment.name}` : '';
+    const nextText = trimmed && attachmentLabel ? `${trimmed}\n${attachmentLabel}` : trimmed || attachmentLabel;
+    const msg: Message = {
+      id: createId(),
+      sender_name: userName,
+      sender_email: userEmail,
+      text: nextText,
+      created_at: new Date().toISOString(),
+      attachment: pendingAttachment ?? undefined
+    };
+
+    setMessages((prev) => {
+      const next = [...prev, msg];
+      const groups = loadGroupsFromStorage();
+      const group = groups[groupId];
+      if (group) {
+        upsertGroupInStorage({ ...group, messages: next });
+      }
+      return next;
     });
-    const data = await res.json();
-    if (data.success) {
-      setGroupId(data.groupId);
-      localStorage.setItem('activeGroupId', data.groupId);
-    } else {
-      setError(data.error);
+
+    socketService.getSocket()?.emit('new-message', msg);
+    setNewMessage('');
+    setPendingAttachment(null);
+    requestAnimationFrame(() => {
+      messageInputRef.current?.focus();
+    });
+  };
+
+  const openFilePicker = () => {
+    fileInputRef.current?.click();
+  };
+
+  const toggleVoiceRecording = async () => {
+    if (isRecording) {
+      mediaRecorderRef.current?.stop();
+      return;
+    }
+
+    if (!navigator?.mediaDevices?.getUserMedia) return;
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioChunksRef.current = [];
+      const recorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = recorder;
+
+      recorder.ondataavailable = (event) => {
+        if (event.data && event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      recorder.onstop = () => {
+        const chunks = audioChunksRef.current;
+        audioChunksRef.current = [];
+        setIsRecording(false);
+
+        const blob = new Blob(chunks, { type: recorder.mimeType || 'audio/webm' });
+        const mimeType = blob.type || 'audio/webm';
+        const filename = `voice_${new Date().toISOString().replace(/:/g, '-')}.webm`;
+
+        const reader = new FileReader();
+        reader.onload = () => {
+          const dataUrl = typeof reader.result === 'string' ? reader.result : undefined;
+          setPendingAttachment({ name: filename, mimeType, dataUrl });
+          requestAnimationFrame(() => {
+            messageInputRef.current?.focus();
+          });
+        };
+        reader.readAsDataURL(blob);
+
+        stream.getTracks().forEach((t) => t.stop());
+      };
+
+      recorder.start();
+      setIsRecording(true);
+    } catch {
+      setIsRecording(false);
     }
   };
 
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMessage.trim() || !groupId) return;
-    socketService.getSocket()?.emit('send-message', {
-      groupId,
-      email: userEmail,
-      text: newMessage
-    });
-    setNewMessage('');
+    sendMessage();
   };
 
   const handleVotePoll = (pollId: string, optionId: string) => {
-    socketService.getSocket()?.emit('vote-poll', {
-      groupId,
-      email: userEmail,
-      optionId
+    if (!groupId) return;
+    setPolls((prev) => {
+      const next = prev.map((poll) => {
+        if (poll.id !== pollId) return poll;
+        return {
+          ...poll,
+          options: poll.options.map((opt) =>
+            opt.id === optionId ? { ...opt, votes: opt.votes + 1 } : opt
+          )
+        };
+      });
+
+      const groups = loadGroupsFromStorage();
+      const group = groups[groupId];
+      if (group) {
+        upsertGroupInStorage({ ...group, polls: next });
+      }
+
+      const updatedPoll = next.find((p) => p.id === pollId);
+      if (updatedPoll) socketService.getSocket()?.emit('poll-updated', updatedPoll);
+      return next;
     });
   };
 
@@ -321,6 +598,13 @@ export const GroupPlanning: React.FC<GroupPlanningProps> = ({ onBack, tripTitle 
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Code</span>
                   <span className="text-sm font-mono font-bold text-slate-900 dark:text-white tracking-widest">{groupId}</span>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => setIsMembersOpen(true)}
+                  className="p-3 bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 rounded-2xl text-slate-500 dark:text-slate-300 transition-colors"
+                >
+                  <UserPlus className="w-5 h-5" />
+                </button>
               </div>
             </div>
           </header>
@@ -365,11 +649,39 @@ export const GroupPlanning: React.FC<GroupPlanningProps> = ({ onBack, tripTitle 
                   >
                     {/* Chat Preview / Recent Activity */}
                     <div className="bg-white dark:bg-slate-900/50 backdrop-blur-md rounded-[2.5rem] border border-slate-100 dark:border-white/5 shadow-sm overflow-hidden flex flex-col h-[600px]">
-                      <div className="p-8 border-b border-slate-100 dark:border-white/5 flex items-center justify-between">
-                        <h3 className="text-lg font-bold text-slate-900 dark:text-white">Group Discussion</h3>
+                      <div className="p-6 border-b border-slate-100 dark:border-white/5 flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                          <div className="w-11 h-11 rounded-2xl bg-blue-600/10 text-blue-600 dark:text-blue-400 flex items-center justify-center font-extrabold">
+                            {groupName.charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <h3 className="text-base font-bold text-slate-900 dark:text-white leading-tight">Group Discussion</h3>
+                            <div className="flex items-center gap-2">
+                              <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{members.length} members</span>
+                            </div>
+                          </div>
+                        </div>
                         <div className="flex items-center gap-2">
-                          <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Live Chat</span>
+                          <button
+                            type="button"
+                            onClick={() => setIsMembersOpen(true)}
+                            className="p-3 rounded-2xl hover:bg-slate-50 dark:hover:bg-white/5 text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors"
+                          >
+                            <Users className="w-5 h-5" />
+                          </button>
+                          <button
+                            type="button"
+                            className="p-3 rounded-2xl hover:bg-slate-50 dark:hover:bg-white/5 text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors"
+                          >
+                            <Search className="w-5 h-5" />
+                          </button>
+                          <button
+                            type="button"
+                            className="p-3 rounded-2xl hover:bg-slate-50 dark:hover:bg-white/5 text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors"
+                          >
+                            <MoreVertical className="w-5 h-5" />
+                          </button>
                         </div>
                       </div>
                       
@@ -397,6 +709,21 @@ export const GroupPlanning: React.FC<GroupPlanningProps> = ({ onBack, tripTitle 
                                         ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-tr-none shadow-xl' 
                                         : 'bg-slate-50 dark:bg-white/5 text-slate-700 dark:text-slate-300 rounded-tl-none border border-slate-100 dark:border-white/5'
                                     }`}>
+                                      {msg.attachment?.dataUrl && msg.attachment.mimeType.startsWith('image/') && (
+                                        <div className="mb-3 overflow-hidden rounded-2xl border border-slate-200/60 dark:border-white/10">
+                                          <img
+                                            src={msg.attachment.dataUrl}
+                                            alt={msg.attachment.name}
+                                            className="w-full max-h-72 object-cover"
+                                            loading="lazy"
+                                          />
+                                        </div>
+                                      )}
+                                      {msg.attachment?.dataUrl && msg.attachment.mimeType.startsWith('audio/') && (
+                                        <div className="mb-3">
+                                          <audio controls src={msg.attachment.dataUrl} className="w-full" />
+                                        </div>
+                                      )}
                                       {msg.text}
                                     </div>
                                     <span className="text-[9px] font-bold text-slate-400 mt-2 block uppercase tracking-widest">
@@ -411,21 +738,97 @@ export const GroupPlanning: React.FC<GroupPlanningProps> = ({ onBack, tripTitle 
                         <div ref={chatEndRef} />
                       </div>
 
-                      <div className="p-8 border-t border-slate-100 dark:border-white/5">
-                        <form onSubmit={handleSendMessage} className="bg-slate-50 dark:bg-white/5 rounded-[2rem] p-2 flex items-center gap-2 border border-slate-100 dark:border-white/5 focus-within:border-blue-500/50 transition-all">
-                          <button type="button" className="p-4 text-slate-400 hover:text-blue-600 transition-colors">
-                            <ImageIcon className="w-5 h-5" />
+                      <div className="p-6 border-t border-slate-100 dark:border-white/5">
+                        <form
+                          onSubmit={handleSendMessage}
+                          className="bg-white dark:bg-slate-900 rounded-[2rem] p-2 flex items-center gap-2 border border-slate-200/70 dark:border-white/10 focus-within:border-blue-500/60 transition-all"
+                        >
+                          <input
+                            ref={fileInputRef}
+                            type="file"
+                            accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt"
+                            className="hidden"
+                            onChange={(event) => {
+                              const file = event.target.files?.[0] || null;
+                              if (!file) {
+                                setPendingAttachment(null);
+                                return;
+                              }
+
+                              const baseAttachment = {
+                                name: file.name,
+                                mimeType: file.type || 'application/octet-stream'
+                              };
+
+                              if (file.type.startsWith('image/')) {
+                                const reader = new FileReader();
+                                reader.onload = () => {
+                                  const dataUrl = typeof reader.result === 'string' ? reader.result : undefined;
+                                  setPendingAttachment({ ...baseAttachment, dataUrl });
+                                };
+                                reader.readAsDataURL(file);
+                              } else {
+                                setPendingAttachment(baseAttachment);
+                              }
+
+                              event.target.value = '';
+                              requestAnimationFrame(() => {
+                                messageInputRef.current?.focus();
+                              });
+                            }}
+                          />
+                          <button
+                            type="button"
+                            onClick={openFilePicker}
+                            className="p-3 rounded-2xl text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-white/5 transition-colors"
+                          >
+                            <Paperclip className="w-5 h-5" />
                           </button>
-                          <input 
-                            type="text" 
+                          <button
+                            type="button"
+                            onClick={toggleVoiceRecording}
+                            className={`p-3 rounded-2xl transition-colors ${
+                              isRecording
+                                ? 'text-red-500 bg-red-500/10 hover:bg-red-500/15'
+                                : 'text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-white/5'
+                            }`}
+                            title={isRecording ? 'Stop recording' : 'Record voice'}
+                          >
+                            <Mic className="w-5 h-5" />
+                          </button>
+                          <button type="button" className="p-3 rounded-2xl text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-white/5 transition-colors">
+                            <Smile className="w-5 h-5" />
+                          </button>
+                          {pendingAttachment && (
+                            <button
+                              type="button"
+                              onClick={() => setPendingAttachment(null)}
+                              className="max-w-[180px] px-3 py-2 rounded-2xl bg-blue-600/10 text-blue-700 dark:text-blue-300 text-xs font-bold flex items-center gap-2 hover:bg-blue-600/15"
+                              title={pendingAttachment.name}
+                            >
+                              <Paperclip className="w-4 h-4" />
+                              <span className="truncate">{pendingAttachment.name}</span>
+                              <X className="w-4 h-4 opacity-70" />
+                            </button>
+                          )}
+                          <input
+                            type="text"
+                            ref={messageInputRef}
                             value={newMessage}
                             onChange={(e) => setNewMessage(e.target.value)}
-                            placeholder="Share your thoughts..." 
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && !e.shiftKey) {
+                                e.preventDefault();
+                                sendMessage();
+                              }
+                            }}
+                            placeholder="Message"
                             className="flex-1 bg-transparent border-none focus:ring-0 text-sm py-4 text-slate-900 dark:text-white"
                           />
-                          <button 
+                          <button
                             type="submit"
-                            className="p-4 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-2xl hover:scale-105 transition-transform shadow-lg"
+                            disabled={!newMessage.trim() && !pendingAttachment}
+                            className="p-4 bg-blue-600 disabled:bg-slate-200 disabled:text-slate-400 dark:disabled:bg-white/10 dark:disabled:text-slate-500 text-white rounded-2xl transition-all shadow-lg shadow-blue-600/15 active:scale-95"
                           >
                             <Send className="w-5 h-5" />
                           </button>
@@ -597,115 +1000,226 @@ export const GroupPlanning: React.FC<GroupPlanningProps> = ({ onBack, tripTitle 
 
   {/* Modals */}
   <AnimatePresence>
-        {(isAddingActivity || isCreatingPoll) && (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm"
-          >
-            <motion.div 
-              initial={{ scale: 0.9, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="bg-white dark:bg-slate-900 w-full max-w-md rounded-[3rem] p-10 shadow-2xl border border-slate-100 dark:border-white/5"
+    {(isAddingActivity || isCreatingPoll || isMembersOpen || isAddMemberOpen) && (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm"
+      >
+        <motion.div
+          initial={{ scale: 0.9, opacity: 0, y: 20 }}
+          animate={{ scale: 1, opacity: 1, y: 0 }}
+          exit={{ scale: 0.9, opacity: 0, y: 20 }}
+          className="bg-white dark:bg-slate-900 w-full max-w-md rounded-[3rem] p-10 shadow-2xl border border-slate-100 dark:border-white/5"
+        >
+          <div className="flex items-center justify-between mb-8">
+            <h3 className="text-2xl font-bold text-slate-900 dark:text-white">
+              {isMembersOpen
+                ? 'Members'
+                : isAddMemberOpen
+                ? 'Add Member'
+                : isAddingActivity
+                ? 'Add Activity'
+                : 'New Poll'}
+            </h3>
+            <button
+              onClick={() => {
+                setIsAddingActivity(false);
+                setIsCreatingPoll(false);
+                setIsMembersOpen(false);
+                setIsAddMemberOpen(false);
+              }}
+              className="p-3 hover:bg-slate-50 dark:hover:bg-white/5 rounded-2xl transition-colors text-slate-400"
             >
-              <div className="flex items-center justify-between mb-8">
-                <h3 className="text-2xl font-bold text-slate-900 dark:text-white">
-                  {isAddingActivity ? 'Add Activity' : 'New Poll'}
-                </h3>
-                <button 
-                  onClick={() => { setIsAddingActivity(false); setIsCreatingPoll(false); }}
-                  className="p-3 hover:bg-slate-50 dark:hover:bg-white/5 rounded-2xl transition-colors text-slate-400"
+              <X className="w-6 h-6" />
+            </button>
+          </div>
+
+          {isMembersOpen ? (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsMembersOpen(false);
+                    setIsAddMemberOpen(true);
+                  }}
+                  className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-blue-600 text-white text-xs font-bold shadow-lg shadow-blue-600/15"
                 >
-                  <X className="w-6 h-6" />
+                  <UserPlus className="w-4 h-4" /> Add Member
+                </button>
+                <button
+                  type="button"
+                  onClick={copyToClipboard}
+                  className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-slate-50 dark:bg-white/5 text-slate-600 dark:text-slate-300 text-xs font-bold"
+                >
+                  {isCopied ? (
+                    <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                  ) : (
+                    <Copy className="w-4 h-4" />
+                  )}
+                  {isCopied ? 'Copied' : 'Copy invite link'}
                 </button>
               </div>
 
-              <div className="space-y-6">
-                <div>
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 block">
-                    {isAddingActivity ? 'Activity Name' : 'Question'}
-                  </label>
-                  <input 
-                    type="text" 
-                    value={isAddingActivity ? newActivity.activity : newPoll.question}
-                    onChange={(e) => isAddingActivity 
-                      ? setNewActivity({...newActivity, activity: e.target.value})
-                      : setNewPoll({...newPoll, question: e.target.value})
-                    }
-                    placeholder={isAddingActivity ? "e.g. Dinner at Pub Street" : "e.g. Where should we eat?"}
-                    className="w-full px-6 py-4 bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                  />
-                </div>
-                
-                {isAddingActivity ? (
-                  <div className="grid grid-cols-2 gap-6">
-                    <div>
-                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 block">Time</label>
-                      <input 
-                        type="time" 
-                        value={newActivity.time}
-                        onChange={(e) => setNewActivity({...newActivity, time: e.target.value})}
-                        className="w-full px-6 py-4 bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all" 
-                      />
+              <div className="space-y-3 max-h-[340px] overflow-y-auto pr-1">
+                {members.map((m) => (
+                  <div
+                    key={m.user_email}
+                    className="flex items-center justify-between rounded-2xl border border-slate-100 dark:border-white/10 bg-slate-50/60 dark:bg-white/5 px-4 py-3"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-2xl bg-slate-200 dark:bg-slate-800 flex items-center justify-center text-xs font-extrabold text-slate-500">
+                        {m.user_name.charAt(0).toUpperCase()}
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-slate-900 dark:text-white leading-tight">{m.user_name}</p>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{m.user_email}</p>
+                      </div>
                     </div>
-                    <div>
-                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 block">Location</label>
-                      <input 
-                        type="text" 
-                        value={newActivity.location}
-                        onChange={(e) => setNewActivity({...newActivity, location: e.target.value})}
-                        placeholder="Location" 
-                        className="w-full px-6 py-4 bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all" 
-                      />
-                    </div>
+                    <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-widest">{m.role}</span>
                   </div>
-                ) : (
-                  <div className="space-y-4">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 block">Options</label>
-                    {newPoll.options.map((opt, idx) => (
-                      <input 
-                        key={idx}
-                        type="text" 
-                        value={opt}
-                        onChange={(e) => {
-                          const opts = [...newPoll.options];
-                          opts[idx] = e.target.value;
-                          setNewPoll({...newPoll, options: opts});
-                        }}
-                        placeholder={`Option ${idx + 1}`} 
-                        className="w-full px-6 py-4 bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all" 
-                      />
-                    ))}
-                    <button 
-                      onClick={() => setNewPoll({...newPoll, options: [...newPoll.options, '']})}
-                      className="text-xs font-bold text-blue-600 flex items-center gap-2 mt-4"
-                    >
-                      <Plus className="w-4 h-4" /> Add Option
-                    </button>
-                  </div>
-                )}
+                ))}
+              </div>
+            </div>
+          ) : isAddMemberOpen ? (
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Name</label>
+                <input
+                  type="text"
+                  value={newMemberName}
+                  onChange={(e) => setNewMemberName(e.target.value)}
+                  placeholder="Friend name"
+                  className="w-full px-6 py-4 bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Email</label>
+                <input
+                  type="email"
+                  value={newMemberEmail}
+                  onChange={(e) => setNewMemberEmail(e.target.value)}
+                  placeholder="friend@email.com"
+                  className="w-full px-6 py-4 bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                />
               </div>
 
               <div className="mt-10 flex gap-4">
-                <button 
-                  onClick={() => { setIsAddingActivity(false); setIsCreatingPoll(false); }}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsAddMemberOpen(false);
+                    setIsMembersOpen(true);
+                  }}
+                  className="flex-1 py-5 bg-slate-50 dark:bg-white/5 text-slate-600 dark:text-slate-300 rounded-2xl text-sm font-bold hover:bg-slate-100 dark:hover:bg-white/10 transition-colors"
+                >
+                  Back
+                </button>
+                <button
+                  type="button"
+                  onClick={addMemberToGroup}
+                  disabled={!newMemberName.trim() || !newMemberEmail.trim()}
+                  className="flex-1 py-5 bg-blue-600 disabled:bg-slate-200 disabled:text-slate-400 dark:disabled:bg-white/10 dark:disabled:text-slate-500 text-white rounded-2xl text-sm font-bold hover:bg-blue-700 transition-colors shadow-xl"
+                >
+                  Add
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              <div>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 block">
+                  {isAddingActivity ? 'Activity Name' : 'Question'}
+                </label>
+                <input
+                  type="text"
+                  value={isAddingActivity ? newActivity.activity : newPoll.question}
+                  onChange={(e) =>
+                    isAddingActivity
+                      ? setNewActivity({ ...newActivity, activity: e.target.value })
+                      : setNewPoll({ ...newPoll, question: e.target.value })
+                  }
+                  placeholder={isAddingActivity ? 'e.g. Dinner at Pub Street' : 'e.g. Where should we eat?'}
+                  className="w-full px-6 py-4 bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                />
+              </div>
+
+              {isAddingActivity ? (
+                <div className="grid grid-cols-2 gap-6">
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 block">Time</label>
+                    <input
+                      type="time"
+                      value={newActivity.time}
+                      onChange={(e) => setNewActivity({ ...newActivity, time: e.target.value })}
+                      className="w-full px-6 py-4 bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 block">Location</label>
+                    <input
+                      type="text"
+                      value={newActivity.location}
+                      onChange={(e) => setNewActivity({ ...newActivity, location: e.target.value })}
+                      placeholder="Location"
+                      className="w-full px-6 py-4 bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 block">Options</label>
+                  {newPoll.options.map((opt, idx) => (
+                    <input
+                      key={idx}
+                      type="text"
+                      value={opt}
+                      onChange={(e) => {
+                        const opts = [...newPoll.options];
+                        opts[idx] = e.target.value;
+                        setNewPoll({ ...newPoll, options: opts });
+                      }}
+                      placeholder={`Option ${idx + 1}`}
+                      className="w-full px-6 py-4 bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                    />
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => setNewPoll({ ...newPoll, options: [...newPoll.options, ''] })}
+                    className="text-xs font-bold text-blue-600 flex items-center gap-2 mt-4"
+                  >
+                    <Plus className="w-4 h-4" /> Add Option
+                  </button>
+                </div>
+              )}
+
+              <div className="mt-10 flex gap-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsAddingActivity(false);
+                    setIsCreatingPoll(false);
+                  }}
                   className="flex-1 py-5 bg-slate-50 dark:bg-white/5 text-slate-600 dark:text-slate-400 rounded-2xl text-sm font-bold hover:bg-slate-100 dark:hover:bg-white/10 transition-colors"
                 >
                   Cancel
                 </button>
-                <button 
+                <button
+                  type="button"
                   onClick={isAddingActivity ? handleAddActivity : handleCreatePoll}
                   className="flex-1 py-5 bg-blue-600 text-white rounded-2xl text-sm font-bold hover:bg-blue-700 transition-colors shadow-xl"
                 >
                   {isAddingActivity ? 'Add Activity' : 'Create Poll'}
                 </button>
               </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            </div>
+          )}
+        </motion.div>
+      </motion.div>
+    )}
+  </AnimatePresence>
     </div>
   );
 };

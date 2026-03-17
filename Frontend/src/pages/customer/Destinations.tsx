@@ -96,13 +96,98 @@ const buildRoomOptions = (nightlyRate: number): RoomOption[] => [
   }
 ];
 
+const getGoogleMapsSearchUrl = (query: string): string =>
+  `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+
 export const Destinations: React.FC<HotelsPageProps> = ({ tripData, onBack, onSelectHotel }) => {
   const ITEMS_PER_PAGE = 4;
   const [priceRange, setPriceRange] = useState(2000);
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedStars, setSelectedStars] = useState<number | null>(null);
+  const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
   const [selectedRoomByHotel, setSelectedRoomByHotel] = useState<Record<number, string>>({});
   const [guestsByHotel, setGuestsByHotel] = useState<Record<number, number>>({});
   const [currentPage, setCurrentPage] = useState(1);
+
+  const language = (() => {
+    try {
+      return localStorage.getItem('customer_language') || 'English (US)';
+    } catch {
+      return 'English (US)';
+    }
+  })();
+
+  const isKhmer = language === 'Khmer' || language === 'ខ្មែរ';
+
+  const t = (key: string): string => {
+    const km: Record<string, string> = {
+      curated_collection: 'បញ្ជីជ្រើសរើសពិសេស',
+      prestige_stays: 'ស្នាក់នៅប្រណិត',
+      prestige_stays_desc: 'ស្វែងរកសណ្ឋាគារ និងរមណីយដ្ឋានដែលបានជ្រើសរើសសម្រាប់ភាពផាសុកភាព រចនាប័ទ្ម និងទិដ្ឋភាពដ៏អស្ចារ្យ។',
+      where_to_next: 'ទៅណាបន្ទាប់?',
+      explore: 'ស្វែងរក',
+      home: 'ទំព័រដើម',
+      hotels_resorts: 'សណ្ឋាគារ និង រមណីយដ្ឋាន',
+      filters: 'តម្រង',
+      nightly_rate: 'តម្លៃក្នុងមួយយប់',
+      up_to: 'រហូតដល់',
+      star_rating: 'ចំនួនផ្កាយ',
+      stars: 'ផ្កាយ',
+      amenities: 'សេវាកម្ម',
+      view_on_map: 'មើលលើផែនទី',
+      showing: 'បង្ហាញ',
+      property_singular: 'ទីតាំង',
+      property_plural: 'ទីតាំង',
+      for_query: 'សម្រាប់',
+      sort_by: 'តម្រៀបតាម',
+      recommended: 'ផ្ដល់អនុសាសន៍',
+      exceptional_stay: 'ការស្នាក់នៅពិសេស',
+      prestige_stay_badge: 'ស្នាក់នៅប្រណិត',
+      breakfast_included: 'អាហារពេលព្រឹករួមបញ្ចូល',
+      quick_booking: 'ការកក់រហ័ស',
+      nights_estimate: 'ប៉ាន់ស្មានចំនួនយប់',
+      night: 'យប់',
+      nights: 'យប់',
+      room_type: 'ប្រភេទបន្ទប់',
+      guests: 'ភ្ញៀវ',
+      night_suffix: '/យប់',
+    };
+
+    const en: Record<string, string> = {
+      curated_collection: 'Curated Collection',
+      prestige_stays: 'The Prestige Stays',
+      prestige_stays_desc: 'Discover signature hotels and resort experiences tailored for comfort, style, and unforgettable city views.',
+      where_to_next: 'Where to next?',
+      explore: 'Explore',
+      home: 'Home',
+      hotels_resorts: 'Hotels & Resorts',
+      filters: 'Filters',
+      nightly_rate: 'Nightly Rate',
+      up_to: 'Up to',
+      star_rating: 'Star Rating',
+      stars: 'Stars',
+      amenities: 'Amenities',
+      view_on_map: 'View on Map',
+      showing: 'Showing',
+      property_singular: 'Property',
+      property_plural: 'Properties',
+      for_query: 'for',
+      sort_by: 'Sort By',
+      recommended: 'Recommended',
+      exceptional_stay: 'Exceptional Stay',
+      prestige_stay_badge: 'Prestige Stay',
+      breakfast_included: 'Breakfast Included',
+      quick_booking: 'Quick Booking',
+      nights_estimate: 'Nights Estimate',
+      night: 'Night',
+      nights: 'Nights',
+      room_type: 'Room Type',
+      guests: 'Guests',
+      night_suffix: '/night',
+    };
+
+    return (isKhmer ? km : en)[key] ?? key;
+  };
   
   const hotels = ALL_HOTELS;
   const defaultGuests = parseGuestCount(tripData?.guests);
@@ -111,10 +196,24 @@ export const Destinations: React.FC<HotelsPageProps> = ({ tripData, onBack, onSe
   const queryTokens = normalizeSearchText(searchQuery).trim().split(/\s+/).filter(Boolean);
   const filteredHotels = hotels.filter((hotel) => {
     if (parsePrice(hotel.price) > priceRange) return false;
+
+    if (selectedStars !== null) {
+      const hotelRating = typeof hotel.rating === 'number' ? hotel.rating : parseFloat(String(hotel.rating)) || 0;
+      if (hotelRating < selectedStars) return false;
+    }
+
+    if (selectedAmenities.length > 0) {
+      const hotelAmenities = (hotel.amenities ?? []).map((amenity) => normalizeSearchText(amenity));
+      const matchesAmenities = selectedAmenities.every((amenity) =>
+        hotelAmenities.includes(normalizeSearchText(amenity))
+      );
+      if (!matchesAmenities) return false;
+    }
+
     if (queryTokens.length === 0) return true;
 
     const searchableText = normalizeSearchText(
-      [hotel.name, hotel.location, hotel.description, hotel.amenities.join(' ')].join(' ')
+      [hotel.name, hotel.location, hotel.description || '', (hotel.amenities ?? []).join(' ')].join(' ')
     );
 
     return queryTokens.every((token) => searchableText.includes(token));
@@ -126,6 +225,20 @@ export const Destinations: React.FC<HotelsPageProps> = ({ tripData, onBack, onSe
     currentPage * ITEMS_PER_PAGE
   );
 
+  const openMapForQuery = (query: string) => {
+    const trimmedQuery = query.trim();
+    if (!trimmedQuery) return;
+    window.open(getGoogleMapsSearchUrl(trimmedQuery), '_blank', 'noopener,noreferrer');
+  };
+
+  const openMapForHotel = (hotel: any) => {
+    const hotelName = String(hotel?.name || '').trim();
+    const hotelLocation = String(hotel?.location || '').trim();
+    const query = [hotelName, hotelLocation].filter(Boolean).join(', ');
+    if (!query) return;
+    openMapForQuery(query);
+  };
+
   const handlePageChange = (nextPage: number) => {
     const safePage = Math.min(Math.max(nextPage, 1), totalPages);
     setCurrentPage(safePage);
@@ -134,7 +247,7 @@ export const Destinations: React.FC<HotelsPageProps> = ({ tripData, onBack, onSe
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, priceRange]);
+  }, [searchQuery, priceRange, selectedStars, selectedAmenities]);
 
   useEffect(() => {
     if (currentPage > totalPages) {
@@ -190,11 +303,9 @@ export const Destinations: React.FC<HotelsPageProps> = ({ tripData, onBack, onSe
             animate={{ opacity: 1, y: 0 }}
             className="max-w-4xl"
           >
-            <p className="text-white/85 text-[11px] font-bold uppercase tracking-[0.45em] mb-5">Curated Collection</p>
-            <h1 className="text-5xl md:text-7xl lg:text-8xl leading-[0.95] font-serif italic text-white mb-8">The Prestige Stays</h1>
-            <p className="text-white/80 text-base md:text-lg mb-8 max-w-2xl mx-auto">
-              Discover signature hotels and resort experiences tailored for comfort, style, and unforgettable city views.
-            </p>
+            <p className="text-white/85 text-[11px] font-bold uppercase tracking-[0.45em] mb-5">{t('curated_collection')}</p>
+            <h1 className="text-5xl md:text-7xl lg:text-8xl leading-[0.95] font-serif italic text-white mb-8">{t('prestige_stays')}</h1>
+            <p className="text-white/80 text-base md:text-lg mb-8 max-w-2xl mx-auto">{t('prestige_stays_desc')}</p>
             <div className="flex items-center gap-4 bg-white/12 backdrop-blur-xl p-3 rounded-3xl border border-white/25 shadow-2xl">
               <div className="flex-1 flex items-center gap-3 px-4 min-h-[52px]">
                 <Search className="w-4 h-4 text-white/60" />
@@ -207,7 +318,7 @@ export const Destinations: React.FC<HotelsPageProps> = ({ tripData, onBack, onSe
                       document.getElementById('hotel-results')?.scrollIntoView({ behavior: 'smooth' });
                     }
                   }}
-                  placeholder="Where to next?" 
+                  placeholder={t('where_to_next')} 
                   className="bg-transparent border-none focus:ring-0 text-white placeholder:text-white/60 text-sm w-full"
                 />
               </div>
@@ -217,7 +328,7 @@ export const Destinations: React.FC<HotelsPageProps> = ({ tripData, onBack, onSe
                 }}
                 className="bg-white text-slate-900 px-8 py-3 rounded-2xl text-xs font-bold hover:bg-blue-50 transition-colors"
               >
-                Explore
+                {t('explore')}
               </button>
             </div>
           </motion.div>
@@ -227,9 +338,9 @@ export const Destinations: React.FC<HotelsPageProps> = ({ tripData, onBack, onSe
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {/* Breadcrumbs */}
         <nav className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-12">
-          <button onClick={onBack} className="hover:text-blue-600 transition-colors">Home</button>
+          <button onClick={onBack} className="hover:text-blue-600 transition-colors">{t('home')}</button>
           <span>/</span>
-          <span className="text-slate-900 dark:text-white">Hotels & Resorts</span>
+          <span className="text-slate-900 dark:text-white">{t('hotels_resorts')}</span>
         </nav>
 
         <div className="flex flex-col lg:flex-row gap-16">
@@ -237,7 +348,7 @@ export const Destinations: React.FC<HotelsPageProps> = ({ tripData, onBack, onSe
           <aside className="w-full lg:w-72 space-y-12">
             <div>
               <div className="flex items-center justify-between mb-8">
-                <h2 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-widest">Filters</h2>
+                <h2 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-widest">{t('filters')}</h2>
                 <SlidersHorizontal className="w-4 h-4 text-slate-400" />
               </div>
               
@@ -245,8 +356,8 @@ export const Destinations: React.FC<HotelsPageProps> = ({ tripData, onBack, onSe
                 {/* Price Range */}
                 <div className="space-y-6">
                   <div className="flex justify-between items-end">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Nightly Rate</label>
-                    <span className="text-sm font-serif italic text-slate-900 dark:text-white">Up to ${priceRange}</span>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{t('nightly_rate')}</label>
+                    <span className="text-sm font-serif italic text-slate-900 dark:text-white">{t('up_to')} ${priceRange}</span>
                   </div>
                   <input 
                     type="range" 
@@ -261,11 +372,15 @@ export const Destinations: React.FC<HotelsPageProps> = ({ tripData, onBack, onSe
 
                 {/* Star Rating */}
                 <div className="space-y-6">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Star Rating</label>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{t('star_rating')}</label>
                   <div className="flex flex-wrap gap-2">
-                    {[5, 4, 3].map(star => (
-                      <button key={star} className={`px-4 py-2 rounded-xl text-[10px] font-bold border transition-all ${star === 5 ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 border-slate-900 dark:border-white' : 'border-slate-100 dark:border-slate-800 text-slate-400 hover:border-slate-300'}`}>
-                        {star} Stars
+                    {[5, 4, 3].map((star) => (
+                      <button
+                        key={star}
+                        onClick={() => setSelectedStars((prev) => (prev === star ? null : star))}
+                        className={`px-4 py-2 rounded-xl text-[10px] font-bold border transition-all ${selectedStars === star ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 border-slate-900 dark:border-white' : 'border-slate-100 dark:border-slate-800 text-slate-400 hover:border-slate-300'}`}
+                      >
+                        {star} {t('stars')}
                       </button>
                     ))}
                   </div>
@@ -273,23 +388,49 @@ export const Destinations: React.FC<HotelsPageProps> = ({ tripData, onBack, onSe
 
                 {/* Amenities */}
                 <div className="space-y-6">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Amenities</label>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{t('amenities')}</label>
                   <div className="space-y-3">
-                    {["Michelin Dining", "Private Spa", "Rooftop Pool", "Butler Service"].map(amenity => (
-                      <label key={amenity} className="flex items-center gap-3 cursor-pointer group">
-                        <div className="w-4 h-4 rounded border border-slate-200 dark:border-slate-700 flex items-center justify-center group-hover:border-blue-500 transition-colors">
-                          <div className="w-2 h-2 bg-blue-500 rounded-sm opacity-0 group-hover:opacity-20" />
-                        </div>
-                        <span className="text-xs text-slate-600 dark:text-slate-400 font-medium">{amenity}</span>
-                      </label>
-                    ))}
+                    {["Michelin Dining", "Private Spa", "Rooftop Pool", "Butler Service"].map((amenity) => {
+                      const checked = selectedAmenities.includes(amenity);
+                      return (
+                        <label key={amenity} className="flex items-center gap-3 cursor-pointer group select-none">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() =>
+                              setSelectedAmenities((prev) =>
+                                prev.includes(amenity)
+                                  ? prev.filter((item) => item !== amenity)
+                                  : [...prev, amenity]
+                              )
+                            }
+                            className="w-4 h-4 rounded border-slate-200 text-blue-600 focus:ring-blue-500"
+                          />
+                          <span className="text-xs text-slate-600 dark:text-slate-400 font-medium">{amenity}</span>
+                        </label>
+                      );
+                    })}
                   </div>
                 </div>
               </div>
             </div>
 
             {/* Map Preview */}
-            <div className="relative rounded-3xl overflow-hidden aspect-square group cursor-pointer">
+            <div
+              className="relative rounded-3xl overflow-hidden aspect-square group cursor-pointer"
+              onClick={() => {
+                const fallbackQuery = searchQuery.trim() || tripData?.location || tripData?.destination || '';
+                openMapForQuery(String(fallbackQuery || 'Cambodia'));
+              }}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  const fallbackQuery = searchQuery.trim() || tripData?.location || tripData?.destination || '';
+                  openMapForQuery(String(fallbackQuery || 'Cambodia'));
+                }
+              }}
+            >
               <img 
                 src="https://images.unsplash.com/photo-1524661135-423995f22d0b?auto=format&fit=crop&q=80&w=800" 
                 alt="Map Preview" 
@@ -299,7 +440,7 @@ export const Destinations: React.FC<HotelsPageProps> = ({ tripData, onBack, onSe
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="bg-white/90 backdrop-blur-md px-6 py-3 rounded-2xl shadow-xl flex items-center gap-3">
                   <MapPin className="w-4 h-4 text-slate-900" />
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-slate-900">View on Map</span>
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-slate-900">{t('view_on_map')}</span>
                 </div>
               </div>
             </div>
@@ -309,13 +450,14 @@ export const Destinations: React.FC<HotelsPageProps> = ({ tripData, onBack, onSe
           <div id="hotel-results" className="flex-1 space-y-12">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-8">
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">
-                Showing {filteredHotels.length} {filteredHotels.length === 1 ? 'Property' : 'Properties'}
-                {searchQuery.trim() ? ` for "${searchQuery.trim()}"` : ''}
+                {t('showing')} {filteredHotels.length}{' '}
+                {filteredHotels.length === 1 ? t('property_singular') : t('property_plural')}
+                {searchQuery.trim() ? ` ${t('for_query')} "${searchQuery.trim()}"` : ''}
               </p>
               <div className="flex items-center gap-4">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Sort By</span>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{t('sort_by')}</span>
                 <button className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                  Recommended <Filter className="w-3 h-3" />
+                  {t('recommended')} <Filter className="w-3 h-3" />
                 </button>
               </div>
             </div>
@@ -361,7 +503,7 @@ export const Destinations: React.FC<HotelsPageProps> = ({ tripData, onBack, onSe
                       />
                       <div className="absolute top-8 left-8">
                         <span className="bg-white/90 backdrop-blur-md text-slate-900 text-[10px] font-bold px-4 py-2 rounded-xl shadow-xl uppercase tracking-widest">
-                          Prestige Stay
+                          {t('prestige_stay_badge')}
                         </span>
                       </div>
                       <button className="absolute top-8 right-8 p-3 bg-white/90 backdrop-blur-md rounded-full text-slate-400 hover:text-red-500 transition-all shadow-xl">
@@ -369,7 +511,7 @@ export const Destinations: React.FC<HotelsPageProps> = ({ tripData, onBack, onSe
                       </button>
                       <div className="absolute bottom-8 left-8 flex gap-2">
                         <span className="bg-emerald-500/90 backdrop-blur-md text-white text-[9px] font-bold px-3 py-1.5 rounded-lg uppercase tracking-widest">
-                          Breakfast Included
+                          {t('breakfast_included')}
                         </span>
                       </div>
                     </div>
@@ -380,8 +522,10 @@ export const Destinations: React.FC<HotelsPageProps> = ({ tripData, onBack, onSe
                         <div className="flex items-center justify-between mb-6">
                           <div className="flex items-center gap-3">
                             <div className="text-left">
-                              <p className="text-[10px] font-bold text-slate-900 dark:text-white uppercase tracking-widest">Exceptional Stay</p>
-                              <p className="text-[9px] text-slate-400 font-medium uppercase tracking-widest">{hotel.reviews}</p>
+                              <p className="text-[10px] font-bold text-slate-900 dark:text-white uppercase tracking-widest">{t('exceptional_stay')}</p>
+                              <p className="text-[9px] text-slate-400 font-medium uppercase tracking-widest">
+                                {typeof hotel.rating === 'number' ? `${hotel.rating.toFixed(1)} ★` : ''}
+                              </p>
                             </div>
                           </div>
                         </div>
@@ -392,17 +536,21 @@ export const Destinations: React.FC<HotelsPageProps> = ({ tripData, onBack, onSe
                         >
                           {hotel.name}
                         </h3>
-                        <div className="flex items-center gap-2 text-slate-400 mb-6">
+                        <button
+                          type="button"
+                          onClick={() => openMapForHotel(hotel)}
+                          className="flex items-center gap-2 text-slate-400 mb-6 hover:text-blue-600 transition-colors text-left"
+                        >
                           <MapPin className="w-3 h-3" />
                           <span className="text-[10px] font-bold uppercase tracking-widest">{hotel.location}</span>
-                        </div>
+                        </button>
                         
                         <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed mb-8 line-clamp-2">
-                          {hotel.description}
+                          {hotel.description || ''}
                         </p>
 
                         <div className="flex flex-wrap gap-3 mb-10">
-                          {hotel.amenities.map((amenity, i) => (
+                          {(hotel.amenities ?? []).map((amenity, i) => (
                             <div key={i} className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
                               <CheckCircle2 className="w-3 h-3 text-slate-300" />
                               <span className="text-[10px] font-bold uppercase tracking-widest">{amenity}</span>
@@ -412,14 +560,14 @@ export const Destinations: React.FC<HotelsPageProps> = ({ tripData, onBack, onSe
 
                         <div className="mb-8 rounded-2xl border border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 p-4">
                           <div className="flex items-center justify-between mb-3">
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Quick Booking</p>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{t('quick_booking')}</p>
                             <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest">
-                              {tripNights} {tripNights === 1 ? 'Night' : 'Nights'} Estimate
+                              {tripNights} {tripNights === 1 ? t('night') : t('nights')} {t('nights_estimate')}
                             </p>
                           </div>
                           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                             <div className="md:col-span-2">
-                              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Room Type</p>
+                              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">{t('room_type')}</p>
                               <select
                                 value={selectedRoom.id}
                                 onChange={(e) => {
@@ -435,13 +583,13 @@ export const Destinations: React.FC<HotelsPageProps> = ({ tripData, onBack, onSe
                               >
                                 {roomOptions.map((room) => (
                                   <option key={room.id} value={room.id}>
-                                    {room.name} • ${room.basePrice}/night
+                                    {room.name} • ${room.basePrice}{t('night_suffix')}
                                   </option>
                                 ))}
                               </select>
                             </div>
                             <div>
-                              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Guests</p>
+                              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">{t('guests')}</p>
                               <div className="flex items-center justify-between rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-2">
                                 <button
                                   onClick={() =>
@@ -550,4 +698,3 @@ export const Destinations: React.FC<HotelsPageProps> = ({ tripData, onBack, onSe
     </div>
   );
 };
-

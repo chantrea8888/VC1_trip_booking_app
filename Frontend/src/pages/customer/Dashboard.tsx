@@ -1,20 +1,7 @@
-<<<<<<< HEAD
-export default function Dashboard() {
-  return (
-    <section className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Customer Dashboard</h1>
-        <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-          Welcome to your dashboard. Manage bookings, view travel history, and explore destinations.
-        </p>
-      </div>
-    </section>
-  );
-}
-=======
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { format, addDays } from 'date-fns';
+import { Link } from 'react-router-dom';
 import { 
   Search, 
   Calendar, 
@@ -46,6 +33,8 @@ import {
   isAfter
 } from 'date-fns';
 import { ALL_HOTELS } from '../../data/hotels';
+import { useAuth } from '../../context/AuthContext';
+import { bookingService } from '@/src/services/bookingService';
 
 // --- Sub-components (could be further split) ---
 const normalizeSearchText = (value: string): string =>
@@ -327,7 +316,7 @@ const Hero = ({
                   {dates.start && dates.end 
                     ? `${format(dates.start, 'MMM d')} - ${format(dates.end, 'MMM d')}` 
                     : dates.start 
-                      ? `${format(dates.start, 'MMM d')} - ...`
+                      ? `${format(dates.start, 'MMM d')} - ...` 
                       : 'Add Dates'}
                 </button>
                 
@@ -480,7 +469,6 @@ const Hero = ({
     </section>
   );
 };
-
 
 const Categories = ({ 
   onHotelsClick, 
@@ -776,7 +764,7 @@ const AngkorWatGallery = () => {
     {
       url: "https://images.unsplash.com/photo-1500048993953-d23a436266cf?auto=format&fit=crop&q=80&w=1200",
       title: "Main Temple Reflection",
-      desc: "The iconic five towers reflected in the northern pond at sunrise."
+      desc: "The iconic five towers reflected in northern pond at sunrise."
     },
     {
       url: "https://images.unsplash.com/photo-1528127269322-539801943592?auto=format&fit=crop&q=80&w=1200",
@@ -786,12 +774,12 @@ const AngkorWatGallery = () => {
     {
       url: "https://images.unsplash.com/photo-1540611025311-01df3cef54b5?auto=format&fit=crop&q=80&w=1200",
       title: "Ta Prohm Jungle Temple",
-      desc: "Where nature and architecture merge, famous for the giant silk-cotton trees."
+      desc: "Where nature and architecture merge, famous for giant silk-cotton trees."
     },
     {
       url: "https://images.unsplash.com/photo-1571401835393-8c5f35328320?auto=format&fit=crop&q=80&w=1200",
       title: "Aerial View of Angkor",
-      desc: "A breathtaking perspective of the world's largest religious monument."
+      desc: "A breathtaking perspective of world's largest religious monument."
     }
   ];
 
@@ -800,7 +788,7 @@ const AngkorWatGallery = () => {
       <div className="text-center mb-12">
         <h2 className="text-3xl font-bold text-slate-900 dark:text-white mb-4">The Majesty of Angkor Wat</h2>
         <p className="text-slate-500 dark:text-slate-400 max-w-2xl mx-auto">
-          Explore the architectural masterpiece of the Khmer Empire. A UNESCO World Heritage site that stands as a testament to human ingenuity and devotion.
+          Explore to architectural masterpiece of Khmer Empire. A UNESCO World Heritage site that stands as a testament to human ingenuity and devotion.
         </p>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -955,7 +943,7 @@ const Newsletter = () => {
           >
             <span className="text-[10px] font-bold text-white/40 dark:text-slate-400 uppercase tracking-[0.4em] mb-6 block">Stay Inspired</span>
             <h2 className="text-4xl md:text-6xl font-bold text-white dark:text-slate-900 mb-8 tracking-tight">
-              Get the <span className="italic font-serif font-light">latest</span> travel <br /> stories & offers
+              Get <span className="italic font-serif font-light">latest</span> travel <br /> stories & offers
             </h2>
             
             <AnimatePresence mode="wait">
@@ -1028,6 +1016,31 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [hasSearched, setHasSearched] = useState(false);
+  const { user, isAuthenticated } = useAuth();
+  const [myBookings, setMyBookings] = useState<any[]>([]);
+  const [myBookingsLoading, setMyBookingsLoading] = useState(false);
+
+  useEffect(() => {
+    const run = async () => {
+      if (!isAuthenticated || user?.role !== 'customer' || !user?.id) {
+        setMyBookings([]);
+        return;
+      }
+
+      try {
+        setMyBookingsLoading(true);
+        const response = await bookingService.getCustomerBookings(user.id);
+        const data = Array.isArray(response.data) ? response.data : [];
+        setMyBookings(data.slice(0, 3));
+      } catch {
+        setMyBookings([]);
+      } finally {
+        setMyBookingsLoading(false);
+      }
+    };
+
+    run();
+  }, [isAuthenticated, user?.id, user?.role]);
 
   useEffect(() => {
     setLocation(String(tripData?.destination?.name || ''));
@@ -1073,6 +1086,94 @@ export const Dashboard: React.FC<DashboardProps> = ({
         setLocation={setLocation}
         tripData={tripData}
       />
+
+      <section className="py-10 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-1 card p-6">
+            <h3 className="text-sm font-extrabold tracking-widest uppercase text-slate-500 dark:text-slate-300">
+              Booking
+            </h3>
+            <p className="mt-3 text-xl font-extrabold text-slate-900 dark:text-white">Book a trip</p>
+            <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+              Choose a destination, transport, date, and travelers.
+            </p>
+            <div className="mt-6 flex gap-3">
+              {isAuthenticated && user?.role === 'customer' ? (
+                <Link
+                  to="/customer/book"
+                  className="h-11 px-5 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-700 transition-colors inline-flex items-center justify-center"
+                >
+                  Create booking
+                </Link>
+              ) : (
+                <Link
+                  to="/login"
+                  className="h-11 px-5 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-700 transition-colors inline-flex items-center justify-center"
+                >
+                  Login to book
+                </Link>
+              )}
+              <Link
+                to="/customer/bookings"
+                className="h-11 px-5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors inline-flex items-center justify-center"
+              >
+                My bookings
+              </Link>
+            </div>
+          </div>
+
+          <div className="lg:col-span-2 card p-6">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-sm font-extrabold tracking-widest uppercase text-slate-500 dark:text-slate-300">
+                  Recent bookings
+                </h3>
+                <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+                  Your latest reservations appear here.
+                </p>
+              </div>
+              <Link to="/customer/bookings" className="text-sm font-bold text-blue-600 hover:text-blue-700">
+                View all
+              </Link>
+            </div>
+
+            <div className="mt-6">
+              {!isAuthenticated || user?.role !== 'customer' ? (
+                <div className="py-10 text-center text-slate-600 dark:text-slate-300 font-semibold">
+                  Login as a customer to see your bookings.
+                </div>
+              ) : myBookingsLoading ? (
+                <div className="flex justify-center items-center py-10">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                </div>
+              ) : myBookings.length === 0 ? (
+                <div className="py-10 text-center text-slate-600 dark:text-slate-300 font-semibold">
+                  No bookings yet.
+                </div>
+              ) : (
+                <div className="divide-y divide-slate-100 dark:divide-slate-800 rounded-xl overflow-hidden border border-slate-200/60 dark:border-slate-800/60">
+                  {myBookings.map((b) => (
+                    <div key={b.id} className="px-5 py-4 bg-white/70 dark:bg-slate-900/40">
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="min-w-0">
+                          <p className="font-extrabold text-slate-900 dark:text-white truncate">{b.service}</p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{b.route}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xs font-bold text-slate-500 dark:text-slate-400">{b.id}</p>
+                          <p className="text-xs font-bold text-slate-700 dark:text-slate-200 capitalize">
+                            {String(b.status ?? '').toLowerCase()}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </section>
       
       <AnimatePresence>
         {hasSearched && (
@@ -1160,4 +1261,5 @@ export const Dashboard: React.FC<DashboardProps> = ({
     </main>
   );
 };
->>>>>>> chantrea/feature-customer
+
+export default Dashboard;

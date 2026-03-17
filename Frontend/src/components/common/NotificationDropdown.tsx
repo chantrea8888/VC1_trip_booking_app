@@ -57,15 +57,19 @@ const notifications: AdminNotification[] = [
 interface NotificationDropdownProps {
   isOpen: boolean;
   onClose: () => void;
+  notifications?: AdminNotification[];
   onNotificationClick?: (notification: AdminNotification) => void;
 }
 
 export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
   isOpen,
   onClose,
+  notifications: notificationsProp,
   onNotificationClick,
 }) => {
   if (!isOpen) return null;
+
+  const items = notificationsProp ?? notifications;
 
   const getIcon = (type: string) => {
     switch (type) {
@@ -96,9 +100,9 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
         </div>
 
         <div className="max-h-[420px] overflow-y-auto">
-          {notifications.length > 0 ? (
+          {items.length > 0 ? (
             <div className="divide-y divide-slate-200 dark:divide-slate-800">
-              {notifications.map((notif) => (
+              {items.map((notif) => (
                 <div 
                   key={notif.id} 
                   onClick={() => onNotificationClick?.(notif)}

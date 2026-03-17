@@ -78,6 +78,20 @@ export const Payment: React.FC<PaymentProps> = ({ tripData, onBackToHome, select
     if (!receiptRef.current) return;
     
     try {
+      const loadLib = async (name: string) => {
+        const importer = Function('n', 'return import(n)') as (n: string) => Promise<any>;
+        return importer(name);
+      };
+
+      const [html2canvasMod, jsPDFMod] = await Promise.all([
+        loadLib('html2canvas'),
+        loadLib('jspdf'),
+      ]);
+
+      const html2canvas = html2canvasMod?.default;
+      const jsPDF = jsPDFMod?.default;
+      if (!html2canvas || !jsPDF) throw new Error('Missing PDF dependencies');
+
       const element = receiptRef.current;
       const canvas = await html2canvas(element, {
         scale: 2,
@@ -624,3 +638,5 @@ export const Payment: React.FC<PaymentProps> = ({ tripData, onBackToHome, select
     </div>
   );
 };
+
+export default Payment;

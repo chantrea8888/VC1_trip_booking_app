@@ -24,6 +24,7 @@ const AppContent = () => {
   const [selectedHotel, setSelectedHotel] = useState<any | null>(null);
   const [selectedActivityIds, setSelectedActivityIds] = useState<number[]>([1, 2]);
   const isAdminUser = user?.role === 'admin';
+  const isOwnerUser = user?.role === 'owner';
   
   // Initialize real-time dates
   const today = new Date('2026-03-03T00:34:03-08:00');
@@ -102,7 +103,7 @@ const AppContent = () => {
 
   return (
     <div className="min-h-screen bg-white dark:bg-slate-900 transition-colors duration-300">
-      {!isAdminUser && (
+      {!isAdminUser && !isOwnerUser && (
         <Navbar
           onLoginClick={() => setView('login')}
           user={user}
@@ -150,7 +151,7 @@ const AppContent = () => {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.22, ease: 'easeOut' }}
-            className="pt-24"
+            className={isOwnerUser ? undefined : "pt-24"}
           >
             <AppRoutes
               view={mainView}

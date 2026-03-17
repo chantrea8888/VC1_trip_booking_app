@@ -26,14 +26,16 @@ import {
   Save
 } from 'lucide-react';
 import { AVAILABLE_ACTIVITIES } from '../../data/activities';
+import { bookingService } from '@/src/services/bookingService'; // Add this import
+import { useAuth } from '../../context/AuthContext';
 
 interface BookingHistoryProps {
   onPaymentClick: () => void;
   onHotelClick: () => void;
   onRentalClick: () => void;
   onGroupPlanningClick: () => void;
-  selectedActivityIds: number[];
-  setSelectedActivityIds: (ids: number[]) => void;
+  selectedActivityIds: number[] | undefined;
+  setSelectedActivityIds: React.Dispatch<React.SetStateAction<number[] | undefined>>;
   tripData: any;
   setTripData: React.Dispatch<React.SetStateAction<any>>;
 }
@@ -49,6 +51,7 @@ export const BookingHistory: React.FC<BookingHistoryProps> = ({
   setTripData
 }) => {
   const availableActivities = AVAILABLE_ACTIVITIES;
+  const { user } = useAuth();
 
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
@@ -58,7 +61,14 @@ export const BookingHistory: React.FC<BookingHistoryProps> = ({
     guests: tripData.guests
   });
 
-  const selectedActivities = availableActivities.filter(a => selectedActivityIds.includes(a.id));
+  // Add states for booking submission
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [bookingError, setBookingError] = useState<string | null>(null);
+  const [bookingSuccess, setBookingSuccess] = useState(false);
+
+  const selectedActivities = availableActivities.filter(a => 
+    selectedActivityIds?.includes(a.id) || false
+  );
   const activitiesTotal = selectedActivities.reduce((sum, a) => sum + (a.price * a.guests), 0);
   
   const financialSummary = {
@@ -68,6 +78,104 @@ export const BookingHistory: React.FC<BookingHistoryProps> = ({
     taxes: (tripData.hotel.price + (tripData.rental.isBooked ? tripData.rental.price : 0) + activitiesTotal) * 0.05,
     serviceFee: 5.00,
     total: tripData.hotel.price + (tripData.rental.isBooked ? tripData.rental.price : 0) + activitiesTotal + ((tripData.hotel.price + (tripData.rental.isBooked ? tripData.rental.price : 0) + activitiesTotal) * 0.05) + 5.00
+  };
+
+  // Function to save booking to database
+  const saveBookingToDatabase = async () => {
+    try {
+      setIsSubmitting(true);
+      setBookingError(null);
+      
+      // Parse dates from "Mar 15 - Mar 18" format
+      const dates = tripData.dates.split(' - ');
+      const startDate = dates[0];
+      const endDate = dates[1] || dates[0];
+      
+      // Get current year
+      const currentYear = new Date().getFullYear();
+      
+      // Format dates properly for database (assuming format like "Mar 15")
+      const formatDateForDB = (dateStr: string) => {
+        return `${dateStr}, ${currentYear}`;
+      };
+      
+      // Create booking ID
+      const bookingId = `BK-${Date.now().toString().slice(-4)}`;
+      
+      // Prefer authenticated user info so "guest" matches the users table name
+      const guestName = user?.name || tripData.guestName || 'Guest User';
+      const guestEmail = user?.email || tripData.customerEmail || 'guest@example.com';
+      const guestPhone = user?.phone || tripData.customerPhone || '+855 12 345 678';
+      
+      // Prepare booking data for database
+      const bookingPayload = {
+        id: bookingId,
+        guest: guestName,
+        service: tripData.hotel.name,
+        route: tripData.hotel.location,
+        dateStart: formatDateForDB(startDate),
+        dateEnd: formatDateForDB(endDate),
+        date: null,
+        time: null,
+        pax: parseInt(tripData.guests) || 2,
+        amount: financialSummary.total,
+        status: 'pending',
+        category: 'hotel',
+        roomType: tripData.hotel.roomType,
+        vehicleType: tripData.rental.isBooked ? tripData.rental.name : null,
+        customerEmail: guestEmail,
+        customerPhone: guestPhone,
+        specialRequests: '',
+        paymentMethod: 'credit_card',
+        createdAt: new Date().toISOString(),
+        // Additional info for reference
+        rental: tripData.rental.isBooked ? {
+          name: tripData.rental.name,
+          price: tripData.rental.price,
+          pickup: tripData.rental.pickup
+        } : null,
+        activities: selectedActivities.map(a => ({
+          id: a.id,
+          name: a.name,
+          price: a.price,
+          guests: a.guests
+        })),
+        reference: tripData.reference,
+        totalAmount: financialSummary.total,
+        nights: tripData.hotel.nights,
+        guests: tripData.guests
+      };
+
+      console.log('📤 Sending booking to database:', bookingPayload);
+
+      // Send to backend
+      const response = await bookingService.createBooking(bookingPayload);
+      
+      console.log('✅ Booking saved successfully:', response);
+      setBookingSuccess(true);
+      
+      // Auto-hide success message after 5 seconds
+      setTimeout(() => {
+        setBookingSuccess(false);
+      }, 5000);
+      
+      return true;
+    } catch (error) {
+      console.error('❌ Error saving booking:', error);
+      setBookingError('Failed to save booking. Please try again.');
+      return false;
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Handle payment and save
+  const handlePaymentAndSave = async () => {
+    const saved = await saveBookingToDatabase();
+    if (saved) {
+      // Proceed to payment after successful save
+      onPaymentClick();
+    }
   };
 
   const toggleRentalBooking = (e: React.MouseEvent) => {
@@ -82,9 +190,12 @@ export const BookingHistory: React.FC<BookingHistoryProps> = ({
   };
 
   const toggleActivity = (id: number) => {
-    setSelectedActivityIds(prev => 
-      prev.includes(id) ? prev.filter(aId => aId !== id) : [...prev, id]
-    );
+    setSelectedActivityIds((prev: number[] | undefined) => {
+      const currentArray = Array.isArray(prev) ? prev : [];
+      return currentArray.includes(id) 
+        ? currentArray.filter(aId => aId !== id) 
+        : [...currentArray, id];
+    });
   };
 
   const handleSaveEdit = () => {
@@ -97,8 +208,18 @@ export const BookingHistory: React.FC<BookingHistoryProps> = ({
     setIsEditModalOpen(false);
   };
 
-  const handleDownload = () => {
-    const doc = new jsPDF();
+  const handleDownload = async () => {
+    try {
+      const loadLib = async (name: string) => {
+        const importer = Function('n', 'return import(n)') as (n: string) => Promise<any>;
+        return importer(name);
+      };
+
+      const jsPDFMod = await loadLib('jspdf');
+      const jsPDF = jsPDFMod?.default;
+      if (!jsPDF) throw new Error('PDF library not available');
+
+      const doc = new jsPDF();
     const margin = 20;
     let y = margin;
 
@@ -204,6 +325,21 @@ export const BookingHistory: React.FC<BookingHistoryProps> = ({
     doc.text("Thank you for booking with Cambodia Travel!", margin, y);
     
     doc.save(`trip-summary-${tripData.reference.replace('#', '')}.pdf`);
+    } catch (err) {
+      console.error('Failed to generate PDF:', err);
+      // Fallback: copy trip summary to clipboard
+      const shareText = `Trip Summary - ${tripData.title}
+Dates: ${tripData.dates}
+Guests: ${tripData.guests}
+Reference: ${tripData.reference}
+Hotel: ${tripData.hotel.name} - $${tripData.hotel.price.toFixed(2)}
+${tripData.rental.isBooked ? `Rental: ${tripData.rental.name} - $${tripData.rental.price.toFixed(2)}` : 'Rental: Not Selected'}
+Activities: ${selectedActivities.map(a => `${a.name} ($${a.price.toFixed(2)})`).join(', ')}
+TOTAL: $${financialSummary.total.toFixed(2)}`;
+      await navigator.clipboard.writeText(shareText);
+      setIsCopied(true);
+      setTimeout(() => setIsCopied(false), 3000);
+    }
   };
 
   const handleShare = async () => {
@@ -233,6 +369,29 @@ Booked via Cambodia Travel`;
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 pt-24 pb-20 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
+        
+        {/* Success Message */}
+        {bookingSuccess && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-emerald-50 border border-emerald-200 text-emerald-700 px-6 py-4 rounded-2xl mb-6 flex items-center gap-3"
+          >
+            <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+            <span className="font-medium">Booking confirmed! It will appear in the Owner dashboard.</span>
+          </motion.div>
+        )}
+
+        {/* Error Message */}
+        {bookingError && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-2xl mb-6"
+          >
+            {bookingError}
+          </motion.div>
+        )}
         
         {/* Review Banner */}
         <motion.div 
@@ -478,7 +637,7 @@ Booked via Cambodia Travel`;
               </div>
               <div className="space-y-4">
                 {availableActivities.map((activity) => {
-                  const isSelected = selectedActivityIds.includes(activity.id);
+                  const isSelected = selectedActivityIds?.includes(activity.id) || false;
                   return (
                     <div 
                       key={activity.id} 
@@ -536,7 +695,7 @@ Booked via Cambodia Travel`;
                   <span className="font-bold text-slate-900 dark:text-white">${financialSummary.rental.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-slate-400">Activities ({selectedActivityIds.length} selected)</span>
+                  <span className="text-slate-400">Activities ({selectedActivityIds?.length || 0} selected)</span>
                   <span className="font-bold text-slate-900 dark:text-white">${financialSummary.activities.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
                 </div>
                 <div className="flex justify-between text-sm">
@@ -559,18 +718,39 @@ Booked via Cambodia Travel`;
                 </p>
               </div>
 
+              {/* Updated payment buttons with save functionality */}
               <div className="space-y-3 mb-8">
                 <button 
-                  onClick={onPaymentClick}
-                  className="w-full flex items-center justify-center gap-3 py-4 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-colors"
+                  onClick={handlePaymentAndSave}
+                  disabled={isSubmitting}
+                  className="w-full flex items-center justify-center gap-3 py-4 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <Landmark className="w-5 h-5" /> Pay with ABA
+                  {isSubmitting ? (
+                    <>
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      <Landmark className="w-5 h-5" /> Pay with ABA
+                    </>
+                  )}
                 </button>
                 <button 
-                  onClick={onPaymentClick}
-                  className="w-full flex items-center justify-center gap-3 py-4 bg-blue-800 text-white rounded-xl font-bold hover:bg-blue-900 transition-colors"
+                  onClick={handlePaymentAndSave}
+                  disabled={isSubmitting}
+                  className="w-full flex items-center justify-center gap-3 py-4 bg-blue-800 text-white rounded-xl font-bold hover:bg-blue-900 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <CreditCard className="w-5 h-5" /> Pay with ACLEDA
+                  {isSubmitting ? (
+                    <>
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      <CreditCard className="w-5 h-5" /> Pay with ACLEDA
+                    </>
+                  )}
                 </button>
               </div>
 
