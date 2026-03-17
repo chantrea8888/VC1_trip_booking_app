@@ -20,44 +20,46 @@ jobs:
 
     - name: Build and Push Backend
       run: |
-        docker build -t ${{ secrets.DOCKER_USERNAME }}/trip-booking-backend ./backend
-        docker push ${{ secrets.DOCKER_USERNAME }}/trip-booking-backend
+        docker build -t ${{ secrets.DOCKER_USERNAME }}/booking_app-backend ./backend
+        docker push ${{ secrets.DOCKER_USERNAME }}/booking_app-backend
 
     - name: Build and Push Frontend
       run: |
-        docker build -t ${{ secrets.DOCKER_USERNAME }}/trip-booking-frontend ./frontend
-        docker push ${{ secrets.DOCKER_USERNAME }}/trip-booking-frontend
+        docker build -t ${{ secrets.DOCKER_USERNAME }}/booking_app-frontend ./frontend
+        docker push ${{ secrets.DOCKER_USERNAME }}/booking_app-frontend
 
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
     - name: Deploy to Server
       uses: appleboy/ssh-action@v0.1.6
       with:
         host: ${{ secrets.SERVER_IP }}
         username: ${{ secrets.SERVER_USER }}
-        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        key: ${{ secrets.SSH_PRIVATE_KEY }} # This uses the booking_app.pem content
         script: |
           # 1. Pull the latest images
-          docker pull ${{ secrets.DOCKER_USERNAME }}/trip-booking-backend
-          docker pull ${{ secrets.DOCKER_USERNAME }}/trip-booking-frontend
+          docker pull ${{ secrets.DOCKER_USERNAME }}/booking_app-backend
+          docker pull ${{ secrets.DOCKER_USERNAME }}/booking_app-frontend
 
           # 2. Stop and remove old containers
           docker stop laravel_backend react_frontend || true
           docker rm laravel_backend react_frontend || true
           
-          # 3. Clean up unused images to prevent disk from filling up
+          # 3. Clean up
           docker image prune -f
 
-          # 4. Run Backend (Laravel) on port 9000
+          # 4. Run Backend
           docker run -d \
             --name laravel_backend \
             --restart always \
             -p 9000:9000 \
-            ${{ secrets.DOCKER_USERNAME }}/trip-booking-backend
+            ${{ secrets.DOCKER_USERNAME }}/booking_app-backend
           
-          # 5. Run React Frontend (Vite)
-          # Mapping host port 80 to container port 5173 
-          # This replaces the Apache default page
+          # 5. Run Frontend
           docker run -d \
             --name react_frontend \
             --restart always \
             -p 80:5173 \
-            ${{ secrets.DOCKER_USERNAME }}/trip-booking-frontend
+            ${{ secrets.DOCKER_USERNAME }}/booking_app-frontend
