@@ -26,22 +26,10 @@ export const Register: React.FC<RegisterProps> = ({ onSwitchToLogin, onBack, onS
     setIsSubmitting(true);
 
     try {
-      const result = await register({
-        name,
-        email,
-        password,
-        password_confirmation: password,
-        role,
-      });
-      onSuccess(result.nextView);
+      const result = await register(name, email, password, role);
+      onSuccess(result.next_view);
     } catch (error: any) {
-      const fieldErrors = error?.data?.errors;
-      if (fieldErrors) {
-        const firstError = Object.values(fieldErrors)[0] as string[] | string | undefined;
-        setErrorMessage(Array.isArray(firstError) ? firstError[0] : 'Registration failed');
-      } else {
-        setErrorMessage(error?.data?.message ?? 'Registration failed');
-      }
+      setErrorMessage(error.message || 'Registration failed');
     } finally {
       setIsSubmitting(false);
     }
