@@ -41,6 +41,9 @@ type DestinationStatus = 'active' | 'draft';
 
 interface DestinationApiRecord {
   id: string | number;
+  destination_id?: string | number;
+  destinationId?: string | number;
+  destinationID?: string | number;
   name?: string;
   type?: string;
   description?: string | null;
@@ -84,13 +87,20 @@ const getErrorMessage = (error: any, fallback: string) => {
   return fallback;
 };
 
+const resolveDestinationId = (destination: DestinationApiRecord) =>
+  destination.id ??
+  destination.destination_id ??
+  destination.destinationId ??
+  destination.destinationID ??
+  '';
+
 const normalizeDestination = (destination: DestinationApiRecord): HomeDestination => {
   const imageList = Array.isArray(destination.images)
     ? destination.images.filter((image): image is string => typeof image === 'string' && image.trim().length > 0)
     : [];
 
   return {
-    id: String(destination.id),
+    id: String(resolveDestinationId(destination)),
     name: destination.name?.trim() || 'Untitled destination',
     type: destination.type?.trim() || 'Boutique Hotel',
     description: destination.description?.trim() || 'Discover this destination and start planning your stay.',

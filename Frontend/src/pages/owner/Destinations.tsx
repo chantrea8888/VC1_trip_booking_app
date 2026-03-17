@@ -7,6 +7,9 @@ type DestinationStatus = 'active' | 'draft';
 
 interface DestinationApiRecord {
   id: string | number;
+  destination_id?: string | number;
+  destinationId?: string | number;
+  destinationID?: string | number;
   name?: string;
   type?: string;
   description?: string | null;
@@ -107,6 +110,13 @@ const getErrorMessage = (error: any, fallback: string) => {
   return fallback;
 };
 
+const resolveDestinationId = (destination: DestinationApiRecord) =>
+  destination.id ??
+  destination.destination_id ??
+  destination.destinationId ??
+  destination.destinationID ??
+  '';
+
 const normalizeDestination = (destination: DestinationApiRecord): DestinationItem => {
   const imageList = Array.isArray(destination.images)
     ? destination.images.filter((image): image is string => typeof image === 'string' && image.trim().length > 0)
@@ -116,7 +126,7 @@ const normalizeDestination = (destination: DestinationApiRecord): DestinationIte
   const totalBookings = Math.max(0, toNumber(destination.total_bookings ?? destination.totalBookings, 0));
 
   return {
-    id: String(destination.id),
+    id: String(resolveDestinationId(destination)),
     name: destination.name?.trim() || 'Untitled destination',
     type: destination.type?.trim() || 'Boutique Hotel',
     description: destination.description?.trim() || '',
@@ -649,7 +659,10 @@ const Destinations = () => {
   };
 
   const confirmDelete = async () => {
-    if (!propertyToDelete) return;
+    if (!propertyToDelete?.id) {
+      setDeleteError('Missing destination id. Please refresh and try again.');
+      return;
+    }
     setDeleteError('');
 
     try {
