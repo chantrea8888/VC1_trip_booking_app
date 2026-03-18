@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Str;
 
 class Transport extends Model
 {
@@ -32,5 +33,19 @@ class Transport extends Model
     public function bookings(): HasMany
     {
         return $this->hasMany(Booking::class, 'transport_id', 'transport_id');
+    }
+
+    public function getVehiclePhotoUrlAttribute($value): ?string
+    {
+        if (! $value) {
+            return $value;
+        }
+
+        if (Str::startsWith($value, ['http://', 'https://', 'data:'])) {
+            return $value;
+        }
+
+        $normalized = Str::startsWith($value, '/') ? $value : '/' . $value;
+        return url($normalized);
     }
 }

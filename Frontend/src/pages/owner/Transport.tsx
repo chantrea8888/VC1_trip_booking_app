@@ -70,22 +70,10 @@ const Transport = () => {
     });
   };
 
-  const activeTransportPromotion = React.useMemo(() => {
-    try {
-      const stored = JSON.parse(localStorage.getItem('ownerPromotions') || '[]');
-      const promos = Array.isArray(stored) ? stored : [];
-      const active = promos.filter(
-        (p: any) => p?.serviceCategory === 'transport' && (p?.status === 'active' || !p?.status),
-      );
-      return active.length > 0 ? active[0] : null;
-    } catch {
-      return null;
-    }
-  }, []);
+  const [transportPromotions, setTransportPromotions] = React.useState<Record<string, any>>({});
 
-  const computeDiscountedPrice = (basePrice?: number) => {
+  const computeDiscountedPrice = (basePrice?: number, discount?: string) => {
     if (typeof basePrice !== 'number') return { finalPrice: undefined as number | undefined, hasDiscount: false };
-    const discount = typeof activeTransportPromotion?.discount === 'string' ? activeTransportPromotion.discount : '';
     if (!discount) return { finalPrice: basePrice, hasDiscount: false };
 
     const trimmed = discount.trim();
@@ -186,15 +174,33 @@ const Transport = () => {
           return;
         }
 
-        const response = await apiRequest('/owner/transports', {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }) as { data?: any[] };
+        const [transportResponse, promotionResponse] = await Promise.all([
+          apiRequest('/owner/transports', {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }),
+          apiRequest('/promotions', {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }),
+        ]);
 
-        const mapped = (response?.data ?? []).map((item: any) => mapTransportRecord(item));
+        const mapped = (transportResponse?.data ?? []).map((item: any) => mapTransportRecord(item));
+        const promos = Array.isArray(promotionResponse?.data) ? promotionResponse.data : [];
+        const promotionMap: Record<string, any> = {};
+        promos.forEach((promo: any) => {
+          const category = String(promo?.service_category ?? '').toLowerCase();
+          if (category !== 'transport') return;
+          const id = String(promo?.transport_id ?? promo?.service_id ?? '');
+          if (!id) return;
+          if (promo?.is_active === false) return;
+          promotionMap[id] = promo;
+        });
 
         setServices(mapped);
+        setTransportPromotions(promotionMap);
         setLoadError('');
       } catch (error: any) {
         const message = error?.data?.message ?? error?.message ?? 'Failed to load transports.';
@@ -478,7 +484,9 @@ const Transport = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-8">
           {paginatedServices.map((service) => {
             const TypeIcon = getTypeIcon(service.type);
-            const { finalPrice, hasDiscount } = computeDiscountedPrice(service.price_per_KM);
+            const promotion = transportPromotions[service.id];
+            const discount = typeof promotion?.discount === 'string' ? promotion.discount : '';
+            const { finalPrice, hasDiscount } = computeDiscountedPrice(service.price_per_KM, discount);
             return (
               <div key={service.id} className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-shadow">
                 <div className="relative">
@@ -490,9 +498,9 @@ const Transport = () => {
                   <div className={`absolute top-3 right-3 px-2 py-1 rounded-full text-xs font-medium ${getTypeColor(service.type)}`}>
                     {service.type}
                   </div>
-                  {activeTransportPromotion?.discount && (
+                  {discount && (
                     <div className="absolute top-3 left-3 px-2 py-1 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
-                      {activeTransportPromotion.discount}
+                      {discount}
                     </div>
                   )}
                 </div>
