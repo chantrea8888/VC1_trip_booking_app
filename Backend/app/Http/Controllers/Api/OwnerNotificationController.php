@@ -3,11 +3,18 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\AppNotification;
 use App\Models\OwnerNotification;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 
 class OwnerNotificationController extends Controller
 {
+    private function notificationsTableEnabled(): bool
+    {
+        return Schema::hasTable('notifications');
+    }
+
     public function index(Request $request)
     {
         $user = $request->user();
@@ -22,7 +29,8 @@ class OwnerNotificationController extends Controller
 
         $onlyUnread = filter_var($request->query('unread', false), FILTER_VALIDATE_BOOLEAN);
 
-        $query = OwnerNotification::query()
+        $useNotifications = $this->notificationsTableEnabled();
+        $query = ($useNotifications ? AppNotification::query() : OwnerNotification::query())
             ->where('user_id', $user->id)
             ->orderByDesc('id');
 
@@ -31,20 +39,38 @@ class OwnerNotificationController extends Controller
         }
 
         $notifications = $query->limit($limit)->get();
-        $unreadCount = OwnerNotification::query()
-            ->where('user_id', $user->id)
-            ->whereNull('read_at')
-            ->count();
+
+        // If `notifications` exists but is empty (or the app is still writing to `owner_notifications`),
+        // fall back so the owner UI still shows activity.
+        if ($useNotifications && $notifications->isEmpty()) {
+            $fallbackQuery = OwnerNotification::query()
+                ->where('user_id', $user->id)
+                ->orderByDesc('id');
+            if ($onlyUnread) {
+                $fallbackQuery->whereNull('read_at');
+            }
+            $notifications = $fallbackQuery->limit($limit)->get();
+        }
+
+        $unreadCount = $useNotifications
+            ? AppNotification::query()->where('user_id', $user->id)->whereNull('read_at')->count()
+            : OwnerNotification::query()->where('user_id', $user->id)->whereNull('read_at')->count();
+
+        if ($useNotifications && $unreadCount === 0) {
+            $fallbackUnread = OwnerNotification::query()->where('user_id', $user->id)->whereNull('read_at')->count();
+            $unreadCount = $fallbackUnread;
+        }
 
         return response()->json([
             'success' => true,
             'unread_count' => $unreadCount,
-            'data' => $notifications->map(function (OwnerNotification $n) {
+            'data' => $notifications->map(function ($n) {
                 return [
                     'id' => $n->id,
                     'title' => $n->title,
                     'message' => $n->message,
                     'bookingId' => $n->booking_id,
+                    'type' => $n->type ?? null,
                     'data' => $n->data,
                     'readAt' => $n->read_at ? $n->read_at->toIso8601String() : null,
                     'createdAt' => $n->created_at ? $n->created_at->toIso8601String() : null,
@@ -57,10 +83,14 @@ class OwnerNotificationController extends Controller
     {
         $user = $request->user();
 
-        $unreadCount = OwnerNotification::query()
-            ->where('user_id', $user->id)
-            ->whereNull('read_at')
-            ->count();
+        $useNotifications = $this->notificationsTableEnabled();
+        $unreadCount = $useNotifications
+            ? AppNotification::query()->where('user_id', $user->id)->whereNull('read_at')->count()
+            : OwnerNotification::query()->where('user_id', $user->id)->whereNull('read_at')->count();
+
+        if ($useNotifications && $unreadCount === 0) {
+            $unreadCount = OwnerNotification::query()->where('user_id', $user->id)->whereNull('read_at')->count();
+        }
 
         return response()->json([
             'success' => true,
@@ -72,10 +102,15 @@ class OwnerNotificationController extends Controller
     {
         $user = $request->user();
 
-        $n = OwnerNotification::query()
-            ->where('user_id', $user->id)
-            ->where('id', $id)
-            ->first();
+        $useNotifications = $this->notificationsTableEnabled();
+
+        $n = $useNotifications
+            ? AppNotification::query()->where('user_id', $user->id)->where('id', $id)->first()
+            : null;
+
+        if (! $n) {
+            $n = OwnerNotification::query()->where('user_id', $user->id)->where('id', $id)->first();
+        }
 
         if (! $n) {
             return response()->json(['message' => 'Notification not found'], 404);
@@ -99,10 +134,11 @@ class OwnerNotificationController extends Controller
     {
         $user = $request->user();
 
-        OwnerNotification::query()
-            ->where('user_id', $user->id)
-            ->whereNull('read_at')
-            ->update(['read_at' => now()]);
+        if ($this->notificationsTableEnabled()) {
+            AppNotification::query()->where('user_id', $user->id)->whereNull('read_at')->update(['read_at' => now()]);
+        }
+
+        OwnerNotification::query()->where('user_id', $user->id)->whereNull('read_at')->update(['read_at' => now()]);
 
         return response()->json([
             'success' => true,

@@ -982,6 +982,28 @@ const Bookings = () => {
     setSelectedBooking(null);
   };
 
+  const openedFromQueryRef = React.useRef<string | null>(null);
+
+  React.useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const openBookingId = params.get('openBookingId');
+    if (!openBookingId) return;
+
+    if (openedFromQueryRef.current === String(openBookingId)) return;
+    if (!Array.isArray(bookings) || bookings.length === 0) return;
+
+    const booking = bookings.find((b) => String(b?.id ?? '') === String(openBookingId));
+    openedFromQueryRef.current = String(openBookingId);
+
+    if (booking) {
+      openBookingDetails(booking);
+      return;
+    }
+
+    setSuccessMessage(null);
+    setPageError('Booking details not found in the current list. Try refreshing the page.');
+  }, [bookings, location.search]);
+
   const updateBookingStatus = async (booking: any, nextStatus: 'paid' | 'pending' | 'canceled') => {
     if (!booking?.id) return;
 

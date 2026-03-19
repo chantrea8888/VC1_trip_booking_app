@@ -1,13 +1,6 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { 
-  Bell, 
-  UserPlus, 
-  Calendar, 
-  AlertCircle, 
-  CheckCircle2, 
-  X 
-} from 'lucide-react';
+import { Bell, UserPlus, Calendar, AlertCircle, CheckCircle2, X } from 'lucide-react';
 import { cn } from '../../utils/utils';
 
 export interface AdminNotification {
@@ -19,9 +12,10 @@ export interface AdminNotification {
   read: boolean;
   bookingId?: string | null;
   data?: any;
+  meta?: any;
 }
 
-const notifications: AdminNotification[] = [
+const fallbackNotifications: AdminNotification[] = [
   {
     id: '1',
     title: 'New Owner Request',
@@ -63,6 +57,7 @@ interface NotificationDropdownProps {
   onNotificationClick?: (notification: AdminNotification) => void;
   onMarkAsRead?: (id: string) => void;
   onMarkAllAsRead?: () => void;
+  onViewAll?: () => void;
 }
 
 export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
@@ -72,28 +67,38 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
   onNotificationClick,
   onMarkAsRead,
   onMarkAllAsRead,
+  onViewAll,
 }) => {
-  if (!isOpen) return null;
-
-  const [items, setItems] = React.useState<AdminNotification[]>(() => notificationsProp ?? notifications);
+  const [items, setItems] = React.useState<AdminNotification[]>(() => notificationsProp ?? fallbackNotifications);
 
   React.useEffect(() => {
     if (notificationsProp) setItems(notificationsProp);
   }, [notificationsProp]);
 
+  if (!isOpen) return null;
+
+  const hasUnread = items.some((n) => !n.read);
+  const isInteractive = typeof onNotificationClick === 'function' || typeof onMarkAsRead === 'function';
+
   const getIcon = (type: string) => {
     switch (type) {
-      case 'user': return <UserPlus size={16} className="text-blue-500" />;
-      case 'booking': return <Calendar size={16} className="text-emerald-500" />;
-      case 'system': return <CheckCircle2 size={16} className="text-slate-500" />;
-      case 'alert': return <AlertCircle size={16} className="text-red-500" />;
-      case 'message': return <UserPlus size={16} className="text-indigo-500" />;
-      default: return <Bell size={16} />;
+      case 'user':
+        return <UserPlus size={16} className="text-blue-500" />;
+      case 'booking':
+        return <Calendar size={16} className="text-emerald-500" />;
+      case 'system':
+        return <CheckCircle2 size={16} className="text-slate-500" />;
+      case 'alert':
+        return <AlertCircle size={16} className="text-red-500" />;
+      case 'message':
+        return <UserPlus size={16} className="text-indigo-500" />;
+      default:
+        return <Bell size={16} />;
     }
   };
 
   const handleMarkAllAsRead = () => {
-    if (onMarkAllAsRead) onMarkAllAsRead();
+    onMarkAllAsRead?.();
     setItems((prev) => prev.map((n) => ({ ...n, read: true })));
   };
 
@@ -116,8 +121,25 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
         <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
           <h3 className="font-bold text-lg text-slate-900 dark:text-slate-100">Notifications</h3>
           <div className="flex items-center gap-2">
-            <button onClick={handleMarkAllAsRead} className="text-[11px] font-bold text-primary hover:underline">Mark all as read</button>
-            <button onClick={onClose} className="p-1.5 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md transition-colors">
+            {onMarkAllAsRead && (
+              <button
+                onClick={handleMarkAllAsRead}
+                disabled={!hasUnread}
+                className={cn(
+                  'text-[11px] font-bold text-primary hover:underline',
+                  !hasUnread && 'opacity-50 cursor-not-allowed hover:no-underline',
+                )}
+                type="button"
+              >
+                Mark all as read
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              className="p-1.5 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md transition-colors"
+              type="button"
+              aria-label="Close notifications"
+            >
               <X size={16} />
             </button>
           </div>
@@ -127,25 +149,38 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
           {items.length > 0 ? (
             <div className="divide-y divide-slate-200 dark:divide-slate-800">
               {items.map((notif) => (
-                <div 
-                  key={notif.id} 
-                  onClick={() => handleItemClick(notif)}
+                <button
+                  key={notif.id}
+                  type="button"
+                  onClick={isInteractive ? () => handleItemClick(notif) : undefined}
                   className={cn(
-                    "px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors cursor-pointer flex gap-3",
-                    !notif.read && "bg-primary/5"
+                    'w-full px-4 py-3 transition-colors flex gap-3 text-left',
+                    isInteractive ? 'cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/60' : 'cursor-default',
+                    !notif.read && 'bg-primary/5',
                   )}
                 >
-                  <div className={cn(
-                    "w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0",
-                    notif.type === 'user' ? "bg-blue-100 dark:bg-blue-900/20" :
-                    notif.type === 'booking' ? "bg-emerald-100 dark:bg-emerald-900/20" :
-                    notif.type === 'alert' ? "bg-red-100 dark:bg-red-900/20" : "bg-slate-100 dark:bg-slate-800"
-                  )}>
+                  <div
+                    className={cn(
+                      'w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0',
+                      notif.type === 'user'
+                        ? 'bg-blue-100 dark:bg-blue-900/20'
+                        : notif.type === 'booking'
+                          ? 'bg-emerald-100 dark:bg-emerald-900/20'
+                          : notif.type === 'alert'
+                            ? 'bg-red-100 dark:bg-red-900/20'
+                            : 'bg-slate-100 dark:bg-slate-800',
+                    )}
+                  >
                     {getIcon(notif.type)}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2">
-                      <p className={cn("text-base truncate text-slate-900 dark:text-slate-100", !notif.read ? "font-bold" : "font-semibold")}>
+                      <p
+                        className={cn(
+                          'text-base truncate text-slate-900 dark:text-slate-100',
+                          !notif.read ? 'font-bold' : 'font-semibold',
+                        )}
+                      >
                         {notif.title}
                       </p>
                       <span className="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">{notif.time}</span>
@@ -154,10 +189,8 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
                       {notif.description}
                     </p>
                   </div>
-                  {!notif.read && (
-                    <div className="w-2.5 h-2.5 rounded-full bg-primary mt-2 flex-shrink-0" />
-                  )}
-                </div>
+                  {!notif.read && <div className="w-2.5 h-2.5 rounded-full bg-primary mt-2 flex-shrink-0" />}
+                </button>
               ))}
             </div>
           ) : (
@@ -169,7 +202,14 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
         </div>
 
         <div className="p-3 border-t border-slate-200 dark:border-slate-800 text-center">
-          <button className="text-sm font-semibold text-slate-600 dark:text-slate-300 hover:text-primary transition-colors">
+          <button
+            onClick={() => {
+              onViewAll?.();
+              onClose();
+            }}
+            className="text-sm font-semibold text-slate-600 dark:text-slate-300 hover:text-primary transition-colors"
+            type="button"
+          >
             View all notifications
           </button>
         </div>

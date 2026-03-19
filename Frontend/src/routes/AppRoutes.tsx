@@ -37,10 +37,11 @@ import OwnerPropertyDetail from '../pages/owner/PropertyDetail';
 import OwnerAddRoom from '../pages/owner/AddRoom';
 import OwnerAddProperty from '../pages/owner/AddProperty';
 import OwnerEditProperty from '../pages/owner/EditProperty';
-import { useLocation } from 'react-router-dom';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import OwnerSidebar from '../components/layout/owner/Sidebar';
-import { bookingService } from '../services/bookingService';
+import { OwnerNotificationsProvider, useOwnerNotifications } from '../context/OwnerNotificationsContext';
+import { formatRelativeTime } from '../utils/utils';
+import { OwnerNotificationModal } from '../components/owner/OwnerNotificationModal';
 import {
   Dashboard as AdminDashboard,
   UserManagement,
@@ -133,88 +134,25 @@ const getOwnerTitle = (pathname: string): string => {
   return 'Overview Dashboard';
 };
 
-const OwnerShell: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
+const OwnerShellInner: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
   const { user } = useAuth();
   const { isDarkMode, toggleDarkMode } = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
-  const [ownerNotifications, setOwnerNotifications] = React.useState<AdminNotification[]>([]);
-
-  const formatRelativeTime = (iso: string | null | undefined) => {
-    if (!iso) return '';
-    const createdAt = new Date(iso).getTime();
-    if (Number.isNaN(createdAt)) return '';
-    const diffMs = Date.now() - createdAt;
-    const diffMin = Math.max(0, Math.floor(diffMs / 60000));
-    if (diffMin < 1) return 'just now';
-    if (diffMin < 60) return `${diffMin} mins ago`;
-    const diffHr = Math.floor(diffMin / 60);
-    if (diffHr < 24) return `${diffHr} hours ago`;
-    const diffDay = Math.floor(diffHr / 24);
-    return `${diffDay} days ago`;
-  };
-
-  const refreshOwnerNotifications = React.useCallback(async () => {
-    try {
-      const res = await bookingService.getOwnerNotifications({ limit: 25 });
-      const items = (res?.data ?? res?.data?.data ?? res?.data?.notifications ?? res?.data) as any;
-      const list = Array.isArray(items?.data) ? items.data : Array.isArray(items) ? items : [];
-
-      const mapped: AdminNotification[] = list.map((n: any) => ({
-        id: String(n.id),
-        title: String(n.title ?? 'Notification'),
-        description: String(n.message ?? n.description ?? ''),
-        time: formatRelativeTime(n.createdAt ?? n.created_at),
-        type: 'booking',
-        read: Boolean(n.readAt ?? n.read_at),
-        bookingId: n.bookingId ?? n.booking_id ?? null,
-        data: n.data ?? null,
-      }));
-
-      setOwnerNotifications(mapped);
-    } catch (e) {
-      // Best effort: keep the app usable even if notifications fail.
-      console.error('Failed to fetch owner notifications', e);
-    }
-  }, []);
-
-  React.useEffect(() => {
-    refreshOwnerNotifications();
-    const timer = window.setInterval(() => refreshOwnerNotifications(), 15000);
-    return () => window.clearInterval(timer);
-  }, [refreshOwnerNotifications]);
-
-  const markOwnerNotificationRead = async (id: string) => {
-    try {
-      await bookingService.markOwnerNotificationRead(id);
-    } finally {
-      setOwnerNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
-    }
-  };
-
-  const markAllOwnerNotificationsRead = async () => {
-    try {
-      await bookingService.markAllOwnerNotificationsRead();
-    } finally {
-      setOwnerNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-    }
-  };
+  const {
+    notifications,
+    unreadCount,
+    markRead,
+    markAllRead,
+    openNotification,
+    activeNotification,
+    closeNotification,
+  } = useOwnerNotifications();
 
   const renderOwnerPage = () => {
     const path = location.pathname;
-    const openBookingDetails = (bookingId: string) => {
-      navigate(`/bookings?booking_id=${encodeURIComponent(String(bookingId))}`);
-    };
-    const viewAllActivities = () => navigate('/bookings');
 
-    if (path === '/' || path === '/owner') return (
-      <OwnerDashboard
-        notifications={ownerNotifications}
-        onOpenBooking={openBookingDetails}
-        onMarkNotificationRead={markOwnerNotificationRead}
-        onViewAllActivities={viewAllActivities}
-      />
-    );
+    if (path === '/' || path === '/owner') return <OwnerDashboard />;
     if (path.startsWith('/destinations') && path.includes('/add-room')) return <OwnerAddRoom />;
     if (path.startsWith('/destinations') && path.includes('/edit')) return <OwnerEditProperty />;
     if (path.startsWith('/destinations') && path.includes('/new')) return <OwnerAddProperty />;
@@ -231,17 +169,47 @@ const OwnerShell: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
     if (path.startsWith('/financials')) return <OwnerFinancials />;
     if (path.startsWith('/settings')) return <OwnerSettings />;
 
-    return (
-      <OwnerDashboard
-        notifications={ownerNotifications}
-        onOpenBooking={openBookingDetails}
-        onMarkNotificationRead={markOwnerNotificationRead}
-        onViewAllActivities={viewAllActivities}
-      />
-    );
+    return <OwnerDashboard />;
   };
 
   const title = getOwnerTitle(location.pathname);
+
+  const headerNotifications: AdminNotification[] = React.useMemo(
+    () =>
+      notifications.map((n) => ({
+        id: String(n.id),
+        title: n.title,
+        description: n.message ?? '',
+        time: formatRelativeTime(n.createdAt),
+        type: n.bookingId ? 'booking' : 'system',
+        read: Boolean(n.readAt),
+        meta: {
+          ownerNotificationId: n.id,
+          bookingId: n.bookingId ?? n?.data?.id ?? null,
+        },
+      })),
+    [notifications],
+  );
+
+  const handleOwnerNotificationClick = React.useCallback(
+    (notif: AdminNotification) => {
+      const notificationId = notif?.meta?.ownerNotificationId ?? notif?.id ?? null;
+      if (!notificationId) {
+        navigate('/bookings');
+        return;
+      }
+
+      const raw = notifications.find((n) => String(n.id) === String(notificationId)) ?? null;
+      if (!raw) {
+        navigate('/bookings');
+        return;
+      }
+
+      if (!raw.readAt) markRead(raw.id);
+      openNotification(raw);
+    },
+    [markRead, navigate, notifications, openNotification],
+  );
 
   return (
     <div className="flex h-screen overflow-hidden font-sans transition-colors duration-200">
@@ -251,20 +219,21 @@ const OwnerShell: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
           title={title}
           isDark={isDarkMode}
           toggleTheme={toggleDarkMode}
-          notifications={ownerNotifications}
-          onMarkNotificationRead={markOwnerNotificationRead}
-          onMarkAllNotificationsRead={markAllOwnerNotificationsRead}
-          onNotificationClick={(n) => {
-            const bookingId = n?.bookingId || n?.data?.id || null;
-            if (bookingId) {
-              navigate(`/bookings?booking_id=${encodeURIComponent(String(bookingId))}`);
-              return;
-            }
-            navigate('/bookings');
-          }}
-          onProfileClick={() => {}}
+          notifications={headerNotifications}
+          unreadCount={unreadCount}
+          onMarkNotificationRead={(id) => markRead(id)}
+          onMarkAllNotificationsRead={markAllRead}
+          onViewAllNotifications={() => navigate('/#recent-activities')}
+          onNotificationClick={handleOwnerNotificationClick}
+          onProfileClick={() => navigate('/profile')}
           onLogoutClick={onLogout}
           user={user}
+        />
+
+        <OwnerNotificationModal
+          notification={activeNotification}
+          onClose={closeNotification}
+          onOpenBooking={(bookingId) => navigate(`/bookings?openBookingId=${encodeURIComponent(String(bookingId))}`)}
         />
         <div className="flex-1 overflow-y-auto">
           <AnimatePresence mode="wait">
@@ -282,6 +251,14 @@ const OwnerShell: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
         </div>
       </main>
     </div>
+  );
+};
+
+const OwnerShell: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
+  return (
+    <OwnerNotificationsProvider>
+      <OwnerShellInner onLogout={onLogout} />
+    </OwnerNotificationsProvider>
   );
 };
 
@@ -832,10 +809,6 @@ export const AppRoutes: React.FC<AppRoutesProps> = ({
           onHotelsClick={onHotelsClick}
           onRentalsClick={onRentalsClick}
           onActivitiesClick={onActivitiesClick}
-          onStartGroupBooking={() => {
-            if (!requireAuth()) return;
-            setView('group-planning');
-          }}
         />
       );
     case 'landing':
@@ -849,10 +822,6 @@ export const AppRoutes: React.FC<AppRoutesProps> = ({
           onHotelsClick={onHotelsClick}
           onRentalsClick={onRentalsClick}
           onActivitiesClick={onActivitiesClick}
-          onStartGroupBooking={() => {
-            if (!requireAuth()) return;
-            setView('group-planning');
-          }}
         />
       );
   }

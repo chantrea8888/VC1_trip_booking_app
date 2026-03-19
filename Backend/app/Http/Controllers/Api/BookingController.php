@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
-use App\Models\BookingDbNotification;
+use App\Models\AppNotification;
 use App\Models\OwnerNotification;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -586,108 +586,153 @@ class BookingController extends Controller
                 $title = 'New booking: ' . $booking->id;
                 $message = trim($guest . ' booked ' . $service . ($route ? ' (' . $route . ')' : '') . ' • $' . number_format($amount, 2));
 
-                // Resolve a single owner recipient so "one booking = one row" in `notifications` table.
-                $recipientUserId = null;
+                // Resolve owner recipients. Trip bookings can involve both a destination owner and a transport owner.
+                $recipientUserIds = [];
                 $transportId = $payload['transport_id'] ?? null;
                 $destinationId = $payload['destination_id'] ?? null;
+                $serviceName = trim((string) ($payload['service'] ?? ''));
+                $routeName = trim((string) ($payload['route'] ?? ''));
 
                 if ($transportId) {
                     try {
-                        $recipientUserId = DB::table('transports')->where('transport_id', $transportId)->value('owner_id');
+                        $transportOwnerId = DB::table('transports')->where('transport_id', $transportId)->value('owner_id');
+                        if ($transportOwnerId) $recipientUserIds[] = $transportOwnerId;
                     } catch (\Throwable $e) {
                         // ignore
                     }
                 }
 
-                if (! $recipientUserId && $destinationId) {
+                if ($destinationId) {
                     try {
-                        $recipientUserId = DB::table('destinations')->where('destination_id', $destinationId)->value('user_id');
+                        $destinationOwnerId = DB::table('destinations')->where('destination_id', $destinationId)->value('user_id');
+                        if ($destinationOwnerId) $recipientUserIds[] = $destinationOwnerId;
                     } catch (\Throwable $e) {
                         // ignore
                     }
                 }
 
-                if (! $recipientUserId) {
+                $recipientUserIds = array_values(array_unique(array_filter($recipientUserIds, fn ($id) => (bool) $id)));
+
+                if (empty($recipientUserIds) && $serviceName !== '') {
                     try {
-                        $recipientUserId = DB::table('hotels')->where('hotel_name', $payload['service'])->value('owner_id');
+                        $hotelOwnerId = DB::table('hotels')->where('hotel_name', $serviceName)->value('owner_id');
+                        if ($hotelOwnerId) $recipientUserIds[] = $hotelOwnerId;
                     } catch (\Throwable $e) {
                         // ignore
                     }
                 }
 
-                if (! $recipientUserId) {
+                if (empty($recipientUserIds) && $serviceName !== '') {
                     try {
-                        $recipientUserId = DB::table('destinations')->where('name', $payload['service'])->value('user_id');
+                        $lower = strtolower($serviceName);
+                        $destinationOwnerId = DB::table('destinations')
+                            ->whereRaw('LOWER(name) = ?', [$lower])
+                            ->value('user_id');
+                        if ($destinationOwnerId) $recipientUserIds[] = $destinationOwnerId;
                     } catch (\Throwable $e) {
                         // ignore
                     }
+
+                    if (empty($recipientUserIds)) {
+                        try {
+                            $lower = strtolower($serviceName);
+                            $destinationOwnerId = DB::table('destinations')
+                                ->whereRaw('LOWER(name) LIKE ?', ['%' . $lower . '%'])
+                                ->orderByDesc('destination_id')
+                                ->value('user_id');
+                            if ($destinationOwnerId) $recipientUserIds[] = $destinationOwnerId;
+                        } catch (\Throwable $e) {
+                            // ignore
+                        }
+                    }
+
+                    if (empty($recipientUserIds) && $routeName !== '') {
+                        try {
+                            $lowerRoute = strtolower($routeName);
+                            $destinationOwnerId = DB::table('destinations')
+                                ->whereRaw('LOWER(location) LIKE ?', ['%' . $lowerRoute . '%'])
+                                ->orderByDesc('destination_id')
+                                ->value('user_id');
+                            if ($destinationOwnerId) $recipientUserIds[] = $destinationOwnerId;
+                        } catch (\Throwable $e) {
+                            // ignore
+                        }
+                    }
                 }
 
-                if (! $recipientUserId) {
-                    $recipientUserId = User::query()->where('role', 'owner')->orderBy('id')->value('id');
+                $recipientUserIds = array_values(array_unique(array_filter($recipientUserIds, fn ($id) => (bool) $id)));
+
+                if (empty($recipientUserIds)) {
+                    $fallbackOwnerId = User::query()->whereRaw('LOWER(role) = ?', ['owner'])->orderBy('id')->value('id');
+                    if ($fallbackOwnerId) $recipientUserIds[] = $fallbackOwnerId;
                 }
 
-                if (! $recipientUserId) {
-                    $recipientUserId = User::query()->where('role', 'admin')->orderBy('id')->value('id');
+                if (empty($recipientUserIds)) {
+                    $fallbackAdminId = User::query()->whereRaw('LOWER(role) = ?', ['admin'])->orderBy('id')->value('id');
+                    if ($fallbackAdminId) $recipientUserIds[] = $fallbackAdminId;
                 }
 
-                // New notifications table (single row per booking).
                 try {
                     $numericBookingId = null;
                     if (is_string($booking->id)) {
-                        // Prefer the numeric portion from IDs like "BK-1773970671972-423d".
-                        if (preg_match('/BK-(\d+)/', $booking->id, $m)) {
+                        if (preg_match('/BK-(\\d+)/', $booking->id, $m)) {
                             $numericBookingId = $m[1];
-                        } elseif (preg_match('/(\d{6,})/', $booking->id, $m)) {
-                            // Fallback: first long digit run.
+                        } elseif (preg_match('/(\\d{6,})/', $booking->id, $m)) {
                             $numericBookingId = $m[1];
                         }
                     }
                     if (! $numericBookingId) {
-                        // Last resort: still write the notification row (even if booking ID isn't numeric).
                         $numericBookingId = (string) (int) round(microtime(true) * 1000);
                     }
 
-                    if ($recipientUserId) {
-                        BookingDbNotification::updateOrCreate(
-                            [
-                                'booking_id' => $numericBookingId,
-                                'type' => 'new_booking',
-                            ],
-                            [
+                    $notificationsTableExists = Schema::hasTable('notifications');
+                    $notificationsColumns = $notificationsTableExists ? Schema::getColumnListing('notifications') : [];
+                    $notificationsSchemaOk =
+                        $notificationsTableExists &&
+                        in_array('user_id', $notificationsColumns, true) &&
+                        in_array('title', $notificationsColumns, true) &&
+                        in_array('message', $notificationsColumns, true) &&
+                        in_array('data', $notificationsColumns, true);
+
+                    foreach ($recipientUserIds as $recipientUserId) {
+                        if (! $recipientUserId) continue;
+
+                        if ($notificationsSchemaOk) {
+                            $unique = ['user_id' => $recipientUserId];
+                            if (in_array('booking_id', $notificationsColumns, true)) $unique['booking_id'] = $numericBookingId;
+                            if (in_array('type', $notificationsColumns, true)) $unique['type'] = 'new_booking';
+
+                            $values = [
                                 'user_id' => $recipientUserId,
                                 'title' => $title,
                                 'message' => $message,
-                                'is_read' => false,
-                                'data' => [
-                                    'booking_code' => (string) $booking->id,
-                                    'snapshot' => $snapshot,
-                                ],
+                                'data' => $snapshot,
+                            ];
+                            if (in_array('booking_id', $notificationsColumns, true)) $values['booking_id'] = $numericBookingId;
+                            if (in_array('type', $notificationsColumns, true)) $values['type'] = 'new_booking';
+                            if (in_array('is_read', $notificationsColumns, true)) $values['is_read'] = false;
+                            if (in_array('read_at', $notificationsColumns, true)) $values['read_at'] = null;
+                            if (in_array('updated_at', $notificationsColumns, true)) $values['updated_at'] = now();
+                            if (in_array('created_at', $notificationsColumns, true)) $values['created_at'] = now();
+
+                            DB::table('notifications')->updateOrInsert($unique, $values);
+                        }
+
+                        OwnerNotification::firstOrCreate(
+                            [
+                                'user_id' => $recipientUserId,
+                                'booking_id' => (string) $booking->id,
+                                'title' => $title,
+                            ],
+                            [
+                                'message' => $message,
+                                'data' => $snapshot,
+                                'read_at' => null,
                             ],
                         );
                     }
-                } catch (\Throwable $e) {
-                    Log::error('Failed to write notifications row: ' . $e->getMessage());
-                }
-
-                // Legacy owner_notifications: still notify all owners so the owner UI keeps working as-is.
-                $owners = User::query()
-                    ->where('role', 'owner')
-                    ->get(['id']);
-
-                foreach ($owners as $owner) {
-                    OwnerNotification::firstOrCreate(
-                        [
-                            'user_id' => $owner->id,
-                            'booking_id' => (string) $booking->id,
-                            'title' => $title,
-                        ],
-                        [
-                            'message' => $message,
-                            'data' => $snapshot,
-                            'read_at' => null,
-                        ],
-                    );
+                } catch (\Throwable $inner) {
+                    Log::error('Failed to write owner notification: ' . $inner->getMessage());
                 }
             } catch (\Throwable $e) {
                 Log::error('Failed to create owner notification: ' . $e->getMessage());
