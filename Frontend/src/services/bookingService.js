@@ -150,6 +150,17 @@ export const bookingService = {
     });
   },
 
+  // Owner recent activities (Overview feed)
+  getOwnerRecentActivities: async ({ limit = 10 } = {}) => {
+    const queryParams = new URLSearchParams();
+    if (limit) queryParams.append('limit', String(limit));
+    const queryString = queryParams.toString() ? `?${queryParams.toString()}` : '';
+
+    return apiRequest(`/owner/recent-activities${queryString}`, {
+      method: 'GET',
+    });
+  },
+
   // Export bookings to CSV
   exportBookings: async (filters = {}) => {
     try {

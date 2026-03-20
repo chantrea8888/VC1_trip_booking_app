@@ -23,6 +23,7 @@ use App\Http\Controllers\Owner\PromotionController;
 use App\Http\Controllers\Api\BookingController; // ADD THIS
 use App\Http\Controllers\Api\OwnerNotificationController;
 use App\Http\Controllers\Api\TripGroupController;
+use App\Http\Controllers\Api\OwnerRecentActivityController;
 
 // Simple health check (useful for confirming API + DB connectivity from the frontend).
 Route::get('/health', function () {
@@ -135,6 +136,9 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('/owner/notifications/unread-count', [OwnerNotificationController::class, 'unreadCount']);
         Route::post('/owner/notifications/read-all', [OwnerNotificationController::class, 'markAllRead']);
         Route::post('/owner/notifications/{id}/read', [OwnerNotificationController::class, 'markRead']);
+
+        // Owner recent activities (Overview feed)
+        Route::get('/owner/recent-activities', [OwnerRecentActivityController::class, 'index']);
     });
     
     // Admin only routes

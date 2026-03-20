@@ -593,6 +593,9 @@ class BookingController extends Controller
                 $serviceName = trim((string) ($payload['service'] ?? ''));
                 $routeName = trim((string) ($payload['route'] ?? ''));
 
+                $activitiesTableExists = Schema::hasTable('recent_activities');
+                $activitiesColumns = $activitiesTableExists ? Schema::getColumnListing('recent_activities') : [];
+
                 if ($transportId) {
                     try {
                         $transportOwnerId = DB::table('transports')->where('transport_id', $transportId)->value('owner_id');
@@ -730,6 +733,26 @@ class BookingController extends Controller
                                 'read_at' => null,
                             ],
                         );
+
+                        if ($activitiesTableExists) {
+                            try {
+                                $activity = [];
+                                if (in_array('booking_id', $activitiesColumns, true)) $activity['booking_id'] = (string) $booking->id;
+                                if (in_array('user_id', $activitiesColumns, true)) $activity['user_id'] = $recipientUserId;
+                                if (in_array('notification_id', $activitiesColumns, true)) $activity['notification_id'] = null;
+                                if (in_array('activity_type', $activitiesColumns, true)) $activity['activity_type'] = 'new_booking';
+                                if (in_array('title', $activitiesColumns, true)) $activity['title'] = $title;
+                                if (in_array('description', $activitiesColumns, true)) $activity['description'] = $message;
+                                if (in_array('activity_data', $activitiesColumns, true)) $activity['activity_data'] = json_encode($snapshot);
+                                if (in_array('ip_address', $activitiesColumns, true)) $activity['ip_address'] = $request->ip();
+                                if (in_array('user_agent', $activitiesColumns, true)) $activity['user_agent'] = $request->userAgent();
+                                if (in_array('created_at', $activitiesColumns, true)) $activity['created_at'] = now();
+
+                                DB::table('recent_activities')->insert($activity);
+                            } catch (\Throwable $e) {
+                                // ignore activity insert failures
+                            }
+                        }
                     }
                 } catch (\Throwable $inner) {
                     Log::error('Failed to write owner notification: ' . $inner->getMessage());
