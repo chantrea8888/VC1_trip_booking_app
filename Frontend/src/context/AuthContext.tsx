@@ -78,6 +78,15 @@ const mapApiUserToContextUser = (apiUser: any): User | null => {
   };
 };
 
+const clearHandledAuthParams = (params: URLSearchParams) => {
+  params.delete('access_token');
+  params.delete('auth_user');
+
+  const nextQuery = params.toString();
+  const nextUrl = `${window.location.pathname}${nextQuery ? `?${nextQuery}` : ''}${window.location.hash}`;
+  window.history.replaceState({}, '', nextUrl);
+};
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(() => mapApiUserToContextUser(getAuthUser()));
   const [token, setToken] = useState<string | null>(() => getAuthToken());
@@ -88,6 +97,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     console.log('📦 Token from memory:', getAuthToken());
     console.log('👤 User from memory:', getAuthUser());
     console.log('🔑 isAuthenticated:', !!getAuthToken());
+  }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const accessToken = params.get('access_token');
+    const serializedUser = params.get('auth_user');
+
+    if (!accessToken || !serializedUser) {
+      return;
+    }
+
+    try {
+      const parsedUser = JSON.parse(serializedUser);
+      const nextUser = mapApiUserToContextUser(parsedUser);
+
+      if (!nextUser) {
+        throw new Error('OAuth callback returned an invalid user payload.');
+      }
+
+      setAuthToken(accessToken);
+      setAuthUser(nextUser);
+      setToken(accessToken);
+      setUser(nextUser);
+    } catch (error) {
+      console.error('❌ Failed to hydrate OAuth login:', error);
+    } finally {
+      clearHandledAuthParams(params);
+    }
   }, []);
 
   useEffect(() => {

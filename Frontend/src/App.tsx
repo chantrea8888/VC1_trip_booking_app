@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { Navbar } from './components/layout/Navbar';
 import { Footer } from './components/layout/Footer';
@@ -102,6 +102,28 @@ const AppContent = () => {
   const handleAuthSuccess = (nextView: string) => {
     setView(nextView);
   };
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const authView = params.get('auth');
+    const nextView = params.get('next_view');
+
+    if (nextView) {
+      setView(nextView);
+
+      params.delete('next_view');
+      params.delete('auth');
+
+      const nextQuery = params.toString();
+      const nextUrl = `${window.location.pathname}${nextQuery ? `?${nextQuery}` : ''}${window.location.hash}`;
+      window.history.replaceState({}, '', nextUrl);
+      return;
+    }
+
+    if (authView === 'login' || authView === 'register') {
+      setView(authView);
+    }
+  }, []);
 
   return (
     <div className="min-h-screen bg-white dark:bg-slate-900 transition-colors duration-300">
