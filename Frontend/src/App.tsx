@@ -24,7 +24,7 @@ const AppContent = () => {
   const [selectedActivityIds, setSelectedActivityIds] = useState<number[]>([]);
   const isAdminUser = user?.role === 'admin';
   const isOwnerUser = user?.role === 'owner';
-  
+
   // Initialize real-time dates
   const today = new Date('2026-03-03T00:34:03-08:00');
   const startDate = new Date(today);
@@ -87,6 +87,7 @@ const AppContent = () => {
       setSelectedRecommendation(item);
     }
   };
+
 
   const handleSelectDestination = (dest: any) => {
     if (dest.type === 'hotel') {
@@ -167,38 +168,38 @@ const AppContent = () => {
           tripData={tripData}
           setTripData={setTripData}
         />
-      ) : (
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={mainView}
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.22, ease: 'easeOut' }}
-            className={isOwnerUser ? undefined : "pt-24"}
-          >
-            <AppRoutes
-              view={mainView}
-              setView={setView}
-              onSelectRecommendation={handleSelectRecommendation}
-              onSelectDestination={handleSelectDestination}
-              onPromotionsClick={() => setView('promotions')}
-              onHotelsClick={() => setView('hotels')}
-              onRentalsClick={() => setView('rentals')}
-              onActivitiesClick={() => setView('activities')}
-              notifications={notifications}
-              onMarkAsRead={handleMarkAsRead}
-              onMarkAllAsRead={handleMarkAllAsRead}
-              activeProfileTab={activeProfileTab}
-              selectedHotel={selectedHotel}
-              setSelectedHotel={setSelectedHotel}
-              selectedActivityIds={selectedActivityIds}
-              setSelectedActivityIds={setSelectedActivityIds}
-              tripData={tripData}
-              setTripData={setTripData}
-            />
-          </motion.div>
-        </AnimatePresence>
+      ) : (<AnimatePresence mode="wait">
+        <motion.div
+          key={mainView}
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -10 }}
+          transition={{ duration: 0.22, ease: 'easeOut' }}
+          className={isOwnerUser ? undefined : "pt-24"}
+        >
+          <AppRoutes
+            view={mainView}
+            setView={setView}
+            onSelectRecommendation={handleSelectRecommendation}
+            onSelectDestination={handleSelectDestination}
+            onPromotionsClick={() => setView('promotions')}
+            onHotelsClick={() => setView('hotels')}
+            onRentalsClick={() => setView('rentals')}
+            onActivitiesClick={() => setView('activities')}
+            notifications={notifications}
+            onMarkAsRead={handleMarkAsRead}
+            onMarkAllAsRead={handleMarkAllAsRead}
+            activeProfileTab={activeProfileTab}
+            selectedHotel={selectedHotel}
+            setSelectedHotel={setSelectedHotel}
+            selectedActivityIds={selectedActivityIds}
+            setSelectedActivityIds={setSelectedActivityIds}
+            tripData={tripData}
+            setTripData={setTripData}
+          />
+        </motion.div>
+
+      </AnimatePresence>
       )}
 
       {shouldShowFooter && <Footer onLoginClick={() => setView('login')} user={user} />}
@@ -247,12 +248,13 @@ const AppContent = () => {
 const App = () => {
   return (
     <>
-        <ThemeProvider>
+      <ThemeProvider>
         <AppContent />
       </ThemeProvider>
-      
+
     </>
   );
 };
 
 export default App;
+
