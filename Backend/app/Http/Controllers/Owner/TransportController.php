@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Owner;
 use App\Http\Controllers\Controller;
 use App\Models\Transport;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -58,17 +59,23 @@ class TransportController extends Controller
             $photoPath = Storage::url($storedPath);
         }
 
-        $transport = Transport::create([
+        $payload = [
             'owner_id' => $request->user()->id,
             'service_name' => $validated['service_name'],
             'transport_type' => $validated['transport_type'] ?? 'Car Rental',
             'price_per_km' => $isFree ? 0 : $validated['price_per_km'],
-            'is_free' => $isFree,
             'route_description' => $validated['route_description'] ?? null,
             'service_details' => $validated['service_details'] ?? null,
             'vehicle_photo_url' => $photoPath,
             'status' => $validated['status'] ?? 'pending',
-        ]);
+        ];
+
+        // Backwards-compatible: some DBs were created before `is_free` existed.
+        if (Schema::hasColumn('transports', 'is_free')) {
+            $payload['is_free'] = $isFree;
+        }
+
+        $transport = Transport::create($payload);
 
         return response()->json([
             'message' => 'Transport created successfully',
@@ -138,16 +145,22 @@ class TransportController extends Controller
             }
         }
 
-        $transport->update([
+        $payload = [
             'service_name' => $validated['service_name'],
             'transport_type' => $validated['transport_type'] ?? $transport->transport_type ?? 'Car Rental',
             'price_per_km' => $isFree ? 0 : $validated['price_per_km'],
-            'is_free' => $isFree,
             'route_description' => $validated['route_description'] ?? null,
             'service_details' => $validated['service_details'] ?? null,
             'vehicle_photo_url' => $photoPath,
             'status' => $validated['status'] ?? $transport->status ?? 'pending',
-        ]);
+        ];
+
+        // Backwards-compatible: some DBs were created before `is_free` existed.
+        if (Schema::hasColumn('transports', 'is_free')) {
+            $payload['is_free'] = $isFree;
+        }
+
+        $transport->update($payload);
 
         return response()->json([
             'message' => 'Transport updated successfully',
