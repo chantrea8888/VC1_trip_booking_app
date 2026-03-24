@@ -1,10 +1,17 @@
-FROM node:20
+FROM node:20-alpine AS build
 
 WORKDIR /app
 
-COPY . .
+COPY package*.json ./
 
 RUN npm install
+
+COPY . .
+
 RUN npm run build
 
-CMD ["npm", "run", "preview"]
+# Use nginx to serve React
+FROM nginx:alpine
+COPY --from=0 /app/dist /usr/share/nginx/html
+
+CMD ["nginx", "-g", "daemon off;"]

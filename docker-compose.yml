@@ -1,39 +1,51 @@
-version: "3"
+version: '3.8'
 
 services:
-
   backend:
-    build: ./backend
+    build: ./Backend
     container_name: laravel_app
+    restart: unless-stopped
+    working_dir: /var/www
     volumes:
-      - ./backend:/var/www
-    ports:
-      - "9000:9000"
+      - ./Backend:/var/www
+    depends_on:
+      - db
+    networks:
+      - app-network
 
   frontend:
-    build: ./frontend
+    build: ./Frontend
     container_name: react_app
-    ports:
-      - "5173:5173"
+    restart: unless-stopped
+    networks:
+      - app-network
 
   nginx:
     image: nginx:latest
     container_name: nginx_server
+    restart: unless-stopped
     ports:
       - "80:80"
     volumes:
-      - ./frontend/dist:/var/www/frontend/dist
-      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
+      - ./Backend:/var/www
+      - ./nginx:/etc/nginx/conf.d
     depends_on:
       - backend
       - frontend
+    networks:
+      - app-network
 
-  database:
-    image: postgres:15
-    container_name: postgres_db
+  db:
+    image: mysql:8.0
+    container_name: mysql_db
+    restart: unless-stopped
     environment:
-      POSTGRES_DB: vanda_db
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: secret
+      MYSQL_DATABASE: laravel
+      MYSQL_ROOT_PASSWORD: root
     ports:
-      - "5432:5432"
+      - "3306:3306"
+    networks:
+      - app-network
+
+networks:
+  app-network:
