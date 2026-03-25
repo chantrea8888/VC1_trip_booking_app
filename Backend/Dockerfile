@@ -1,25 +1,60 @@
 # Stage 1: Composer dependencies
 FROM composer:2 AS vendor
 WORKDIR /app
-COPY composer.json composer.lock ./
-RUN composer install --no-dev --no-scripts --prefer-dist --optimize-autoloader
+COPY Backend/composer.json Backend/composer.lock ./
+RUN composer install \
+    --no-dev \
+    --no-scripts \
+    --no-autoloader \
+    --prefer-dist \
+    --ignore-platform-reqs
+COPY Backend/ .
+RUN composer dump-autoload --optimize
 
 # Stage 2: Production image
 FROM php:8.3-fpm-alpine
 
-RUN apk add --no-cache nginx supervisor \
-    && docker-php-ext-install pdo pdo_mysql opcache redis
+# Install system dependencies
+RUN apk add --no-cache \
+    bash \
+    curl \
+    libpng-dev \
+    libzip-dev \
+    oniguruma-dev \
+    zip \
+    unzip \
+    supervisor
 
-WORKDIR /var/www/html
+# Install built-in PHP extensions
+RUN docker-php-ext-install \
+    pdo \
+    pdo_mysql \
+    mbstring \
+    zip \
+    gd \
+    opcache
+
+# Install Redis via PECL (not a built-in extension)
+RUN apk add --no-cache --virtual .build-deps $PHPIZE_DEPS \
+    && pecl install redis \
+    && docker-php-ext-enable redis \
+    && apk del .build-deps
+
+# Set working directory
+WORKDIR /var/www/Backend
+
+# Copy app files
+COPY Backend/ .
+
+# Copy vendor from stage 1
 COPY --from=vendor /app/vendor ./vendor
-COPY . .
 
-RUN php artisan config:cache \
-    && php artisan route:cache \
-    && php artisan view:cache
+# Set permissions
+RUN chown -R www-data:www-data /var/www/Backend \
+    && chmod -R 755 /var/www/Backend/storage \
+    && chmod -R 755 /var/www/Backend/bootstrap/cache
 
-COPY docker/nginx/laravel.conf /etc/nginx/conf.d/default.conf
-COPY docker/supervisor/supervisord.conf /etc/supervisord.conf
+# Expose PHP-FPM port
+EXPOSE 9000
 
-EXPOSE 80
-CMD ["/usr/bin/supervisord", "-c", "/etc/supervisord.conf"] 
+CMD ["php-fpm"]
