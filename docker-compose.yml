@@ -2,50 +2,34 @@ version: '3.8'
 
 services:
   backend:
-    build: ./Backend
-    container_name: laravel_app
-    restart: unless-stopped
-    working_dir: /var/www
-    volumes:
-      - ./Backend:/var/www
+    build:
+      context: .
+      dockerfile: Backend/Dockerfile
+    container_name: laravel_backend
+    ports:
+      - "8001:8001"
+    environment:
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_DATABASE: booking_db
+      DB_USERNAME: root
+      DB_PASSWORD: 
     depends_on:
       - db
-    networks:
-      - app-network
 
   frontend:
-    build: ./Frontend
-    container_name: react_app
-    restart: unless-stopped
-    networks:
-      - app-network
-
-  nginx:
-    image: nginx:latest
-    container_name: nginx_server
-    restart: unless-stopped
+    build:
+      context: .
+      dockerfile: Frontend/Dockerfile
+    container_name: react_frontend
     ports:
       - "80:80"
-    volumes:
-      - ./Backend:/var/www
-      - ./nginx:/etc/nginx/conf.d
-    depends_on:
-      - backend
-      - frontend
-    networks:
-      - app-network
 
   db:
-    image: mysql:8.0
+    image: mysql:8
     container_name: mysql_db
-    restart: unless-stopped
     environment:
-      MYSQL_DATABASE: laravel
       MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: mydb
     ports:
       - "3306:3306"
-    networks:
-      - app-network
-
-networks:
-  app-network:
