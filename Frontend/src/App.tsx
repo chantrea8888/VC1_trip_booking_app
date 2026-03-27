@@ -188,12 +188,12 @@ const AppContent = () => {
   });
   const [notifications, setNotifications] = useState<NotificationItem[]>([
     { id: 1, title: "Booking Confirmed", message: "Your stay at Raffles Grand Hotel is confirmed for Oct 12.", time: "2h ago", type: "booking", read: false },
-    { id: 2, title: "New Message", message: "Owner of Paradise Beach Resort sent you a message.", time: "5h ago", type: "message", read: false },
+    { id: 2, title: "Message from Owner", message: "Owner of Paradise Beach Resort sent you a message.", time: "5h ago", type: "message", read: false },
     { id: 3, title: "Price Drop", message: "Koh Rong ferry prices just dropped by 15%!", time: "1d ago", type: "alert", read: true },
   ]);
 
   const openCustomerMessageThread = (notification: NotificationItem) => {
-    const ownerName = notification.title.replace(/^New message from\s+/i, '') || 'Owner';
+    const ownerName = notification.title.replace(/^(?:New message from|Message from)\s+/i, '') || 'Owner';
     const thread: PendingMessageThread = {
       ownerId: notification.conversationId || '',
       ownerEmail: notification.conversationEmail || '',
@@ -300,7 +300,7 @@ const AppContent = () => {
             const read = sameMessage ? n.read : false;
             return {
               ...n,
-              title: `New message from ${sender}`,
+              title: `Message from ${sender}`,
               message: `${sender}: ${preview}`,
               time: timeLabel || n.time,
               read,
@@ -349,7 +349,7 @@ const AppContent = () => {
   }, [notifications, user?.role, user?.id]);
 
   return (
-    <HelpCenterLayout showFloatingButton={user?.role !== 'owner'}>
+    <HelpCenterLayout showFloatingButton={false}>
       <div className="min-h-screen bg-white dark:bg-slate-900 transition-colors duration-300">
         {showPublicChrome && (
           <Navbar 

@@ -657,7 +657,7 @@ export const AppRoutes: React.FC<AppRoutesProps> = ({
                 JSON.stringify({
                   ownerId: notification.conversationId,
                   ownerEmail: notification.conversationEmail || '',
-                  ownerName: notification.title?.replace(/^New message from\s+/i, '') || 'Owner',
+                  ownerName: notification.title?.replace(/^(?:New message from|Message from)\s+/i, '') || 'Owner',
                 }),
               );
               setView('messages');
