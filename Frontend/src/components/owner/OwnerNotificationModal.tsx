@@ -1,9 +1,9 @@
 import React from 'react';
 import { X, User, MapPin, CreditCard, Clock } from 'lucide-react';
-import { cn, formatRelativeTime } from '@/src/utils/utils';
-import type { OwnerNotification } from '@/src/context/OwnerNotificationsContext';
-import { ALL_HOTELS } from '@/src/data/hotels';
-import { RENTAL_VEHICLES } from '@/src/data/rentals';
+import { cn, formatRelativeTime } from '@/utils/utils';
+import type { OwnerNotification } from '@/context/OwnerNotificationsContext';
+import { ALL_HOTELS } from '@/data/hotels';
+import { RENTAL_VEHICLES } from '@/data/rentals';
 
 type Props = {
   notification: OwnerNotification | null;
