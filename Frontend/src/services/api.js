@@ -29,8 +29,17 @@ export function clearApiAuthToken() {
   authToken = null;
 }
 
+function getStoredAuthToken() {
+  try {
+    if (typeof localStorage === 'undefined') return null;
+    return localStorage.getItem('auth_token');
+  } catch {
+    return null;
+  }
+}
+
 export async function apiRequest(path, options = {}) {
-  const token = getApiAuthToken();
+  const token = getApiAuthToken() ?? getStoredAuthToken();
   const hasAuthHeader = Boolean(
     options?.headers &&
       Object.keys(options.headers).some((key) => key.toLowerCase() === 'authorization'),
@@ -38,25 +47,17 @@ export async function apiRequest(path, options = {}) {
   const isFormData =
     typeof FormData !== 'undefined' && options?.body instanceof FormData;
 
-  const headers = {
-    Accept: 'application/json',
-    ...(token && !hasAuthHeader ? { Authorization: `Bearer ${token}` } : {}),
-    ...(options.headers ?? {}),
-  };
-
-  if (!isFormData) {
-    headers['Content-Type'] = 'application/json';
-  }
-
   let response;
   try {
+    const headers = {
+      Accept: 'application/json',
+      ...(token && !hasAuthHeader ? { Authorization: `Bearer ${token}` } : {}),
+      ...(options.headers ?? {}),
+      ...(!isFormData ? { 'Content-Type': 'application/json' } : {}),
+    };
+
     response = await fetch(`${API_BASE_URL}${path}`, {
-      headers: {
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-        ...(token && !hasAuthHeader ? { Authorization: `Bearer ${token}` } : {}),
-        ...(options.headers ?? {}),
-      },
+      headers,
       ...options,
     });
   } catch (cause) {

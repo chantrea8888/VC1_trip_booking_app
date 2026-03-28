@@ -11,6 +11,7 @@ interface HeaderProps {
   onNotificationClick?: (notification: AdminNotification) => void;
   notifications?: AdminNotification[];
   unreadCount?: number;
+  onNotificationsOpen?: () => void;
   onMarkNotificationRead?: (id: string) => void;
   onMarkAllNotificationsRead?: () => void;
   onViewAllNotifications?: () => void;
@@ -26,6 +27,7 @@ export const Header: React.FC<HeaderProps> = ({
   onNotificationClick,
   notifications,
   unreadCount,
+  onNotificationsOpen,
   onMarkNotificationRead,
   onMarkAllNotificationsRead,
   onViewAllNotifications,
@@ -82,7 +84,11 @@ export const Header: React.FC<HeaderProps> = ({
 
         <div className="relative">
           <button
-            onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
+            onClick={() => {
+              const nextOpen = !isNotificationsOpen;
+              setIsNotificationsOpen(nextOpen);
+              if (nextOpen) onNotificationsOpen?.();
+            }}
             className="p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full relative transition-colors"
             title="View Notifications"
             type="button"
@@ -152,4 +158,3 @@ export const Header: React.FC<HeaderProps> = ({
     </header>
   );
 };
-

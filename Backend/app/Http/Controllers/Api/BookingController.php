@@ -666,8 +666,16 @@ class BookingController extends Controller
                 $recipientUserIds = array_values(array_unique(array_filter($recipientUserIds, fn ($id) => (bool) $id)));
 
                 if (empty($recipientUserIds)) {
-                    $fallbackOwnerId = User::query()->whereRaw('LOWER(role) = ?', ['owner'])->orderBy('id')->value('id');
-                    if ($fallbackOwnerId) $recipientUserIds[] = $fallbackOwnerId;
+                    // If we can't confidently resolve a specific owner for this booking, notify all owners.
+                    // This prevents "missing notifications" when seeded IDs or names don't match across tables.
+                    $allOwnerIds = User::query()
+                        ->whereRaw('LOWER(role) = ?', ['owner'])
+                        ->orderBy('id')
+                        ->pluck('id')
+                        ->all();
+                    if (!empty($allOwnerIds)) {
+                        $recipientUserIds = array_values(array_unique(array_merge($recipientUserIds, $allOwnerIds)));
+                    }
                 }
 
                 if (empty($recipientUserIds)) {
@@ -701,38 +709,61 @@ class BookingController extends Controller
                         if (! $recipientUserId) continue;
 
                         if ($notificationsSchemaOk) {
-                            $unique = ['user_id' => $recipientUserId];
-                            if (in_array('booking_id', $notificationsColumns, true)) $unique['booking_id'] = $numericBookingId;
-                            if (in_array('type', $notificationsColumns, true)) $unique['type'] = 'new_booking';
+                            try {
+                                // Use a uniqueness key that won't overwrite older notifications.
+                                // Some deployments may have a `notifications` table without `booking_id`.
+                                // In that case, use `title` (contains booking id) to keep rows distinct.
+                                $unique = [
+                                    'user_id' => $recipientUserId,
+                                    'title' => $title,
+                                ];
+                                if (in_array('booking_id', $notificationsColumns, true)) {
+                                    $unique['booking_id'] = $numericBookingId;
+                                }
+                                // Keep type consistent with existing DB expectations (older schema used `booking_created`).
+                                if (in_array('type', $notificationsColumns, true)) {
+                                    $unique['type'] = 'booking_created';
+                                }
 
-                            $values = [
-                                'user_id' => $recipientUserId,
-                                'title' => $title,
-                                'message' => $message,
-                                'data' => $snapshot,
-                            ];
-                            if (in_array('booking_id', $notificationsColumns, true)) $values['booking_id'] = $numericBookingId;
-                            if (in_array('type', $notificationsColumns, true)) $values['type'] = 'new_booking';
-                            if (in_array('is_read', $notificationsColumns, true)) $values['is_read'] = false;
-                            if (in_array('read_at', $notificationsColumns, true)) $values['read_at'] = null;
-                            if (in_array('updated_at', $notificationsColumns, true)) $values['updated_at'] = now();
-                            if (in_array('created_at', $notificationsColumns, true)) $values['created_at'] = now();
+                                // The query builder can't reliably bind PHP arrays. Always store JSON in `data`.
+                                $encodedSnapshot = json_encode($snapshot, JSON_UNESCAPED_UNICODE);
 
-                            DB::table('notifications')->updateOrInsert($unique, $values);
+                                $values = [
+                                    'user_id' => $recipientUserId,
+                                    'title' => $title,
+                                    'message' => $message,
+                                    'data' => $encodedSnapshot,
+                                ];
+                                if (in_array('booking_id', $notificationsColumns, true)) $values['booking_id'] = $numericBookingId;
+                                if (in_array('type', $notificationsColumns, true)) $values['type'] = 'booking_created';
+                                if (in_array('is_read', $notificationsColumns, true)) $values['is_read'] = false;
+                                if (in_array('read_at', $notificationsColumns, true)) $values['read_at'] = null;
+                                if (in_array('updated_at', $notificationsColumns, true)) $values['updated_at'] = now();
+                                if (in_array('created_at', $notificationsColumns, true)) $values['created_at'] = now();
+
+                                DB::table('notifications')->updateOrInsert($unique, $values);
+                            } catch (\Throwable $e) {
+                                // Don't block the legacy notifications table from preventing the owner_notifications insert.
+                                Log::warning('Failed to write notifications table row: ' . $e->getMessage());
+                            }
                         }
 
-                        OwnerNotification::firstOrCreate(
-                            [
-                                'user_id' => $recipientUserId,
-                                'booking_id' => (string) $booking->id,
-                                'title' => $title,
-                            ],
-                            [
-                                'message' => $message,
-                                'data' => $snapshot,
-                                'read_at' => null,
-                            ],
-                        );
+                        try {
+                            OwnerNotification::firstOrCreate(
+                                [
+                                    'user_id' => $recipientUserId,
+                                    'booking_id' => (string) $booking->id,
+                                    'title' => $title,
+                                ],
+                                [
+                                    'message' => $message,
+                                    'data' => $snapshot,
+                                    'read_at' => null,
+                                ],
+                            );
+                        } catch (\Throwable $e) {
+                            Log::warning('Failed to write owner_notifications row: ' . $e->getMessage());
+                        }
 
                         if ($activitiesTableExists) {
                             try {
@@ -740,7 +771,7 @@ class BookingController extends Controller
                                 if (in_array('booking_id', $activitiesColumns, true)) $activity['booking_id'] = (string) $booking->id;
                                 if (in_array('user_id', $activitiesColumns, true)) $activity['user_id'] = $recipientUserId;
                                 if (in_array('notification_id', $activitiesColumns, true)) $activity['notification_id'] = null;
-                                if (in_array('activity_type', $activitiesColumns, true)) $activity['activity_type'] = 'new_booking';
+                                if (in_array('activity_type', $activitiesColumns, true)) $activity['activity_type'] = 'booking_created';
                                 if (in_array('title', $activitiesColumns, true)) $activity['title'] = $title;
                                 if (in_array('description', $activitiesColumns, true)) $activity['description'] = $message;
                                 if (in_array('activity_data', $activitiesColumns, true)) $activity['activity_data'] = json_encode($snapshot);

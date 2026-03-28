@@ -13,7 +13,20 @@ class OwnerNotificationController extends Controller
 {
     private function notificationsTableEnabled(): bool
     {
-        return Schema::hasTable('notifications');
+        if (! Schema::hasTable('notifications')) {
+            return false;
+        }
+
+        try {
+            $cols = Schema::getColumnListing('notifications');
+        } catch (\Throwable $e) {
+            return false;
+        }
+
+        // This app supports a "custom notifications" table that contains `user_id`, `title`, `message`, etc.
+        // Many Laravel installs also have the default `notifications` table which uses `notifiable_id` and
+        // does NOT contain `user_id`. Treat those schemas as unsupported and fall back to `owner_notifications`.
+        return in_array('user_id', $cols, true);
     }
 
     public function index(Request $request)
@@ -36,6 +49,12 @@ class OwnerNotificationController extends Controller
 
         if ($useNotifications) {
             $cols = Schema::getColumnListing('notifications');
+            if (! in_array('user_id', $cols, true)) {
+                $useNotifications = false;
+            }
+        }
+
+        if ($useNotifications) {
             $idCol = in_array('id', $cols, true) ? 'id' : (in_array('notification_id', $cols, true) ? 'notification_id' : 'id');
             $typeCol = in_array('type', $cols, true) ? 'type' : (in_array('notification_type', $cols, true) ? 'notification_type' : null);
             $dataCol = in_array('data', $cols, true) ? 'data' : (in_array('notification_data', $cols, true) ? 'notification_data' : null);
@@ -101,11 +120,24 @@ class OwnerNotificationController extends Controller
                         $decoded = $rawData;
                     }
 
+                    // Prefer the original booking code from the snapshot payload (e.g. "BK-...") when present.
+                    // The `notifications.booking_id` column can be either a string or a numeric token depending on
+                    // which migration was used, so using the snapshot keeps the frontend consistent and prevents
+                    // duplicated rows when the UI merges "derived from bookings" notifications.
+                    $bookingCode = null;
+                    if (is_array($decoded)) {
+                        $candidate = $decoded['id'] ?? ($decoded['bookingId'] ?? ($decoded['booking_id'] ?? null));
+                        if (is_string($candidate)) {
+                            $candidate = trim($candidate);
+                            if ($candidate !== '') $bookingCode = $candidate;
+                        }
+                    }
+
                     return [
                         'id' => $n->{$idCol},
                         'title' => $n->title ?? '',
                         'message' => $n->message ?? '',
-                        'bookingId' => $n->booking_id ?? null,
+                        'bookingId' => $bookingCode ?? ($n->booking_id ?? null),
                         'type' => $typeCol ? ($n->{$typeCol} ?? null) : null,
                         'data' => $decoded,
                         'readAt' => $n->read_at ?? null,
@@ -135,6 +167,9 @@ class OwnerNotificationController extends Controller
 
         if ($this->notificationsTableEnabled()) {
             $cols = Schema::getColumnListing('notifications');
+            if (! in_array('user_id', $cols, true)) {
+                $cols = [];
+            }
             $hasReadAt = in_array('read_at', $cols, true);
             $hasIsRead = in_array('is_read', $cols, true);
             $q = DB::table('notifications')->where('user_id', $user->id);
@@ -164,6 +199,9 @@ class OwnerNotificationController extends Controller
 
         if ($this->notificationsTableEnabled()) {
             $cols = Schema::getColumnListing('notifications');
+            if (! in_array('user_id', $cols, true)) {
+                $cols = [];
+            }
             $idCol = in_array('id', $cols, true) ? 'id' : (in_array('notification_id', $cols, true) ? 'notification_id' : 'id');
             $hasReadAt = in_array('read_at', $cols, true);
             $hasIsRead = in_array('is_read', $cols, true);
@@ -213,6 +251,9 @@ class OwnerNotificationController extends Controller
 
         if ($this->notificationsTableEnabled()) {
             $cols = Schema::getColumnListing('notifications');
+            if (! in_array('user_id', $cols, true)) {
+                $cols = [];
+            }
             $hasReadAt = in_array('read_at', $cols, true);
             $hasIsRead = in_array('is_read', $cols, true);
             $update = [];

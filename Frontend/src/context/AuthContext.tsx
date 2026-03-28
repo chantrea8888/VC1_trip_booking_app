@@ -8,6 +8,7 @@ import {
   setAuthUser,
   authService,
 } from '../services/authService';
+import { clearApiAuthToken, setApiAuthToken } from '../services/api';
 
 type UserRole = 'customer' | 'owner' | 'admin';
 
@@ -80,6 +81,14 @@ const mapApiUserToContextUser = (apiUser: any): User | null => {
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(() => mapApiUserToContextUser(getAuthUser()));
   const [token, setToken] = useState<string | null>(() => getAuthToken());
+
+  useEffect(() => {
+    if (token) {
+      setApiAuthToken(token);
+    } else {
+      clearApiAuthToken();
+    }
+  }, [token]);
 
   // Debug log on mount and when auth state changes
   useEffect(() => {
@@ -245,3 +254,4 @@ export const useAuth = () => {
   }
   return context;
 };
+

@@ -195,6 +195,8 @@ export const BookingHistory: React.FC<BookingHistoryProps> = ({
         specialRequests: '',
         paymentMethod: opts?.paymentMethod ?? 'credit_card',
         createdAt: new Date().toISOString(),
+        destination_id: tripData?.hotel?.id ?? tripData?.destination_id ?? null,
+        transport_id: tripData?.rental?.isBooked ? (tripData?.rental?.id ?? tripData?.transport_id ?? null) : null,
         // Additional info for reference
         rental: tripData.rental.isBooked ? {
           name: tripData.rental.name,

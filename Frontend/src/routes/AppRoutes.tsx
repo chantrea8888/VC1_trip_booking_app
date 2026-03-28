@@ -142,6 +142,7 @@ const OwnerShellInner: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
   const {
     notifications,
     unreadCount,
+    refresh,
     markRead,
     markAllRead,
     openNotification,
@@ -176,7 +177,9 @@ const OwnerShellInner: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
 
   const headerNotifications: AdminNotification[] = React.useMemo(
     () =>
-      notifications.map((n) => ({
+      notifications
+        .filter((n) => !n.readAt)
+        .map((n) => ({
         id: String(n.id),
         title: n.title,
         description: n.message ?? '',
@@ -221,6 +224,7 @@ const OwnerShellInner: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
           toggleTheme={toggleDarkMode}
           notifications={headerNotifications}
           unreadCount={unreadCount}
+          onNotificationsOpen={() => refresh({ silent: false })}
           onMarkNotificationRead={(id) => markRead(id)}
           onMarkAllNotificationsRead={markAllRead}
           onViewAllNotifications={() => navigate('/#recent-activities')}

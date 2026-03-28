@@ -83,7 +83,10 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { notifications, loading, markRead, openNotification } = useOwnerNotifications();
-  const recentActivities = React.useMemo(() => notifications.slice(0, 4), [notifications]);
+  const recentActivities = React.useMemo(
+    () => notifications.filter((n) => !n.readAt).slice(0, 4),
+    [notifications],
+  );
 
   React.useEffect(() => {
     if (location.hash !== '#recent-activities') return;
@@ -367,4 +370,3 @@ const Dashboard = () => {
 };
 
 export default Dashboard;
-
