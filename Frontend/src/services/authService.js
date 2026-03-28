@@ -1,40 +1,100 @@
-import { apiRequest } from './api';
+import { apiRequest, clearApiAuthToken, getApiAuthToken, setApiAuthToken } from './api';
 
-const AUTH_TOKEN_KEY = 'auth_token';
-const AUTH_USER_KEY = 'auth_user';
+const STORAGE_KEYS = {
+  token: 'auth_token',
+  user: 'auth_user',
+};
 
-export function getAuthToken() {
-  return localStorage.getItem(AUTH_TOKEN_KEY);
-}
+const canUseStorage = () =>
+  typeof window !== 'undefined' && typeof window.localStorage !== 'undefined';
 
-export function setAuthToken(token) {
-  localStorage.setItem(AUTH_TOKEN_KEY, token);
-}
-
-export function clearAuthToken() {
-  localStorage.removeItem(AUTH_TOKEN_KEY);
-}
-
-export function getAuthUser() {
-  const raw = localStorage.getItem(AUTH_USER_KEY);
-
-  if (!raw) {
+const readStorage = (key) => {
+  if (!canUseStorage()) {
     return null;
   }
-
   try {
-    return JSON.parse(raw);
+    return window.localStorage.getItem(key);
   } catch {
     return null;
   }
+};
+
+const writeStorage = (key, value) => {
+  if (!canUseStorage()) {
+    return;
+  }
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {
+    // Ignore storage write errors (e.g. private mode).
+  }
+};
+
+const removeStorage = (key) => {
+  if (!canUseStorage()) {
+    return;
+  }
+  try {
+    window.localStorage.removeItem(key);
+  } catch {
+    // Ignore storage removal errors.
+  }
+};
+
+let cachedUser = null;
+
+const hydrateAuthFromStorage = () => {
+  const storedToken = readStorage(STORAGE_KEYS.token);
+  if (storedToken) {
+    setApiAuthToken(storedToken);
+  }
+
+  const storedUser = readStorage(STORAGE_KEYS.user);
+  if (storedUser) {
+    try {
+      cachedUser = JSON.parse(storedUser);
+    } catch {
+      cachedUser = null;
+    }
+  }
+};
+
+hydrateAuthFromStorage();
+
+export function getAuthToken() {
+  return getApiAuthToken();
+}
+
+export function setAuthToken(token) {
+  setApiAuthToken(token);
+  if (token) {
+    writeStorage(STORAGE_KEYS.token, token);
+  } else {
+    removeStorage(STORAGE_KEYS.token);
+  }
+}
+
+export function clearAuthToken() {
+  clearApiAuthToken();
+  removeStorage(STORAGE_KEYS.token);
+}
+
+export function getAuthUser() {
+  return cachedUser;
 }
 
 export function setAuthUser(user) {
-  localStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
+  cachedUser = user ?? null;
+  if (cachedUser) {
+    writeStorage(STORAGE_KEYS.user, JSON.stringify(cachedUser));
+  } else {
+    removeStorage(STORAGE_KEYS.user);
+  }
 }
 
 export function clearAuthUser() {
-  localStorage.removeItem(AUTH_USER_KEY);
+  cachedUser = null;
+  removeStorage(STORAGE_KEYS.user);
 }
 
 export function getUserRole() {
@@ -90,16 +150,18 @@ export async function register(payload) {
 export async function logout() {
   const token = getAuthToken();
 
-  if (!token) {
-    return;
+  if (token) {
+    try {
+      await apiRequest('/auth/logout', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+    } catch {
+      // Ignore logout API errors and still clear local auth.
+    }
   }
-
-  await apiRequest('/auth/logout', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  });
 
   clearAuthToken();
   clearAuthUser();

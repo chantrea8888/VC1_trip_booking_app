@@ -36,6 +36,14 @@ interface DestinationApiRecord {
 }
 
 const DEFAULT_IMAGE = 'https://picsum.photos/seed/updatedproperty/800/600';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000/api';
+const API_ORIGIN = /^https?:\/\//i.test(API_BASE_URL)
+  ? API_BASE_URL.replace(/\/api\/?$/, '')
+  : '';
+const ASSET_ORIGIN =
+  import.meta.env.VITE_ASSET_ORIGIN ||
+  API_ORIGIN ||
+  (typeof window !== 'undefined' ? window.location.origin : '');
 
 const toNumber = (value: number | string | null | undefined, fallback = 0) => {
   const parsed = typeof value === 'number' ? value : parseFloat(String(value ?? ''));
@@ -48,11 +56,30 @@ const getErrorMessage = (error: any, fallback: string) => {
   return fallback;
 };
 
+const resolveImageUrl = (value?: string | null) => {
+  if (!value) return '';
+  const cleaned = value.replace(/\\/g, '/');
+  const normalizedScheme = cleaned.replace(/^https?:\/(?!\/)/i, (match) => `${match}/`);
+  if (normalizedScheme.startsWith('data:')) return normalizedScheme;
+  if (/^https?:\/\//i.test(normalizedScheme)) return normalizedScheme;
+
+  const normalized = normalizedScheme.startsWith('/') ? normalizedScheme : `/${normalizedScheme}`;
+  if (!ASSET_ORIGIN) return normalized;
+
+  if (normalized.startsWith('/storage/')) return `${ASSET_ORIGIN}${normalized}`;
+  if (normalized.startsWith('/images/')) return `${ASSET_ORIGIN}/storage${normalized}`;
+  if (normalized.startsWith('/destinations/')) return `${ASSET_ORIGIN}/storage${normalized}`;
+
+  return `${ASSET_ORIGIN}${normalized}`;
+};
+
 const normalizePropertyData = (propertyData?: DestinationApiRecord | null) => {
   const imageList = Array.isArray(propertyData?.images)
     ? propertyData.images.filter((image): image is string => typeof image === 'string' && image.trim().length > 0)
     : [];
-  const image = (typeof propertyData?.image === 'string' && propertyData.image.trim()) || imageList[0] || DEFAULT_IMAGE;
+  const image =
+    resolveImageUrl((typeof propertyData?.image === 'string' && propertyData.image.trim()) || imageList[0] || '') ||
+    DEFAULT_IMAGE;
   const totalBookings = Math.max(0, toNumber(propertyData?.total_bookings ?? propertyData?.totalBookings, 0));
 
   return {
@@ -63,7 +90,7 @@ const normalizePropertyData = (propertyData?: DestinationApiRecord | null) => {
     location: propertyData?.location?.trim() || '',
     address: propertyData?.address?.trim() || propertyData?.location?.trim() || '',
     price: propertyData?.price !== null && propertyData?.price !== undefined ? String(propertyData.price) : '',
-    images: imageList.length > 0 ? imageList : [image],
+    images: imageList.length > 0 ? imageList.map(resolveImageUrl).filter(Boolean) : [image],
     status: propertyData?.status === 'active' ? 'active' as const : 'draft' as const,
     totalBookings,
     rating: propertyData?.rating !== null && propertyData?.rating !== undefined ? String(propertyData.rating) : '',
@@ -88,6 +115,9 @@ const EditProperty = () => {
     totalBookings: 0,
     rating: ''
   });
+  const [newImages, setNewImages] = React.useState<File[]>([]);
+  const [newImagePreviews, setNewImagePreviews] = React.useState<string[]>([]);
+  const fileInputRef = React.useRef<HTMLInputElement | null>(null);
 
   const [errors, setErrors] = React.useState<Record<string, string>>({});
   const [showDeleteModal, setShowDeleteModal] = React.useState(false);
@@ -106,6 +136,7 @@ const EditProperty = () => {
     if (propertyFromState?.id) {
       if (isMounted) {
         setFormData(normalizePropertyData(propertyFromState));
+        setNewImages([]);
         setLoadError('');
         setIsLoading(false);
       }
@@ -134,6 +165,7 @@ const EditProperty = () => {
 
         if (isMounted) {
           setFormData(normalizePropertyData(response.data));
+          setNewImages([]);
         }
       } catch (error) {
         if (isMounted) {
@@ -178,37 +210,39 @@ const EditProperty = () => {
     return Object.keys(newErrors).length === 0;
   };
 
+  React.useEffect(() => {
+    const nextPreviews = newImages.map((file) => URL.createObjectURL(file));
+    setNewImagePreviews(nextPreviews);
+
+    return () => {
+      nextPreviews.forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, [newImages]);
+
   const addImage = (e?: React.ChangeEvent<HTMLInputElement>) => {
-    if (e && e.target.files && e.target.files.length > 0) {
+    if (!e) {
+      fileInputRef.current?.click();
+      return;
+    }
+
+    if (e.target.files && e.target.files.length > 0) {
       const files = Array.from(e.target.files) as File[];
-      files.forEach((file: File) => {
-        if (file.type.startsWith('image/')) {
-          const reader = new FileReader();
-          reader.onload = (event) => {
-            if (event.target?.result) {
-              setFormData(prev => ({
-                ...prev,
-                images: [...prev.images, event.target?.result as string]
-              }));
-            }
-          };
-          reader.readAsDataURL(file);
-        }
-      });
-    } else {
-      const newImage = `https://picsum.photos/seed/property${Date.now()}/800/600`;
-      setFormData(prev => ({
+      setNewImages((prev) => [
         ...prev,
-        images: [...prev.images, newImage]
-      }));
+        ...files.filter((file) => file.type.startsWith('image/'))
+      ]);
     }
   };
 
   const removeImage = (index: number) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       images: prev.images.filter((_, i) => i !== index)
     }));
+  };
+
+  const removeNewImage = (index: number) => {
+    setNewImages((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleUpdate = async () => {
@@ -223,20 +257,32 @@ const EditProperty = () => {
     setSubmitError('');
 
     try {
+      const payload = new FormData();
+      payload.append('_method', 'PUT');
+      payload.append('name', formData.name);
+      payload.append('type', formData.type);
+      payload.append('description', formData.description);
+      payload.append('location', formData.location);
+      payload.append('address', formData.address);
+      payload.append('price', String(parseFloat(formData.price)));
+      payload.append('rating', formData.rating ? String(parseFloat(formData.rating)) : '0');
+      payload.append('status', formData.status);
+
+      const primaryExisting = formData.images[0];
+      const primaryNew = newImages[0];
+
+      if (primaryNew) {
+        payload.append('image', primaryNew);
+      } else if (primaryExisting) {
+        payload.append('image', primaryExisting);
+      }
+
+      formData.images.forEach((img) => payload.append('images[]', img));
+      newImages.forEach((file) => payload.append('images[]', file));
+
       await apiRequest(`/destinations/${formData.id}`, {
-        method: 'PUT',
-        body: JSON.stringify({
-          name: formData.name,
-          type: formData.type,
-          description: formData.description,
-          location: formData.location,
-          address: formData.address,
-          price: parseFloat(formData.price),
-          image: formData.images[0] || DEFAULT_IMAGE,
-          images: formData.images,
-          rating: formData.rating ? parseFloat(formData.rating) : 0,
-          status: formData.status,
-        }),
+        method: 'POST',
+        body: payload,
       });
 
       navigate('/destinations');
@@ -412,7 +458,7 @@ const EditProperty = () => {
                     onChange={(e) => setFormData({...formData, status: e.target.value as 'active' | 'draft'})}
                     className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border-transparent rounded-xl text-sm focus:bg-white dark:focus:bg-slate-900 focus:ring-2 focus:ring-blue-600/10 transition-all font-medium appearance-none"
                   >
-                    <option value="draft">Draft</option>
+                    <option value="draft">Upcoming</option>
                     <option value="active">Active</option>
                   </select>
                 </div>
@@ -475,6 +521,7 @@ const EditProperty = () => {
                 <label className="px-6 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 transition-all cursor-pointer">
                   Select Files
                   <input
+                    ref={fileInputRef}
                     type="file"
                     multiple
                     accept="image/*"
@@ -486,7 +533,7 @@ const EditProperty = () => {
                   onClick={() => addImage()}
                   className="px-6 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold hover:bg-slate-50 transition-all"
                 >
-                  Add Sample Image
+                  Add Image
                 </button>
               </div>
             </div>
@@ -496,6 +543,18 @@ const EditProperty = () => {
                   <img src={image} alt={`Property ${index + 1}`} className="w-full h-full object-cover rounded-xl" />
                   <button
                     onClick={() => removeImage(index)}
+                    className="absolute top-2 right-2 p-1 bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                    aria-label="Remove image"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+              ))}
+              {newImagePreviews.map((image, index) => (
+                <div key={`new-${index}`} className="aspect-square relative group">
+                  <img src={image} alt={`New property ${index + 1}`} className="w-full h-full object-cover rounded-xl" />
+                  <button
+                    onClick={() => removeNewImage(index)}
                     className="absolute top-2 right-2 p-1 bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
                     aria-label="Remove image"
                   >
@@ -586,7 +645,7 @@ const EditProperty = () => {
                   </div>
                   <div>
                     <span className="text-[10px] uppercase font-bold tracking-widest text-slate-400">Status</span>
-                    <p className="font-semibold text-slate-900 dark:text-slate-100">{formData.status === 'draft' ? 'Draft Mode' : 'Active'}</p>
+                    <p className="font-semibold text-slate-900 dark:text-slate-100">{formData.status === 'draft' ? 'Upcoming' : 'Active'}</p>
                   </div>
                   <div>
                     <span className="text-[10px] uppercase font-bold tracking-widest text-slate-400">Total Bookings</span>

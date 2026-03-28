@@ -3,7 +3,7 @@ import {
   LogOut,
   ShieldCheck
 } from 'lucide-react';
-import { motion } from 'motion/react';
+import { motion } from 'framer-motion';
 import { cn } from '../../utils/utils';
 import { MAIN_MENU_ITEMS, SYSTEM_MENU_ITEMS } from './menuBar';
 import { LogoutConfirmModal } from '../common/LogoutConfirmModal';

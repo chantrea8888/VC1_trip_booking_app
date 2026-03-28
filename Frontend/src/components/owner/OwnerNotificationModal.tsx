@@ -1,9 +1,16 @@
 import React from 'react';
 import { X, User, MapPin, CreditCard, Clock } from 'lucide-react';
+<<<<<<< HEAD
 import { cn, formatRelativeTime } from '@/utils/utils';
 import type { OwnerNotification } from '@/context/OwnerNotificationsContext';
 import { ALL_HOTELS } from '@/data/hotels';
 import { RENTAL_VEHICLES } from '@/data/rentals';
+=======
+import { cn, formatRelativeTime } from '../../utils/utils';
+import type { OwnerNotification } from '../../context/OwnerNotificationsContext';
+import { ALL_HOTELS } from '../../data/hotels';
+import { RENTAL_VEHICLES } from '../../data/rentals';
+>>>>>>> social-account
 
 type Props = {
   notification: OwnerNotification | null;

@@ -7,6 +7,7 @@ interface ProfileDropdownProps {
   onClose: () => void;
   onLogoutClick: () => void;
   onProfileClick: () => void;
+  onSettingsClick?: () => void;
   user?: { name?: string; email?: string; role?: string } | null;
 }
 
@@ -14,6 +15,7 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
   onClose,
   onLogoutClick,
   onProfileClick,
+  onSettingsClick,
   user,
 }) => {
   const { isDarkMode } = useTheme();
@@ -31,7 +33,9 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
       icon: Settings,
       label: 'Profile Settings',
       onClick: () => {
-        // Handle settings
+        if (onSettingsClick) {
+          onSettingsClick();
+        }
         onClose();
       },
     },

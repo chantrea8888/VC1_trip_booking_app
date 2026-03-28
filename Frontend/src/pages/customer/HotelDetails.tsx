@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { format, subMonths, addDays, differenceInDays } from 'date-fns';
-import { 
+import {
   Star, 
   MapPin, 
   Wifi, 
@@ -18,6 +18,7 @@ import {
   Users,
   LayoutGrid
 } from 'lucide-react';
+import { getAuthUser } from '../../services/authService';
 
 interface RoomOption {
   id: string;
@@ -69,6 +70,8 @@ const resolveDateValue = (value: unknown): Date | null => {
 export const HotelDetails: React.FC<HotelDetailsProps> = ({ tripData, hotel: initialHotel, onBack, onReserve }) => {
   const [isGroupMode, setIsGroupMode] = useState(false);
   const [selectedRoomId, setSelectedRoomId] = useState('');
+  const [isBooking, setIsBooking] = useState(false);
+  const [bookingMessage, setBookingMessage] = useState('');
   const defaultGuestCount = parseGuestCount(tripData?.guests);
   const [guests, setGuests] = useState(defaultGuestCount);
   
@@ -245,21 +248,39 @@ export const HotelDetails: React.FC<HotelDetailsProps> = ({ tripData, hotel: ini
   const total = roomSubtotal + cleaningFee + serviceFee;
   const perPerson = total / guests;
 
-  const handleReserveClick = () => {
+  const handleReserveClick = async () => {
     if (!selectedRoom) return;
 
-    onReserve?.({
-      roomType: selectedRoom.name,
-      roomCategory: selectedRoom.category,
-      guests,
-      maxOccupancy: selectedRoom.maxOccupancy,
-      nightlyPrice,
-      nights,
-      roomSubtotal,
-      cleaningFee,
-      serviceFee,
-      totalPrice: total
-    });
+    setIsBooking(true);
+    setBookingMessage('');
+
+    try {
+      const user = getAuthUser();
+      if (!user) {
+        setBookingMessage('Please login to make a booking');
+        return;
+      }
+      
+      // Call the original onReserve callback if provided
+      onReserve?.({
+        roomType: selectedRoom.name,
+        roomCategory: selectedRoom.category,
+        guests,
+        maxOccupancy: selectedRoom.maxOccupancy,
+        nightlyPrice,
+        nights,
+        roomSubtotal,
+        cleaningFee,
+        serviceFee,
+        totalPrice: total
+      });
+
+    } catch (error) {
+      console.error('Booking error:', error);
+      setBookingMessage(error?.data?.message || 'Booking failed. Please try again.');
+    } finally {
+      setIsBooking(false);
+    }
   };
 
   return (
@@ -574,12 +595,35 @@ export const HotelDetails: React.FC<HotelDetailsProps> = ({ tripData, hotel: ini
                   </AnimatePresence>
                 </div>
 
+                {/* Booking Message */}
+                {bookingMessage && (
+                  <div className={`p-4 rounded-2xl text-sm font-medium text-center ${
+                    bookingMessage.includes('successful') 
+                      ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
+                      : 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800'
+                  }`}>
+                    {bookingMessage}
+                  </div>
+                )}
+
                 {/* Reserve Button */}
                 <button 
                   onClick={handleReserveClick}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white py-5 rounded-2xl text-sm font-bold shadow-xl shadow-blue-600/20 transition-all active:scale-[0.98]"
+                  disabled={isBooking}
+                  className={`w-full py-5 rounded-2xl text-sm font-bold shadow-xl transition-all active:scale-[0.98] ${
+                    isBooking 
+                      ? 'bg-slate-400 text-slate-200 cursor-not-allowed'
+                      : 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-600/20'
+                  }`}
                 >
-                  Reserve Now
+                  {isBooking ? (
+                    <div className="flex items-center justify-center gap-2">
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Processing Booking...
+                    </div>
+                  ) : (
+                    'Reserve Now'
+                  )}
                 </button>
                 <p className="text-[10px] text-center text-slate-400 font-medium uppercase tracking-widest">You won't be charged yet</p>
 

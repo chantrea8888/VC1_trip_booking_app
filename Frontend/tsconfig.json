@@ -12,12 +12,24 @@
     "noEmit": true,
     "jsx": "react-jsx",
 
-    "strict": false,
+    "strict": true,
+    "noImplicitAny": true,
+    "noImplicitThis": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "strictNullChecks": true,
+    "strictPropertyInitialization": false,
 
     "baseUrl": ".",
     "paths": {
+<<<<<<< HEAD
       "@/*": ["./src/*"]
+=======
+      "@/*": ["src/*"],
+      "@/src/*": ["src/*"]
+>>>>>>> social-account
     }
   },
-  "include": ["src"]
+  "include": ["src"],
+  "exclude": ["node_modules", "dist"]
 }

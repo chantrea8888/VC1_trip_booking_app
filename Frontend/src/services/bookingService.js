@@ -1,14 +1,13 @@
-﻿import { apiRequest } from './api';
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api';
+import { apiRequest, API_BASE_URL } from './api';
+import { getAuthToken } from './authService';
 
 export const bookingService = {
   // Get all bookings (for owner page)
   getBookings: async (filters = {}) => {
     try {
-      console.log('ðŸ” Fetching bookings with filters:', filters);
-      console.log('ðŸŒ API URL:', API_BASE_URL);
-      
+      console.log('Fetching bookings with filters:', filters);
+      console.log('API URL:', API_BASE_URL);
+
       const queryParams = new URLSearchParams();
       if (filters.service && filters.service !== 'all') queryParams.append('service', filters.service);
       if (filters.status && filters.status !== 'all') queryParams.append('status', filters.status);
@@ -18,24 +17,23 @@ export const bookingService = {
       if (filters.max_amount) queryParams.append('max_amount', filters.max_amount);
       if (filters.guest_name) queryParams.append('guest_name', filters.guest_name);
       if (filters.booking_id) queryParams.append('booking_id', filters.booking_id);
-      
+
       const queryString = queryParams.toString() ? `?${queryParams.toString()}` : '';
       const url = `/bookings${queryString}`;
-      
-      console.log('ðŸ“¡ Calling API:', url);
-      
+
+      console.log('Calling API:', url);
+
       const response = await apiRequest(url, {
         method: 'GET',
       });
-      
-      console.log('âœ… API Response:', response);
-      
-      // Make sure we return the data in the format expected
+
+      console.log('API Response:', response);
+
       return {
-        data: response.data || []
+        data: response.data || [],
       };
     } catch (error) {
-      console.error('âŒ Error fetching bookings:', error);
+      console.error('Error fetching bookings:', error);
       console.error('Error details:', error.message);
       throw error;
     }
@@ -44,23 +42,22 @@ export const bookingService = {
   // Create a new booking
   createBooking: async (bookingData) => {
     try {
-      console.log('ðŸ“ Creating booking:', bookingData);
-      
+      console.log('Creating booking:', bookingData);
+
       const response = await apiRequest('/bookings', {
         method: 'POST',
         body: JSON.stringify(bookingData),
       });
-      
-      console.log('âœ… Booking created:', response);
+
+      console.log('Booking created:', response);
       return { success: true, data: response };
     } catch (error) {
-      console.error('âŒ Error creating booking:', error);
+      console.error('Error creating booking:', error);
       throw error;
     }
   },
 
-
-  // Get bookings for the currently authenticated customer (recommended for \"My bookings\" page)
+  // Get bookings for the currently authenticated customer (recommended for "My bookings" page)
   getMyBookings: async () => {
     const response = await apiRequest('/customer/bookings', {
       method: 'GET',
@@ -85,18 +82,18 @@ export const bookingService = {
   // Get booking statistics
   getBookingStats: async () => {
     try {
-      console.log('ðŸ“Š Fetching booking stats');
+      console.log('Fetching booking stats');
       const response = await apiRequest('/bookings/stats', {
         method: 'GET',
       });
-      console.log('âœ… Stats received:', response);
+      console.log('Stats received:', response);
       return response;
     } catch (error) {
-      console.error('âŒ Error fetching stats:', error);
+      console.error('Error fetching stats:', error);
       return {
         total_bookings: '0',
         active_guests: '0',
-        pending_payments: '$0'
+        pending_payments: '$0',
       };
     }
   },
@@ -167,31 +164,29 @@ export const bookingService = {
       const queryParams = new URLSearchParams();
       if (filters.service && filters.service !== 'all') queryParams.append('service', filters.service);
       if (filters.date_range && filters.date_range !== 'all') queryParams.append('date_range', filters.date_range);
-      
+
       const queryString = queryParams.toString() ? `?${queryParams.toString()}` : '';
-      
-      console.log('ðŸ“¥ Exporting bookings to CSV');
-      
+
+      console.log('Exporting bookings to CSV');
+
+      const token = getAuthToken();
       const response = await fetch(`${API_BASE_URL}/bookings/export${queryString}`, {
         method: 'GET',
         headers: {
-          'Accept': 'text/csv',
-          ...(localStorage.getItem('auth_token')
-            ? { Authorization: `Bearer ${localStorage.getItem('auth_token')}` }
-            : {}),
+          Accept: 'text/csv',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
       });
-      
+
       if (!response.ok) {
         throw new Error('Export failed');
       }
-      
+
       const blob = await response.blob();
       return blob;
     } catch (error) {
-      console.error('âŒ Error exporting bookings:', error);
+      console.error('Error exporting bookings:', error);
       throw error;
     }
-  }
+  },
 };
-

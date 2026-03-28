@@ -30,7 +30,8 @@ class LoginController extends Controller
         ]);
 
         $email = Str::lower(trim($validated['email']));
-        $throttleKey = Str::transliterate($email . '|' . $request->ip());
+        // Avoid intl/transliterator dependency for throttle keys.
+        $throttleKey = Str::lower($email . '|' . $request->ip());
         $maxAttempts = 5;
 
         if (RateLimiter::tooManyAttempts($throttleKey, $maxAttempts)) {

@@ -9,6 +9,7 @@ const normalizeApiBaseUrl = (value) => {
   const withoutTrailingSlash = trimmed.replace(/\/+$/, '');
   if (withoutTrailingSlash.endsWith('/api')) {
     return withoutTrailingSlash;
+<<<<<<< HEAD
   }
   return `${withoutTrailingSlash}/api`;
 };
@@ -35,17 +36,41 @@ function getStoredAuthToken() {
     return localStorage.getItem('auth_token');
   } catch {
     return null;
+=======
+>>>>>>> social-account
   }
+  return `${withoutTrailingSlash}/api`;
+};
+
+export const API_BASE_URL = normalizeApiBaseUrl(RAW_API_BASE_URL);
+
+let authToken = null;
+
+export function getApiAuthToken() {
+  return authToken;
+}
+
+export function setApiAuthToken(token) {
+  authToken = token ?? null;
+}
+
+export function clearApiAuthToken() {
+  authToken = null;
 }
 
 export async function apiRequest(path, options = {}) {
+<<<<<<< HEAD
   const token = getApiAuthToken() ?? getStoredAuthToken();
+=======
+  const token = getApiAuthToken();
+>>>>>>> social-account
   const hasAuthHeader = Boolean(
     options?.headers &&
       Object.keys(options.headers).some((key) => key.toLowerCase() === 'authorization'),
   );
   const isFormData =
     typeof FormData !== 'undefined' && options?.body instanceof FormData;
+<<<<<<< HEAD
 
   let response;
   try {
@@ -69,6 +94,24 @@ export async function apiRequest(path, options = {}) {
     error.data = { message: error.message };
     throw error;
   }
+=======
+
+  const headers = {
+    Accept: 'application/json',
+    ...(token && !hasAuthHeader ? { Authorization: `Bearer ${token}` } : {}),
+    ...(options.headers ?? {}),
+  };
+
+  if (!isFormData) {
+    headers['Content-Type'] = 'application/json';
+  }
+
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    ...options,
+    credentials: 'include',
+    headers,
+  });
+>>>>>>> social-account
 
   const rawBody = await response.text();
   let data = {};

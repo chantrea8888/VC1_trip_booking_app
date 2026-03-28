@@ -26,10 +26,12 @@ const AddProperty = () => {
     location: '',
     address: '',
     price: '',
-    images: [] as string[],
+    images: [] as File[],
     status: 'active',
     rating: ''
   });
+  const fileInputRef = React.useRef<HTMLInputElement | null>(null);
+  const [imagePreviews, setImagePreviews] = React.useState<string[]>([]);
 
   const [errors, setErrors] = React.useState<Record<string, string>>({});
 
@@ -51,28 +53,26 @@ const AddProperty = () => {
     return Object.keys(newErrors).length === 0;
   };
 
+  React.useEffect(() => {
+    const nextPreviews = formData.images.map((file) => URL.createObjectURL(file));
+    setImagePreviews(nextPreviews);
+
+    return () => {
+      nextPreviews.forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, [formData.images]);
+
   const addImage = (e?: React.ChangeEvent<HTMLInputElement>) => {
-    if (e && e.target.files && e.target.files.length > 0) {
+    if (!e) {
+      fileInputRef.current?.click();
+      return;
+    }
+
+    if (e.target.files && e.target.files.length > 0) {
       const files = Array.from(e.target.files) as File[];
-      files.forEach((file: File) => {
-        if (file.type.startsWith('image/')) {
-          const reader = new FileReader();
-          reader.onload = (event) => {
-            if (event.target?.result) {
-              setFormData(prev => ({
-                ...prev,
-                images: [...prev.images, event.target?.result as string]
-              }));
-            }
-          };
-          reader.readAsDataURL(file);
-        }
-      });
-    } else {
-      const newImage = `https://picsum.photos/seed/property${Date.now()}/800/600`;
-      setFormData(prev => ({
+      setFormData((prev) => ({
         ...prev,
-        images: [...prev.images, newImage]
+        images: [...prev.images, ...files.filter((file) => file.type.startsWith('image/'))]
       }));
     }
   };
@@ -91,22 +91,24 @@ const AddProperty = () => {
     setSubmitError('');
 
     try {
-      const destinationData = {
-        name: formData.name,
-        type: formData.type,
-        description: formData.description,
-        location: formData.location,
-        address: formData.address,
-        price: parseFloat(formData.price),
-        image: formData.images[0] || 'https://picsum.photos/seed/newproperty/800/600',
-        images: formData.images.length > 0 ? formData.images : null,
-        rating: formData.rating ? parseFloat(formData.rating) : 0,
-        status: formData.status,
-      };
+      const payload = new FormData();
+      payload.append('name', formData.name);
+      payload.append('type', formData.type);
+      payload.append('description', formData.description);
+      payload.append('location', formData.location);
+      payload.append('address', formData.address);
+      payload.append('price', String(parseFloat(formData.price)));
+      payload.append('rating', formData.rating ? String(parseFloat(formData.rating)) : '0');
+      payload.append('status', formData.status);
+
+      if (formData.images.length > 0) {
+        payload.append('image', formData.images[0]);
+        formData.images.forEach((file) => payload.append('images[]', file));
+      }
 
       const response = await apiRequest('/destinations', {
         method: 'POST',
-        body: JSON.stringify(destinationData),
+        body: payload,
       });
 
       if (response.success) {
@@ -285,6 +287,7 @@ const AddProperty = () => {
                 <label className="px-6 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 transition-all cursor-pointer">
                   Select Files
                   <input
+                    ref={fileInputRef}
                     type="file"
                     multiple
                     accept="image/*"
@@ -296,13 +299,13 @@ const AddProperty = () => {
                   onClick={() => addImage()}
                   className="px-6 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold hover:bg-slate-50 transition-all"
                 >
-                  Add Sample Image
+                  Add Image
                 </button>
               </div>
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {formData.images.map((img, index) => (
+              {imagePreviews.map((img, index) => (
                 <div key={index} className="aspect-square relative group">
                   <img src={img} alt={`Property ${index + 1}`} className="w-full h-full object-cover rounded-xl border border-slate-200 dark:border-slate-700" />
                   <button
@@ -422,7 +425,7 @@ const AddProperty = () => {
                   </div>
                   <div>
                     <span className="text-[10px] uppercase font-bold tracking-widest text-slate-400">Status</span>
-                    <p className="font-semibold text-slate-900 dark:text-slate-100">{formData.status === 'draft' ? 'Draft Mode' : 'Active'}</p>
+                    <p className="font-semibold text-slate-900 dark:text-slate-100">{formData.status === 'draft' ? 'Upcoming' : 'Active'}</p>
                   </div>
                   <div>
                     <span className="text-[10px] uppercase font-bold tracking-widest text-slate-400">Images</span>

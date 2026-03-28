@@ -28,6 +28,7 @@ type OwnerNotificationsContextValue = {
 
 const OwnerNotificationsContext = React.createContext<OwnerNotificationsContextValue | undefined>(undefined);
 
+<<<<<<< HEAD
 const asString = (value: any): string => {
   if (value == null) return '';
   return String(value);
@@ -158,6 +159,8 @@ const dedupeNotifications = (list: OwnerNotification[]): OwnerNotification[] => 
   return out;
 };
 
+=======
+>>>>>>> social-account
 export const OwnerNotificationsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated, user } = useAuth();
   const enabled = isAuthenticated && user?.role === 'owner';
@@ -167,6 +170,7 @@ export const OwnerNotificationsProvider: React.FC<{ children: React.ReactNode }>
   const [loading, setLoading] = React.useState(false);
   const [activeNotification, setActiveNotification] = React.useState<OwnerNotification | null>(null);
 
+<<<<<<< HEAD
   const readCacheRef = React.useRef<Record<string, string>>({});
   const readCacheKey = React.useMemo(() => `owner_notification_read_cache:${String(user?.id ?? 'owner')}`, [user?.id]);
 
@@ -212,11 +216,14 @@ export const OwnerNotificationsProvider: React.FC<{ children: React.ReactNode }>
     });
   }, []);
 
+=======
+>>>>>>> social-account
   const refresh = React.useCallback(
     async ({ silent = false }: RefreshOptions = {}) => {
       if (!enabled) return;
 
       try {
+<<<<<<< HEAD
         if (!silent) {
           setLoading(true);
           // Avoid showing a stale badge count while we refresh.
@@ -292,6 +299,17 @@ export const OwnerNotificationsProvider: React.FC<{ children: React.ReactNode }>
         const cachedNext = applyReadCache(dedupeNotifications(next));
         setNotifications(cachedNext);
         setUnreadCount(cachedNext.filter((n) => !n.readAt).length || Math.max(0, nextUnread));
+=======
+        if (!silent) setLoading(true);
+        const response = await bookingService.getOwnerNotifications({ limit: 25 });
+        const next = Array.isArray(response?.data) ? response.data : [];
+        const nextUnread = Number(
+          response?.unread_count ?? response?.unreadCount ?? next.filter((n: any) => !n?.readAt).length,
+        );
+
+        setNotifications(next);
+        setUnreadCount(Number.isFinite(nextUnread) ? nextUnread : 0);
+>>>>>>> social-account
       } catch (error) {
         // best-effort: don't break the UI if notifications fail
         console.error('Failed to fetch owner notifications:', error);
@@ -311,6 +329,7 @@ export const OwnerNotificationsProvider: React.FC<{ children: React.ReactNode }>
     }
 
     refresh();
+<<<<<<< HEAD
 
     const pollId = window.setInterval(() => refresh({ silent: true }), 15000);
 
@@ -327,12 +346,17 @@ export const OwnerNotificationsProvider: React.FC<{ children: React.ReactNode }>
       window.removeEventListener('focus', handleFocus);
       document.removeEventListener('visibilitychange', handleVisibility);
     };
+=======
+    const id = window.setInterval(() => refresh({ silent: true }), 30000);
+    return () => window.clearInterval(id);
+>>>>>>> social-account
   }, [enabled, refresh]);
 
   const markRead = React.useCallback(
     async (notificationId: number | string) => {
       if (!enabled || !notificationId) return;
 
+<<<<<<< HEAD
       const idStr = String(notificationId);
       // Derived notifications are local-only (built from bookings), so they can't be marked read via API.
       const nowIso = new Date().toISOString();
@@ -355,6 +379,23 @@ export const OwnerNotificationsProvider: React.FC<{ children: React.ReactNode }>
       }
     },
     [enabled, saveReadCache],
+=======
+      try {
+        await bookingService.markOwnerNotificationRead(notificationId);
+      } catch (error) {
+        console.error('Failed to mark notification read:', error);
+        return;
+      }
+
+      setNotifications((prev) =>
+        prev.map((n) =>
+          String(n.id) === String(notificationId) ? { ...n, readAt: n.readAt ?? new Date().toISOString() } : n,
+        ),
+      );
+      setUnreadCount((c) => Math.max(0, c - 1));
+    },
+    [enabled],
+>>>>>>> social-account
   );
 
   const markAllRead = React.useCallback(async () => {
@@ -363,6 +404,7 @@ export const OwnerNotificationsProvider: React.FC<{ children: React.ReactNode }>
     try {
       await bookingService.markAllOwnerNotificationsRead();
     } catch (error) {
+<<<<<<< HEAD
       // Still mark derived/local items as read even if the API call fails.
       console.error('Failed to mark all notifications read:', error);
     }
@@ -378,6 +420,15 @@ export const OwnerNotificationsProvider: React.FC<{ children: React.ReactNode }>
     });
     setUnreadCount(0);
   }, [enabled, saveReadCache]);
+=======
+      console.error('Failed to mark all notifications read:', error);
+      return;
+    }
+
+    setNotifications((prev) => prev.map((n) => ({ ...n, readAt: n.readAt ?? new Date().toISOString() })));
+    setUnreadCount(0);
+  }, [enabled]);
+>>>>>>> social-account
 
   const value = React.useMemo<OwnerNotificationsContextValue>(
     () => ({
@@ -388,6 +439,7 @@ export const OwnerNotificationsProvider: React.FC<{ children: React.ReactNode }>
       refresh,
       markRead,
       markAllRead,
+<<<<<<< HEAD
       openNotification: (notification: OwnerNotification) => {
         setActiveNotification(notification);
 
@@ -411,6 +463,9 @@ export const OwnerNotificationsProvider: React.FC<{ children: React.ReactNode }>
             console.error('Failed to load booking details for notification:', err);
           });
       },
+=======
+      openNotification: (notification: OwnerNotification) => setActiveNotification(notification),
+>>>>>>> social-account
       closeNotification: () => setActiveNotification(null),
     }),
     [activeNotification, loading, markAllRead, markRead, notifications, refresh, unreadCount],

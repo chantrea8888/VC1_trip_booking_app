@@ -8,6 +8,8 @@ use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Support\Str;
 use Laravel\Sanctum\HasApiTokens;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class User extends Authenticatable
 {
@@ -23,6 +25,8 @@ class User extends Authenticatable
         'email',
         'password',
         'role',
+        'google_id',
+        'email_verified_at',
     ];
 
     /**
@@ -45,10 +49,22 @@ class User extends Authenticatable
         'password' => 'hashed',
     ];
 
+<<<<<<< HEAD
     protected function role(): Attribute
     {
         return Attribute::make(
             set: static fn ($value) => Str::lower(trim((string) $value)),
         );
+=======
+    public function ownerProfile(): HasOne
+    {
+        return $this->hasOne(OwnerProfile::class);
+    }
+
+    public function accommodations(): HasMany
+    {
+        return $this->hasMany(Accommodation::class, 'owner_id');
+>>>>>>> social-account
     }
 }
+

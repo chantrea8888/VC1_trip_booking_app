@@ -10,6 +10,7 @@ import {
   BarChart3, 
   Wallet, 
   Settings,
+  User,
   Grid
 } from 'lucide-react';
 import { cn } from '@/utils/utils';
@@ -27,6 +28,7 @@ const Sidebar = () => {
   const ownerInsights = [
     { icon: BarChart3, label: 'Analytics', path: '/analytics' },
     { icon: Wallet, label: 'Financials', path: '/financials' },
+    { icon: User, label: 'Profile', path: '/profile' },
     { icon: Settings, label: 'Settings', path: '/settings' },
   ];
 

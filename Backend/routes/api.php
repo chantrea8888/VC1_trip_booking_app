@@ -7,9 +7,12 @@ use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\LogoutController;
 use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\Owner\TransportController;
 use App\Http\Controllers\Owner\MessageController;
 use App\Http\Controllers\Customer\MessageController as CustomerMessageController;
 use Illuminate\Support\Facades\DB;
+use App\Http\Controllers\PublicFileController;
+use App\Http\Controllers\ImageUploadController;
 
 /*
 |--------------------------------------------------------------------------
@@ -18,6 +21,7 @@ use Illuminate\Support\Facades\DB;
 */
 use App\Http\Controllers\Owner\DestinationController;
 use App\Http\Controllers\Owner\PromotionController;
+use App\Http\Controllers\Owner\OwnerProfileController;
 // use Illuminate\Http\Request;
 // use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\BookingController; // ADD THIS
@@ -45,8 +49,35 @@ Route::get('/health', function () {
         ], 500);
     }
 });
+use App\Http\Controllers\Owner\AccommodationController;
+// use Illuminate\Http\Request;
+// use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Api\HotelSelectionController;
+use App\Http\Controllers\Api\HotelController;
+
+/*
+|--------------------------------------------------------------------------
+| Public Routes (No Authentication Required)
+|--------------------------------------------------------------------------
+*/
+
+Route::get('/files/{path}', [PublicFileController::class, 'show'])->where('path', '.*');
+
+// Get all active hotels for customers
+Route::get('/hotels/public', [HotelController::class, 'index']);
+Route::get('/hotels-public', [HotelController::class, 'index']);
 
 Route::prefix('auth')->group(function () {
+
+    Route::get('/test', function () {
+        return response()->json([
+            'message' => 'Laravel API is working!',
+            'database' => 'Connected',
+            'timestamp' => now()->toDateTimeString(),
+            'environment' => app()->environment(),
+            'users_count' => \App\Models\User::count()
+        ]);
+    });
 
     Route::post('/register', [RegisterController::class, 'register']);
     Route::post('/login', [LoginController::class, 'login']);
@@ -74,6 +105,12 @@ Route::prefix('auth')->group(function () {
     });
 });
 
+Route::get('/transports', [TransportController::class, 'publicIndex']);
+Route::get('/destinations/public/all', [DestinationController::class, 'getAllPublic']);
+
+Route::middleware(['auth:sanctum', 'role:admin'])->get('/admin/access', function () {
+    return response()->json(['message' => 'Admin access granted']);
+});
 /*
 |--------------------------------------------------------------------------
 | Role Protected Routes
@@ -97,17 +134,31 @@ Route::middleware(['auth:sanctum', 'role:owner'])->group(function () {
         return response()->json(['message' => 'Owner access granted']);
     });
     
+    Route::get('/owner/profile', [OwnerProfileController::class, 'show']);
+    Route::put('/owner/profile', [OwnerProfileController::class, 'update']);
+
     // Owner destinations routes
     Route::apiResource('destinations', DestinationController::class);
     
     // Owner promotions routes
     Route::apiResource('promotions', PromotionController::class);
+    Route::apiResource('hotels', AccommodationController::class);
 });
 
+Route::middleware(['auth:sanctum', 'role:owner'])->get('/owner/transports', [TransportController::class, 'index']);
+Route::middleware(['auth:sanctum', 'role:owner'])->post('/owner/transports', [TransportController::class, 'store']);
+Route::middleware(['auth:sanctum', 'role:owner'])->put('/owner/transports/{transport}', [TransportController::class, 'update']);
+Route::middleware(['auth:sanctum', 'role:owner'])->patch('/owner/transports/{transport}', [TransportController::class, 'update']);
+Route::middleware(['auth:sanctum', 'role:owner'])->delete('/owner/transports/{transport}', [TransportController::class, 'destroy']);
+
+Route::apiResource('users', AuthController::class);
 
 
 // PROTECTED ROUTES (require authentication)
 Route::middleware(['auth:sanctum'])->group(function () {
+    // Image Upload
+    Route::post('/upload/image', [ImageUploadController::class, 'upload']);
+
     // Customer booking routes
     Route::middleware(['role:customer,admin'])->group(function () {
         Route::post('/bookings', [BookingController::class, 'store']);
@@ -117,11 +168,19 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('/customer/bookings', [BookingController::class, 'myBookings']);
         Route::post('/customer/bookings', [BookingController::class, 'store']);
 
+<<<<<<< HEAD
         // Trip group planning (group chat + access code join)
         Route::post('/trip-groups', [TripGroupController::class, 'create']);
         Route::post('/trip-groups/join', [TripGroupController::class, 'join']);
         Route::get('/trip-groups/{groupId}', [TripGroupController::class, 'show']);
         Route::post('/trip-groups/{groupId}/messages', [TripGroupController::class, 'sendMessage']);
+=======
+        // Customer hotel selection routes
+        Route::apiResource('hotel-selections', HotelSelectionController::class);
+        Route::get('/hotel-selections/status/{status}', [HotelSelectionController::class, 'getByStatus']);
+        Route::post('/hotel-selections/{hotelSelection}/confirm', [HotelSelectionController::class, 'confirm']);
+        Route::post('/hotel-selections/{hotelSelection}/cancel', [HotelSelectionController::class, 'cancel']);
+>>>>>>> social-account
     });
 
     // Owner routes - accessible by owners and admins
@@ -165,7 +224,17 @@ Route::middleware(['auth:sanctum'])->group(function () {
 |--------------------------------------------------------------------------
 */
 
-Route::middleware(['auth:sanctum', 'role:admin'])->apiResource('users', AuthController::class);
+Route::middleware(['auth:sanctum'])->group(function () {
+    Route::match(['put', 'patch'], '/users', [AuthController::class, 'updateSelf']);
+});
+
+if (app()->environment('local')) {
+    // Allow listing users in the browser during local development without auth.
+    Route::get('/users', [AuthController::class, 'index']);
+    Route::middleware(['auth:sanctum'])->apiResource('users', AuthController::class)->except(['index']);
+} else {
+    Route::middleware(['auth:sanctum', 'role:admin'])->apiResource('users', AuthController::class);
+}
 
 /*
 |--------------------------------------------------------------------------

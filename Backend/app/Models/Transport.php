@@ -6,5 +6,19 @@ use Illuminate\Database\Eloquent\Model;
 
 class Transport extends Model
 {
-    // Transport model placeholder
+    protected $primaryKey = 'transport_id';
+
+    public $timestamps = false;
+
+    protected $fillable = [
+        'owner_id',
+        'service_name',
+        'transport_type',
+        'price_per_km',
+        'is_free',
+        'route_description',
+        'service_details',
+        'vehicle_photo_url',
+        'status',
+    ];
 }

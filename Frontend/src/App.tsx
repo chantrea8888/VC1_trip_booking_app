@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Navbar } from './components/layout/Navbar';
@@ -106,6 +106,7 @@ const AppContent = () => {
     setView(nextView);
   };
 
+<<<<<<< HEAD
   const leaveCustomerRouteIfNeeded = React.useCallback(() => {
     // Some pages are bound to explicit routes (e.g. `/customer/bookings`) and
     // ignore `view` changes. When navigating via the Navbar, move back to `/`
@@ -114,6 +115,29 @@ const AppContent = () => {
       navigate('/');
     }
   }, [location.pathname, navigate]);
+=======
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const authView = params.get('auth');
+    const nextView = params.get('next_view');
+
+    if (nextView) {
+      setView(nextView);
+
+      params.delete('next_view');
+      params.delete('auth');
+
+      const nextQuery = params.toString();
+      const nextUrl = `${window.location.pathname}${nextQuery ? `?${nextQuery}` : ''}${window.location.hash}`;
+      window.history.replaceState({}, '', nextUrl);
+      return;
+    }
+
+    if (authView === 'login' || authView === 'register') {
+      setView(authView);
+    }
+  }, []);
+>>>>>>> social-account
 
   return (
     <div className="min-h-screen bg-white dark:bg-slate-900 transition-colors duration-300">

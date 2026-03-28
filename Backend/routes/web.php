@@ -1,7 +1,9 @@
 <?php
 
+use App\Http\Controllers\GoogleAuthController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Foundation\Application;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -17,13 +19,33 @@ use Inertia\Inertia;
 */
 
 Route::get('/', function () {
-    return response()->json([
-        'message' => 'Laravel Backend API running'
-    ]);
+    /** @var Request $request */
+    $request = request();
+
+    if ($request->expectsJson() || $request->query('format') === 'json') {
+        return response()->json([
+            'message' => 'Laravel Backend API running',
+        ]);
+    }
+
+    return view('welcome');
 });
 
 Route::get('/dashboard', function () {
-    return Inertia::render('Dashboard');
+    $user = auth()->user();
+    
+    if (!$user) {
+        return redirect('/login');
+    }
+    
+    $nextView = match ($user->role) {
+        'admin' => 'admin-dashboard',
+        'owner' => 'owner-dashboard', 
+        'customer' => 'customer-dashboard',
+        default => 'customer-dashboard',
+    };
+    
+    return Inertia::render($nextView);
 })->middleware(['auth', 'verified'])->name('dashboard');
 
 Route::middleware('auth')->group(function () {
@@ -32,4 +54,6 @@ Route::middleware('auth')->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
 
-require __DIR__.'/auth.php';
+Route::get('/auth/google/redirect', [GoogleAuthController::class, 'redirect'])->name('google.redirect');
+Route::get('/auth/google/callback', [GoogleAuthController::class, 'callbackGoogle'])->name('google.callback');
+// require __DIR__.'/auth.php';

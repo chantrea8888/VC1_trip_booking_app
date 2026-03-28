@@ -24,6 +24,7 @@ class AppServiceProvider extends ServiceProvider
             database_path('migrations/users'),
             database_path('migrations/owners'),
             database_path('migrations/hotels'),
+            database_path('migrations/trips'),
             database_path('migrations/transports'),
             database_path('migrations/messaging'),
             database_path('migrations/system'),

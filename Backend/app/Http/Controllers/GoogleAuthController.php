@@ -45,10 +45,13 @@ class GoogleAuthController extends Controller
                 ));
             }
 
+<<<<<<< HEAD
             $user = User::query()
                 ->where('google_id', $googleId)
                 ->when($googleEmail, fn($query) => $query->orWhere('email', $googleEmail))
                 ->first();
+=======
+>>>>>>> social-account
             $isEmailVerified = data_get($googleUser, 'user.email_verified', data_get($googleUser, 'user.verified_email'));
             if ($isEmailVerified !== null && !$isEmailVerified) {
                 return redirect()->away($this->buildFrontendAuthUrl(
@@ -84,6 +87,13 @@ class GoogleAuthController extends Controller
                         'email_verified_at' => Carbon::now(),
                     ]);
                 }
+<<<<<<< HEAD
+=======
+            $user = User::query()
+                ->where('google_id', $googleId)
+                ->when($googleEmail, fn($query) => $query->orWhere('email', $googleEmail))
+                ->first();
+>>>>>>> social-account
 
                 $user->forceFill([
                     'name' => $user->name ?: $displayName,
@@ -192,6 +202,7 @@ class GoogleAuthController extends Controller
 
     private function getFrontendBaseUrl(): string
     {
+<<<<<<< HEAD
         $explicit = trim((string) env('FRONTEND_URL', ''));
         if ($explicit !== '' && str_starts_with($explicit, 'http')) {
             return rtrim($explicit, '/');
@@ -219,6 +230,19 @@ class GoogleAuthController extends Controller
         }
 
         return 'http://localhost:5173';
+=======
+        $configuredOrigins = config('cors.allowed_origins');
+        $origins = is_array($configuredOrigins) ? $configuredOrigins : [];
+
+        if (empty($origins)) {
+            $origins = array_filter(array_map(
+                'trim',
+                explode(',', (string) env('FRONTEND_URLS', 'http://localhost:5173,http://127.0.0.1:5173'))
+            ));
+        }
+
+        return rtrim((string) ($origins[0] ?? 'http://localhost:5173'), '/');
+>>>>>>> social-account
     }
 
     private function buildFrontendUrl(array $query): string

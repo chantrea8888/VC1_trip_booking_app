@@ -16,16 +16,19 @@ import {
 } from 'lucide-react';
 import { NotificationDropdown, type AdminNotification } from '../../components/common/NotificationDropdown';
 import { cn } from '../../utils/utils';
+import { apiRequest } from '../../services/api';
+import { getAuthToken } from '../../services/authService';
 
 interface TransportService {
   id: string;
   name: string;
   type: 'Flight' | 'Bus' | 'Train' | 'Car Rental';
-  status: 'Active' | 'Maintenance' | 'Inactive';
+  status: 'Active' | 'Fixing' | 'Not working' | 'Waiting';
   route: string;
   details: string;
   image: string;
   price_per_KM?: number;
+  is_free?: boolean;
 }
 
 const Transport = () => {
@@ -44,7 +47,9 @@ const Transport = () => {
     details: '',
     status: 'Active' as TransportService['status'],
     price_per_KM: '',
-    image: ''
+    is_free: false,
+    image: '',
+    imageFile: null as File | null
   });
 
   const editPhotoInputRef = React.useRef<HTMLInputElement | null>(null);
@@ -107,7 +112,7 @@ const Transport = () => {
     {
       id: 'transport-1',
       title: 'New transport booking',
-      description: 'A customer booked “Shared Shuttle • PP — Siem Reap”.',
+      description: 'A customer booked “Shared Train • PP — Siem Reap”.',
       time: '5 mins ago',
       type: 'booking',
       read: false,
@@ -130,123 +135,68 @@ const Transport = () => {
     },
   ];
 
-  const initialTransportServices: TransportService[] = [
-    {
-      id: '1',
-      name: 'Phnom Penh Airport Shuttle',
-      type: 'Flight',
-      status: 'Active',
-      route: 'Phnom Penh (PNH) -> Siem Reap (REP)',
-      details: 'Daily • Airport connections • Checked baggage',
-      image: 'https://upload.wikimedia.org/wikipedia/commons/6/66/Phnom_penh_airport.JPG',
-      price_per_KM: 2.5
-    },
-    {
-      id: '2',
-      name: 'Siem Reap Regional Flights',
-      type: 'Flight',
-      status: 'Active',
-      route: 'Phnom Penh (PNH) -> Siem Reap (REP)',
-      details: 'Multiple departures • Fast check-in • On-time focus',
-      image: 'https://upload.wikimedia.org/wikipedia/commons/6/66/Phnom_penh_airport.JPG',
-      price_per_KM: 2.2
-    },
-    {
-      id: '3',
-      name: 'Phnom Penh City Bus',
-      type: 'Bus',
-      status: 'Active',
-      route: 'Phnom Penh (Central) -> Night Market (Sisowath Quay)',
-      details: 'Frequent service • Air-conditioned • Cashless options',
-      image: 'https://upload.wikimedia.org/wikipedia/commons/d/da/Buses_lined_up_near_Phnom_Penh_BRT_Night_Market_terminus_station_on_Sisowath_Quay.jpg',
-      price_per_KM: 0.35
-    },
-    {
-      id: '4',
-      name: 'Royal Railway (Phnom Penh)',
-      type: 'Train',
-      status: 'Maintenance',
-      route: 'Phnom Penh Station -> Battambang Station',
-      details: 'Limited schedule • Station services • Seat reservations',
-      image: 'https://upload.wikimedia.org/wikipedia/commons/d/da/Phnom_Penh_sta.%2Cphnom_penh_city%2Ccambodia.JPG',
-      price_per_KM: 0.18
-    },
-    {
-      id: '5',
-      name: 'Battambang Railway Services',
-      type: 'Car Rental',
-      status: 'Active',
-      route: 'Battambang -> Phnom Penh',
-      details: 'Pickup options • Licensed drivers • Flexible timing',
-      image: 'https://upload.wikimedia.org/wikipedia/commons/3/3a/Battambang_Royal_Railway-Station%2C_Cambodia.jpg',
-      price_per_KM: 0.95
-    },
-    {
-      id: '6',
-      name: 'Tuk-tuk & City Rides',
-      type: 'Car Rental',
-      status: 'Active',
-      route: 'Phnom Penh (Riverside) -> Independence Monument',
-      details: 'On-demand • Local knowledge • Short city trips',
-      image: 'https://upload.wikimedia.org/wikipedia/commons/b/bd/Tuk-tuk_in_Phnom_Penh.jpg',
-      price_per_KM: 0.8
-    },
-    {
-      id: '7',
-      name: 'Phnom Penh BRT Line',
-      type: 'Bus',
-      status: 'Active',
-      route: 'Monivong–Sihanouk Station -> City Center',
-      details: 'Regular service • Ticket on board • Daily operations',
-      image: 'https://upload.wikimedia.org/wikipedia/commons/0/0e/Phnom_Penh_BRT_bus_leaves_Monivong-Sihanouk_station.jpg',
-      price_per_KM: 0.4
-    },
-    {
-      id: '8',
-      name: 'Private Car & Airport Transfer',
-      type: 'Car Rental',
-      status: 'Active',
-      route: 'Phnom Penh (PNH) -> City Hotels',
-      details: 'Meet & greet • Fixed pricing • Luggage support',
-      image: 'https://upload.wikimedia.org/wikipedia/commons/a/a2/Traffic_in_Cambodia..JPG',
-      price_per_KM: 1.2
-    }
-  ];
+  const [services, setServices] = React.useState<TransportService[]>([]);
+  const [loadError, setLoadError] = React.useState('');
+  const allServices = services;
 
-  const [services, setServices] = React.useState<TransportService[]>(initialTransportServices);
-  const [customServices, setCustomServices] = React.useState<TransportService[]>(() => {
-    try {
-      const parsed = JSON.parse(localStorage.getItem('transportServices') || '[]');
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return [];
-    }
-  });
-  const [vehicles, setVehicles] = React.useState<any[]>(() => {
-    try {
-      const parsed = JSON.parse(localStorage.getItem('vehicles') || '[]');
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return [];
-    }
-  });
+  React.useEffect(() => {
+    const loadOwnerTransports = async () => {
+      try {
+        const token = getAuthToken();
+        if (!token) {
+          setLoadError('Please sign in to load your transport services.');
+          return;
+        }
 
-  const storedVehicleServices: TransportService[] = React.useMemo(() => {
-    return vehicles.map((v: any) => ({
-      id: `vehicle-${v.id ?? Date.now().toString()}`,
-      name: v.makeModel ? `${v.makeModel} (${v.plateNumber || 'No plate'})` : (v.plateNumber || 'Vehicle'),
-      type: 'Car Rental',
-      status: 'Active',
-      route: 'Phnom Penh',
-      details: v.vehicleType || 'Vehicle',
-      image: typeof v.image === 'string' && v.image.trim().length > 0 ? v.image : 'https://upload.wikimedia.org/wikipedia/commons/a/a2/Traffic_in_Cambodia..JPG',
-      price_per_KM: typeof v.price_per_KM === 'number' ? v.price_per_KM : (v.price_per_KM ? parseFloat(v.price_per_KM) : undefined)
-    }));
-  }, [vehicles]);
+        const response = await apiRequest('/owner/transports', {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }) as { data?: any[] };
 
-  const allServices = React.useMemo(() => {
-    return [...services, ...customServices, ...storedVehicleServices];
-  }, [services, customServices, storedVehicleServices]);
+        const backendOrigin =
+          import.meta.env.VITE_BACKEND_ORIGIN || 'http://127.0.0.1:8000';
+        const mapped = (response?.data ?? []).map((item: any) => {
+          const rawType = String(item?.transport_type ?? 'Car Rental');
+          const type = rawType === 'Shuttle' ? 'Train' : rawType === 'Other' ? 'Car Rental' : rawType;
+          const rawStatus = String(item?.status ?? 'pending');
+          const status =
+            rawStatus === 'active'
+              ? 'Active'
+              : rawStatus === 'inactive'
+                ? 'Not working'
+                : rawStatus === 'maintenance'
+                  ? 'Fixing'
+                  : 'Waiting';
+          const rawImage = String(item?.vehicle_photo_url ?? '');
+          const image = rawImage
+            ? (rawImage.startsWith('http') ? rawImage : `${backendOrigin}/${rawImage.replace(/^\/+/, '')}`)
+            : 'https://upload.wikimedia.org/wikipedia/commons/a/a2/Traffic_in_Cambodia..JPG';
+          return {
+            id: String(item?.transport_id ?? item?.id ?? ''),
+            name: String(item?.service_name ?? ''),
+            type: (type as TransportService['type']) ?? 'Car Rental',
+            status: (status as TransportService['status']) ?? 'Pending',
+            route: String(item?.route_description ?? ''),
+            details: String(item?.service_details ?? ''),
+            image,
+            price_per_KM: typeof item?.price_per_km === 'number'
+              ? item.price_per_km
+              : (item?.price_per_km ? parseFloat(item.price_per_km) : undefined),
+            is_free: Boolean(item?.is_free ?? item?.isFree ?? false),
+          };
+        });
+
+        setServices(mapped);
+        setLoadError('');
+      } catch (error: any) {
+        const message = error?.data?.message ?? error?.message ?? 'Failed to load transports.';
+        setLoadError(message);
+      }
+    };
+
+    loadOwnerTransports();
+  }, []);
 
   const openEdit = (service: TransportService) => {
     setEditing(service);
@@ -257,7 +207,9 @@ const Transport = () => {
       details: service.details,
       status: service.status,
       price_per_KM: typeof service.price_per_KM === 'number' ? service.price_per_KM.toString() : '',
-      image: service.image || ''
+      is_free: Boolean(service.is_free),
+      image: service.image || '',
+      imageFile: null
     });
   };
 
@@ -277,45 +229,95 @@ const Transport = () => {
     if (!editing) return;
 
     const parsedPrice = editForm.price_per_KM.trim() ? parseFloat(editForm.price_per_KM) : undefined;
-    const updatedService: TransportService = {
-      ...editing,
-      name: editForm.name,
-      type: editForm.type,
-      route: editForm.route,
-      details: editForm.details,
-      status: editForm.status,
-      image: editForm.image,
-      price_per_KM: typeof parsedPrice === 'number' && !Number.isNaN(parsedPrice) ? parsedPrice : undefined
+    const finalPrice = editForm.is_free
+      ? 0
+      : (
+          typeof parsedPrice === 'number' && !Number.isNaN(parsedPrice)
+            ? parsedPrice
+            : (typeof editing.price_per_KM === 'number' ? editing.price_per_KM : 0)
+        );
+
+    const token = getAuthToken();
+    if (!token) {
+      setLoadError('Please sign in to update a transport service.');
+      return;
+    }
+
+    const statusMap: Record<TransportService['status'], 'active' | 'inactive' | 'pending'> = {
+      Active: 'active',
+      'Not working': 'inactive',
+      Waiting: 'pending',
+      Fixing: 'inactive',
     };
 
-    if (editing.id.startsWith('vehicle-')) {
-      const originalVehicleId = editing.id.replace('vehicle-', '');
-      const nextVehicles = vehicles.map((v: any) => {
-        if (String(v.id) !== String(originalVehicleId)) return v;
-        return {
-          ...v,
-          price_per_KM: updatedService.price_per_KM,
-          vehicleType: updatedService.details,
-          image: updatedService.image,
-          updatedAt: new Date().toISOString()
+    const typeMap: Record<TransportService['type'], 'Car Rental' | 'Train' | 'Bus' | 'Other'> = {
+      'Car Rental': 'Car Rental',
+      Train: 'Train',
+      Bus: 'Bus',
+      Flight: 'Other',
+    };
+
+    const formData = new FormData();
+    formData.append('_method', 'PUT');
+    formData.append('service_name', editForm.name);
+    formData.append('transport_type', typeMap[editForm.type] ?? 'Car Rental');
+    formData.append('price_per_km', finalPrice.toString());
+    formData.append('is_free', editForm.is_free ? '1' : '0');
+    formData.append('route_description', editForm.route);
+    formData.append('service_details', editForm.details);
+    formData.append('status', statusMap[editForm.status] ?? 'pending');
+    if (editForm.imageFile) {
+      formData.append('vehicle_photo', editForm.imageFile);
+    }
+
+    apiRequest(`/owner/transports/${editing.id}`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: formData,
+    })
+      .then((response: any) => {
+        const item = response?.data ?? response;
+        const rawType = String(item?.transport_type ?? editForm.type ?? 'Car Rental');
+        const type = rawType === 'Shuttle' ? 'Train' : rawType === 'Other' ? 'Car Rental' : rawType;
+        const rawStatus = String(item?.status ?? statusMap[editForm.status] ?? 'pending');
+        const status =
+          rawStatus === 'active'
+            ? 'Active'
+            : rawStatus === 'inactive'
+              ? 'Not working'
+              : rawStatus === 'maintenance'
+                ? 'Fixing'
+                : 'Waiting';
+        const rawImage = String(item?.vehicle_photo_url ?? editForm.image ?? '');
+        const backendOrigin =
+          import.meta.env.VITE_BACKEND_ORIGIN || 'http://127.0.0.1:8000';
+        const image = rawImage
+          ? (rawImage.startsWith('http') ? rawImage : `${backendOrigin}/${rawImage.replace(/^\/+/, '')}`)
+          : editForm.image;
+
+        const updatedService: TransportService = {
+          ...editing,
+          name: String(item?.service_name ?? editForm.name),
+          type: (type as TransportService['type']) ?? editForm.type,
+          route: String(item?.route_description ?? editForm.route),
+          details: String(item?.service_details ?? editForm.details),
+          status: (status as TransportService['status']) ?? editForm.status,
+          image,
+          price_per_KM: typeof item?.price_per_km === 'number'
+            ? item.price_per_km
+            : (item?.price_per_km ? parseFloat(item.price_per_km) : finalPrice),
+          is_free: Boolean(item?.is_free ?? editForm.is_free),
         };
+
+        setServices(prev => prev.map(s => (s.id === editing.id ? updatedService : s)));
+        closeEdit();
+      })
+      .catch((error: any) => {
+        const message = error?.data?.message ?? error?.message ?? 'Failed to update transport.';
+        setLoadError(message);
       });
-      setVehicles(nextVehicles);
-      localStorage.setItem('vehicles', JSON.stringify(nextVehicles));
-      closeEdit();
-      return;
-    }
-
-    if (customServices.some((s) => s.id === editing.id)) {
-      const nextCustom = customServices.map((s) => (s.id === editing.id ? updatedService : s));
-      setCustomServices(nextCustom);
-      localStorage.setItem('transportServices', JSON.stringify(nextCustom));
-      closeEdit();
-      return;
-    }
-
-    setServices(prev => prev.map(s => (s.id === editing.id ? updatedService : s)));
-    closeEdit();
   };
 
   const onPickEditPhoto = () => {
@@ -327,6 +329,14 @@ const Transport = () => {
     if (!file) return;
     if (!file.type.startsWith('image/')) return;
 
+    if (editForm.image && editForm.image.startsWith('blob:')) {
+      try {
+        URL.revokeObjectURL(editForm.image);
+      } catch {
+        // ignore revoke errors
+      }
+    }
+
     const reader = new FileReader();
     reader.onload = () => {
       const result = reader.result;
@@ -334,36 +344,72 @@ const Transport = () => {
         setEditForm((prev) => ({ ...prev, image: result }));
       }
     };
+    const previewUrl = URL.createObjectURL(file);
+    setEditForm((prev) => ({ ...prev, image: previewUrl, imageFile: file }));
     reader.readAsDataURL(file);
   };
 
   const deleteService = (service: TransportService) => {
     if (!window.confirm('Delete this transport item?')) return;
 
-    if (service.id.startsWith('vehicle-')) {
-      const originalVehicleId = service.id.replace('vehicle-', '');
-      const nextVehicles = vehicles.filter((v: any) => String(v.id) !== String(originalVehicleId));
-      setVehicles(nextVehicles);
-      localStorage.setItem('vehicles', JSON.stringify(nextVehicles));
+    const token = getAuthToken();
+    if (!token) {
+      setLoadError('Please sign in to delete a transport service.');
       return;
     }
 
-    if (customServices.some((s) => s.id === service.id)) {
-      const nextCustom = customServices.filter((s) => s.id !== service.id);
-      setCustomServices(nextCustom);
-      localStorage.setItem('transportServices', JSON.stringify(nextCustom));
-      return;
-    }
-
+    const snapshot = services;
     setServices(prev => prev.filter(s => s.id !== service.id));
+
+    apiRequest(`/owner/transports/${service.id}`, {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }).catch((error: any) => {
+      const message = error?.data?.message ?? error?.message ?? 'Failed to delete transport.';
+      setServices(snapshot);
+      setLoadError(message);
+    });
   };
 
+  const tabCounts = React.useMemo(() => {
+    const counts = {
+      all: allServices.length,
+      flights: 0,
+      buses: 0,
+      trains: 0,
+      'car-rentals': 0,
+    };
+
+    allServices.forEach((service) => {
+      switch (service.type) {
+        case 'Flight':
+          counts.flights += 1;
+          break;
+        case 'Bus':
+          counts.buses += 1;
+          break;
+        case 'Train':
+          counts.trains += 1;
+          break;
+        case 'Car Rental':
+          counts['car-rentals'] += 1;
+          break;
+        default:
+          break;
+      }
+    });
+
+    return counts;
+  }, [allServices]);
+
   const tabs = [
-    { id: 'all', label: 'All Services', count: 42 },
-    { id: 'flights', label: 'Flights', count: 15 },
-    { id: 'buses', label: 'Buses', count: 12 },
-    { id: 'trains', label: 'Trains', count: 8 },
-    { id: 'car-rentals', label: 'Car Rentals', count: 7 }
+    { id: 'all', label: 'All Services', count: tabCounts.all },
+    { id: 'flights', label: 'Flights', count: tabCounts.flights },
+    { id: 'buses', label: 'Buses', count: tabCounts.buses },
+    { id: 'trains', label: 'Trains', count: tabCounts.trains },
+    { id: 'car-rentals', label: 'Car Rentals', count: tabCounts['car-rentals'] }
   ];
 
   const getTypeIcon = (type: string) => {
@@ -389,8 +435,9 @@ const Transport = () => {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'Active': return 'bg-green-100 text-green-800';
-      case 'Maintenance': return 'bg-yellow-100 text-yellow-800';
-      case 'Inactive': return 'bg-red-100 text-red-800';
+      case 'Fixing': return 'bg-yellow-100 text-yellow-800';
+      case 'Not working': return 'bg-red-100 text-red-800';
+      case 'Waiting': return 'bg-slate-100 text-slate-800';
       default: return 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200';
     }
   };
@@ -508,6 +555,11 @@ const Transport = () => {
 
       {/* Main Content */}
       <div>
+        {loadError && (
+          <div className="mb-6 rounded-lg border border-rose-400/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-300">
+            {loadError}
+          </div>
+        )}
         {/* Transport Service Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-8">
           {paginatedServices.map((service) => {
@@ -541,7 +593,9 @@ const Transport = () => {
                       {service.route}
                     </div>
                   </div>
-                  {typeof service.price_per_KM === 'number' && (
+                  {service.is_free ? (
+                    <div className="text-sm font-semibold text-emerald-600 dark:text-emerald-400 mb-2">Free</div>
+                  ) : typeof service.price_per_KM === 'number' && (
                     <div className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-2">
                       {hasDiscount && (
                         <span className="text-xs text-slate-400 line-through mr-2">${service.price_per_KM.toFixed(2)}</span>
@@ -636,14 +690,6 @@ const Transport = () => {
         </div>
       </div>
 
-      {/* Floating Action Button */}
-      <button
-        onClick={() => navigate('/transport/new')}
-        className="fixed bottom-8 right-8 w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition-colors flex items-center justify-center"
-      >
-        <Plus size={24} />
-      </button>
-
       {editing && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
           <div className="w-full max-w-lg max-h-[85vh] rounded-xl bg-white dark:bg-slate-900 shadow-xl border border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden">
@@ -720,8 +766,9 @@ const Transport = () => {
                     className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="Active">Active</option>
-                    <option value="Maintenance">Maintenance</option>
-                    <option value="Inactive">Inactive</option>
+                    <option value="Fixing">Fixing</option>
+                    <option value="Not working">Not working</option>
+                    <option value="Waiting">Waiting</option>
                   </select>
                 </div>
                 <div className="space-y-1">
@@ -732,9 +779,31 @@ const Transport = () => {
                     min="0"
                     value={editForm.price_per_KM}
                     onChange={(e) => setEditForm({ ...editForm, price_per_KM: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    disabled={editForm.is_free}
+                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-60 disabled:cursor-not-allowed"
                     placeholder="e.g. 1.50"
                   />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-slate-700 dark:text-slate-300">Free Transport</label>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setEditForm((prev) => ({
+                        ...prev,
+                        is_free: !prev.is_free,
+                        price_per_KM: !prev.is_free ? '0' : prev.price_per_KM,
+                      }))
+                    }
+                    className={cn(
+                      'w-full px-3 py-2 rounded-lg border text-sm font-semibold transition-colors',
+                      editForm.is_free
+                        ? 'bg-emerald-100 border-emerald-200 text-emerald-700'
+                        : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200'
+                    )}
+                  >
+                    {editForm.is_free ? 'Yes, this transport is free' : 'No, paid transport'}
+                  </button>
                 </div>
               </div>
             </div>
@@ -787,7 +856,9 @@ const Transport = () => {
                     </span>
                   </div>
 
-                  {typeof viewing.price_per_KM === 'number' && (
+                  {viewing.is_free ? (
+                    <div className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">Free</div>
+                  ) : typeof viewing.price_per_KM === 'number' && (
                     <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
                       ${viewing.price_per_KM.toFixed(2)} / km
                     </div>

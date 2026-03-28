@@ -13,21 +13,21 @@ interface Slide {
 const slides: Slide[] = [
   {
     id: 1,
-    title: "Your Adventure Awaits",
-    subtitle: "Discover amazing destinations with Komrong Travel.",
-    image: "https://images.unsplash.com/photo-1507525428034-b723a9ce6890?auto=format&fit=crop&q=80&w=2000"
+    title: "Explore the Wonders of Cambodia",
+    subtitle: "Start your unforgettable journey through Cambodia’s rich culture and natural beauty.",
+    image: "https://images.unsplash.com/photo-1545569341-9eb8b30979d9?auto=format&fit=crop&q=80&w=2000"
   },
   {
     id: 2,
-    title: "Paradise Islands",
-    subtitle: "Experience pristine beaches and crystal waters.",
-    image: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?auto=format&fit=crop&q=80&w=2000"
+    title: "Discover Angkor Wat",
+    subtitle: "Experience the breathtaking sunrise and ancient temples of Angkor.",
+    image: "https://images.unsplash.com/photo-1589395937772-f6705e04d7f4?auto=format&fit=crop&q=80&w=2000"
   },
   {
     id: 3,
-    title: "Ancient Wonders",
-    subtitle: "Explore historic civilizations and cultural heritage.",
-    image: "https://images.unsplash.com/photo-1569660072562-47a003366792?auto=format&fit=crop&q=80&w=2000"
+    title: "Cambodian Nature Adventure",
+    subtitle: "From tropical islands to lush jungles, Cambodia is full of adventure.",
+    image: "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&q=80&w=2000"
   }
 ];
 
@@ -51,6 +51,15 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({
 }) => {
   const { isDarkMode } = useTheme();
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [oauthError, setOauthError] = useState('');
+  const apiProxyTarget = (import.meta as any).env?.VITE_API_PROXY_TARGET as string | undefined;
+  const apiBaseUrl = (import.meta as any).env?.VITE_API_BASE_URL as string | undefined;
+  const resolvedApiBaseUrl =
+    apiProxyTarget ||
+    (apiBaseUrl && apiBaseUrl.startsWith('http') ? apiBaseUrl : undefined) ||
+    'http://127.0.0.1:8000';
+  const backendBaseUrl = resolvedApiBaseUrl.replace(/\/$/, '');
+  const googleAuthUrl = `${backendBaseUrl}/auth/google/redirect`;
 
   const nextSlide = () => {
     setCurrentSlide((prev) => (prev + 1) % slides.length);
@@ -64,10 +73,27 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({
     setCurrentSlide(index);
   };
 
+  // Auto-advance removed - carousel is now frozen
   useEffect(() => {
-    const timer = setInterval(nextSlide, 5000);
+    const timer = setInterval(nextSlide, 3000);
     return () => clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const error = params.get('oauth_error');
+
+    if (!error) return;
+
+    setOauthError(error);
+    params.delete('oauth_error');
+    params.delete('auth');
+
+    const nextQuery = params.toString();
+    const nextUrl = `${window.location.pathname}${nextQuery ? `?${nextQuery}` : ''}${window.location.hash}`;
+    window.history.replaceState({}, '', nextUrl);
+  }, []);
+
   return (
     <div className="flex min-h-screen items-center justify-center p-4 transition-colors duration-300">
       <div
@@ -91,6 +117,10 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({
                   src={slides[currentSlide].image}
                   alt={slides[currentSlide].title}
                   className="w-full h-full object-cover"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.src = "https://images.unsplash.com/photo-1559827260-dc66d52bef19?auto=format&fit=crop&q=80&w=2000";
+                  }}
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
                 
@@ -99,8 +129,12 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({
                     <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-lg overflow-hidden">
                       <img 
                         src="/logos/logoBookingTrip.png"
-                        alt="Logo" 
-                        className="w-full h-full object-cover"
+                        alt="Komrong Logo" 
+                        className="w-full h-full object-contain p-1"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%230052CC'/%3E%3Ctext x='50' y='50' text-anchor='middle' dy='.3em' fill='white' font-family='Arial' font-size='40' font-weight='bold'%3EK%3C/text%3E%3C/svg%3E";
+                        }}
                       />
                     </div>
                     <span className="text-white font-bold text-xl">Komrong</span>
@@ -148,29 +182,29 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({
         </div>
 
         {/* Right Side: Form */}
-        <div className={`flex w-full flex-col overflow-y-auto p-7 md:w-1/2 md:p-10 relative ${
+        <div className={`flex w-full flex-col overflow-y-auto p-4 md:w-1/2 md:p-6 relative ${
           isDarkMode ? 'text-white' : 'text-slate-900'
         }`}>
           <button
             onClick={onClose}
-            className={`absolute top-4 right-4 p-2 rounded-full transition-colors ${
+            className={`absolute top-2 right-2 p-1.5 rounded-full transition-colors ${
               isDarkMode ? 'hover:bg-slate-700' : 'hover:bg-gray-100'
             }`}
           >
-            <X className={`w-5 h-5 ${isDarkMode ? 'text-white' : 'text-slate-900'}`} />
+            <X className={`w-4 h-4 ${isDarkMode ? 'text-white' : 'text-slate-900'}`} />
           </button>
           
-          <div className="mb-8 flex flex-col items-center mt-4">
-            <h2 className={`mb-2 text-[32px] font-bold leading-tight ${
+          <div className="mb-4 flex flex-col items-center mt-2">
+            <h2 className={`mb-1 text-2xl font-bold leading-tight ${
               isDarkMode ? 'text-white' : 'text-slate-900'
             }`}>{title}</h2>
-            <p className={`text-center text-base ${
+            <p className={`text-center text-sm ${
               isDarkMode ? 'text-slate-300' : 'text-slate-500'
             }`}>{subtitle}</p>
           </div>
 
           {/* Tab Switcher */}
-          <div className={`relative mb-4 grid grid-cols-2 rounded-xl border p-1 ${
+          <div className={`relative mb-3 grid grid-cols-2 rounded-xl border p-1 ${
             isDarkMode ? 'border-slate-600 bg-slate-700' : 'border-slate-200 bg-slate-100'
           }`}>
           
@@ -186,7 +220,7 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({
               whileHover={{ scale: activeTab === 'login' ? 1 : 1.015 }}
               whileTap={{ scale: 0.985 }}
               transition={{ type: 'spring', stiffness: 250, damping: 24 }}
-              className={`relative z-10 rounded-lg py-2.5 text-sm font-semibold transition-colors ${
+              className={`relative z-10 rounded-lg py-1.5 text-sm font-semibold transition-colors ${
                 activeTab === 'login'
                   ? 'text-white'
                   : isDarkMode ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-700'
@@ -207,7 +241,7 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({
               whileHover={{ scale: activeTab === 'register' ? 1 : 1.015 }}
               whileTap={{ scale: 0.985 }}
               transition={{ type: 'spring', stiffness: 250, damping: 24 }}
-              className={`relative z-10 rounded-lg py-2.5 text-sm font-semibold transition-colors ${
+              className={`relative z-10 rounded-lg py-1.5 text-sm font-semibold transition-colors ${
                 activeTab === 'register'
                   ? 'text-white'
                   : isDarkMode ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-700'
@@ -226,45 +260,60 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({
           </div>
 
           <div className="flex-1">
+            {oauthError && (
+              <div className={`mx-auto mb-4 max-w-sm rounded-lg border px-3 py-2 text-sm ${
+                isDarkMode
+                  ? 'border-amber-500/40 bg-amber-500/10 text-amber-200'
+                  : 'border-amber-300 bg-amber-50 text-amber-800'
+              }`}>
+                {oauthError}
+              </div>
+            )}
             {children}
           </div>
 
           {/* Social Login */}
-          <div className="mt-6">
-            <div className="relative mb-6 flex items-center justify-center">
+          <div className="mt-4">
+            <div className="relative mb-4 flex items-center justify-center">
               <div className={`absolute inset-0 flex items-center ${
                 isDarkMode ? 'border-slate-600' : 'border-slate-200'
               }`}>
                 <div className="w-full border-t"></div>
               </div>
-              <span className={`relative px-4 text-[11px] font-semibold uppercase tracking-[0.2em] ${
+              <span className={`relative px-3 text-[10px] font-semibold uppercase tracking-[0.2em] ${
                 isDarkMode ? 'bg-slate-800 text-slate-400' : 'bg-white text-slate-400'
               }`}>
                 SOCIAL LOGIN
               </span>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <button className={`flex items-center justify-center gap-3 rounded-xl border px-4 py-3 font-semibold transition-all hover:bg-opacity-10 ${
+            <div className="grid grid-cols-2 gap-3">
+              <a
+                href={googleAuthUrl}
+                className={`flex items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold transition-all hover:bg-opacity-10 ${
                 isDarkMode 
                   ? 'border-slate-600 text-slate-300 hover:bg-slate-700' 
                   : 'border-slate-200 text-slate-700 hover:bg-slate-50'
-              }`}>
-                <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google" className="w-5 h-5" />
+              }`}
+              >
+                <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google" className="w-4 h-4" />
                 <span>Google</span>
-              </button>
-              <button className={`flex items-center justify-center gap-3 rounded-xl border px-4 py-3 font-semibold transition-all hover:bg-opacity-10 ${
+              </a>
+              <button
+                type="button"
+                className={`flex items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold transition-all hover:bg-opacity-10 ${
                 isDarkMode 
                   ? 'border-slate-600 text-slate-300 hover:bg-slate-700' 
                   : 'border-slate-200 text-slate-700 hover:bg-slate-50'
-              }`}>
-                <img src="https://www.svgrepo.com/show/475647/facebook-color.svg" alt="Facebook" className="w-5 h-5" />
+              }`}
+              >
+                <img src="https://www.svgrepo.com/show/475647/facebook-color.svg" alt="Facebook" className="w-4 h-4" />
                 <span>Facebook</span>
               </button>
             </div>
           </div>
 
-          <div className="mt-6 text-center">
+          <div className="mt-4 text-center">
             <p className={`text-xs leading-relaxed ${
               isDarkMode ? 'text-slate-400' : 'text-slate-500'
             }`}>

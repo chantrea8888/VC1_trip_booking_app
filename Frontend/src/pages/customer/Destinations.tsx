@@ -1,40 +1,32 @@
 
+<<<<<<< HEAD
 import { MapPin, Search, Star } from 'lucide-react';
 import { apiRequest } from '@/services/api';
+=======
+import {
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  Filter,
+  Heart,
+  MapPin,
+  Search,
+  SlidersHorizontal,
+  Star,
+  Users,
+  Waves,
+} from 'lucide-react';
+>>>>>>> social-account
 import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 
-import { 
-  ChevronLeft, 
-  ChevronRight, 
-  Filter, 
-  SlidersHorizontal, 
-
-  Heart, 
-
-  Waves, 
-  Users, 
-  CheckCircle2 
-} from 'lucide-react';
-import { ALL_HOTELS } from '../../data/hotels';
+import { getHotels, type Hotel } from '@/data/hotels';
+import { getPublicDestinations } from '@/services/destinationService';
 
 type DestinationStatus = 'active' | 'draft';
 
-interface DestinationApiRecord {
-  id: string | number;
-  name?: string;
-  type?: string;
-  description?: string | null;
-  location?: string;
-  price?: number | string | null;
-  image?: string | null;
-  images?: string[] | null;
-  rating?: number | string | null;
-  status?: DestinationStatus;
-}
-
 interface DestinationItem {
-  id: string;
+  id: string | number;
   name: string;
   type: string;
   description: string;
@@ -45,35 +37,10 @@ interface DestinationItem {
   status: DestinationStatus;
 }
 
-const DEFAULT_IMAGE = 'https://picsum.photos/seed/public-destination/800/600';
-
-const toNumber = (value: number | string | null | undefined, fallback = 0) => {
-  const parsed = typeof value === 'number' ? value : parseFloat(String(value ?? ''));
-  return Number.isFinite(parsed) ? parsed : fallback;
-};
-
 const getErrorMessage = (error: any, fallback: string) => {
   if (typeof error?.data?.message === 'string' && error.data.message.trim()) return error.data.message;
   if (typeof error?.message === 'string' && error.message.trim()) return error.message;
   return fallback;
-};
-
-const normalizeDestination = (destination: DestinationApiRecord): DestinationItem => {
-  const imageList = Array.isArray(destination.images)
-    ? destination.images.filter((image): image is string => typeof image === 'string' && image.trim().length > 0)
-    : [];
-
-  return {
-    id: String(destination.id),
-    name: destination.name?.trim() || 'Untitled destination',
-    type: destination.type?.trim() || 'Boutique Hotel',
-    description: destination.description?.trim() || 'Discover this destination and start planning your stay.',
-    location: destination.location?.trim() || 'Unknown location',
-    price: toNumber(destination.price, 0),
-    image: (typeof destination.image === 'string' && destination.image.trim()) || imageList[0] || DEFAULT_IMAGE,
-    rating: toNumber(destination.rating, 0),
-    status: destination.status === 'active' ? 'active' : 'draft',
-  };
 };
 
 export default function Destinations() {
@@ -87,9 +54,8 @@ export default function Destinations() {
     setLoadError('');
 
     try {
-      const response = await apiRequest('/destinations/public/all');
-      const data = Array.isArray(response?.data) ? response.data : [];
-      setDestinations(data.map((item: DestinationApiRecord) => normalizeDestination(item)));
+      const data = await getPublicDestinations();
+      setDestinations(Array.isArray(data) ? data : []);
     } catch (error) {
       setLoadError(getErrorMessage(error, 'Failed to load destinations. Please try again.'));
     } finally {
@@ -159,8 +125,12 @@ export default function Destinations() {
             >
               <div className="relative">
                 <img src={destination.image} alt={destination.name} className="h-56 w-full object-cover" />
-                <div className="absolute left-4 top-4 rounded-full bg-emerald-500 px-3 py-1 text-xs font-semibold text-white">
-                  ACTIVE
+                <div
+                  className={`absolute left-4 top-4 rounded-full px-3 py-1 text-xs font-semibold text-white ${
+                    destination.status === 'active' ? 'bg-emerald-500' : 'bg-amber-500'
+                  }`}
+                >
+                  {(destination.status ?? 'draft').toUpperCase()}
                 </div>
                 <div className="absolute right-4 top-4 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-slate-700 dark:bg-slate-900/90 dark:text-slate-200">
                   {destination.type}
@@ -177,10 +147,7 @@ export default function Destinations() {
                 </div>
 
                 <div className="flex items-center justify-between">
-                  <p className="flex items-center gap-1 text-sm text-slate-600 dark:text-slate-300">
-                    <Star size={15} className="text-yellow-500" />
-                    {destination.rating > 0 ? destination.rating.toFixed(1) : 'New listing'}
-                  </p>
+                  <div></div>
                   <p className="text-lg font-bold text-blue-600 dark:text-blue-400">
                     ${destination.price.toFixed(0)}
                     <span className="ml-1 text-xs font-medium text-slate-500 dark:text-slate-400">/ night</span>
@@ -241,6 +208,13 @@ const parseGuestCount = (guestLabel: unknown): number => {
   return totalGuests > 0 ? totalGuests : 2;
 };
 
+const formatHotelDate = (value?: string): string => {
+  if (!value) return 'Unknown date';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return 'Unknown date';
+  return parsed.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+};
+
 const getTripNights = (tripData?: any): number => {
   const start = tripData?.startDate ? new Date(tripData.startDate) : null;
   const end = tripData?.endDate ? new Date(tripData.endDate) : null;
@@ -298,6 +272,9 @@ export const Hotels: React.FC<HotelsPageProps> = ({ tripData, onBack, onSelectHo
   const [selectedRoomByHotel, setSelectedRoomByHotel] = useState<Record<number, string>>({});
   const [guestsByHotel, setGuestsByHotel] = useState<Record<number, number>>({});
   const [currentPage, setCurrentPage] = useState(1);
+  const [hotels, setHotels] = useState<Hotel[]>([]);
+  const [hotelsLoading, setHotelsLoading] = useState(true);
+  const [hotelsError, setHotelsError] = useState('');
 
   const language = (() => {
     try {
@@ -379,7 +356,26 @@ export const Hotels: React.FC<HotelsPageProps> = ({ tripData, onBack, onSelectHo
     return (isKhmer ? km : en)[key] ?? key;
   };
   
-  const hotels = ALL_HOTELS;
+  useEffect(() => {
+    let cancelled = false;
+    setHotelsLoading(true);
+    setHotelsError('');
+
+    getHotels()
+      .then((data) => {
+        if (!cancelled) setHotels(data);
+      })
+      .catch(() => {
+        if (!cancelled) setHotelsError('Failed to load hotels.');
+      })
+      .finally(() => {
+        if (!cancelled) setHotelsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const defaultGuests = parseGuestCount(tripData?.guests);
   const tripNights = getTripNights(tripData);
 
@@ -652,14 +648,43 @@ export const Hotels: React.FC<HotelsPageProps> = ({ tripData, onBack, onSelectHo
               </div>
             </div>
 
-            <motion.div
+            {hotelsLoading && (
+              <div className="rounded-2xl border border-slate-200 bg-white px-6 py-10 text-center text-slate-500 shadow-sm dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">
+                Loading hotels...
+              </div>
+            )}
+
+            {hotelsError && !hotelsLoading && (
+              <div className="rounded-2xl border border-red-200 bg-red-50 px-6 py-4 text-sm text-red-700 dark:border-red-900/30 dark:bg-red-900/20 dark:text-red-300">
+                {hotelsError}
+              </div>
+            )}
+
+            {!hotelsLoading && !hotelsError && (
+              <motion.div
               key={`hotel-page-${currentPage}`}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.2 }}
               className="space-y-12"
             >
-              {filteredHotels.length > 0 ? (
+              {hotelsLoading ? (
+                <div className="text-center py-20 bg-slate-50 dark:bg-slate-800/50 rounded-[2rem] border-2 border-dashed border-slate-200 dark:border-slate-700">
+                  <div className="bg-slate-100 dark:bg-slate-800 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Search className="w-8 h-8 text-slate-400" />
+                  </div>
+                  <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Loading hotels</h3>
+                  <p className="text-slate-500 dark:text-slate-400">Fetching the latest listings.</p>
+                </div>
+              ) : hotelsError ? (
+                <div className="text-center py-20 bg-red-50 dark:bg-red-900/20 rounded-[2rem] border-2 border-dashed border-red-200 dark:border-red-800">
+                  <div className="bg-red-100 dark:bg-red-900/40 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Search className="w-8 h-8 text-red-400" />
+                  </div>
+                  <h3 className="text-xl font-bold text-red-700 dark:text-red-200 mb-2">Unable to load hotels</h3>
+                  <p className="text-red-600/80 dark:text-red-300/80">{hotelsError}</p>
+                </div>
+              ) : filteredHotels.length > 0 ? (
                 paginatedHotels.map((hotel) => {
                   const roomOptions = buildRoomOptions(parsePrice(hotel.price));
                   const defaultRoom = roomOptions[0];
@@ -709,16 +734,6 @@ export const Hotels: React.FC<HotelsPageProps> = ({ tripData, onBack, onSelectHo
                     {/* Content Container */}
                     <div className="flex-1 p-10 md:p-14 flex flex-col justify-between">
                       <div>
-                        <div className="flex items-center justify-between mb-6">
-                          <div className="flex items-center gap-3">
-                            <div className="text-left">
-                              <p className="text-[10px] font-bold text-slate-900 dark:text-white uppercase tracking-widest">{t('exceptional_stay')}</p>
-                              <p className="text-[9px] text-slate-400 font-medium uppercase tracking-widest">
-                                {typeof hotel.rating === 'number' ? `${hotel.rating.toFixed(1)} ★` : ''}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
 
                         <h3 
                           className="text-3xl font-serif italic text-slate-900 dark:text-white mb-3 group-hover:text-blue-600 transition-colors cursor-pointer"
@@ -726,6 +741,9 @@ export const Hotels: React.FC<HotelsPageProps> = ({ tripData, onBack, onSelectHo
                         >
                           {hotel.name}
                         </h3>
+                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                          {hotel.owner?.name ? `Owner: ${hotel.owner.name}` : 'Owner: Unknown'} · {formatHotelDate(hotel.created_at)}
+                        </div>
                         <button
                           type="button"
                           onClick={() => openMapForHotel(hotel)}
@@ -847,7 +865,8 @@ export const Hotels: React.FC<HotelsPageProps> = ({ tripData, onBack, onSelectHo
                   <p className="text-slate-500 dark:text-slate-400">Try searching by hotel name, city, or amenity.</p>
                 </div>
               )}
-            </motion.div>
+              </motion.div>
+            )}
 
             {filteredHotels.length > 0 && (
               <div className="flex items-center justify-center gap-4 pt-12">

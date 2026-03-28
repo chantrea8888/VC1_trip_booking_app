@@ -11,10 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('promotions', function (Blueprint $table) {
-            if (!Schema::hasColumn('promotions', 'owner_id')) {
-                $table->unsignedBigInteger('owner_id')->nullable()->after('id');
-            }
+        Schema::table('transports', function (Blueprint $table) {
+            $table->boolean('is_free')->default(false)->after('price_per_km');
         });
     }
 
@@ -23,9 +21,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('promotions', function (Blueprint $table) {
-            $table->dropColumn('owner_id');
+        Schema::table('transports', function (Blueprint $table) {
+            $table->dropColumn('is_free');
         });
     }
 };
-

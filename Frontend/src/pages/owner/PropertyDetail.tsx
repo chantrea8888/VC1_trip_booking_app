@@ -253,7 +253,7 @@ const PropertyDetail = () => {
                   <span className={`px-3 py-1 rounded-full text-xs font-semibold text-white ${
                     property.status === 'active' ? 'bg-green-500' : 'bg-yellow-500'
                   }`}>
-                    {property.status === 'active' ? 'ACTIVE' : 'DRAFT'}
+                    {property.status === 'active' ? 'ACTIVE' : 'UPCOMING'}
                   </span>
                 </div>
                 <div className="flex items-center text-gray-600 dark:text-gray-300 mb-4">

@@ -2,10 +2,11 @@ import React, { createContext, useContext, useMemo, useState, useEffect } from '
 import {
   getAuthUser,
   getAuthToken,
-  login as loginRequest,
-  logout as logoutRequest,
-  register as registerRequest,
+  login,
+  logout,
+  register,
   setAuthUser,
+  setAuthToken,
   authService,
 } from '../services/authService';
 import { clearApiAuthToken, setApiAuthToken } from '../services/api';
@@ -78,6 +79,15 @@ const mapApiUserToContextUser = (apiUser: any): User | null => {
   };
 };
 
+const clearHandledAuthParams = (params: URLSearchParams) => {
+  params.delete('access_token');
+  params.delete('auth_user');
+
+  const nextQuery = params.toString();
+  const nextUrl = `${window.location.pathname}${nextQuery ? `?${nextQuery}` : ''}${window.location.hash}`;
+  window.history.replaceState({}, '', nextUrl);
+};
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(() => mapApiUserToContextUser(getAuthUser()));
   const [token, setToken] = useState<string | null>(() => getAuthToken());
@@ -93,9 +103,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Debug log on mount and when auth state changes
   useEffect(() => {
     console.log('🔍 AuthProvider initialized');
-    console.log('📦 Token from storage:', getAuthToken());
-    console.log('👤 User from storage:', getAuthUser());
+    console.log('📦 Token from memory:', getAuthToken());
+    console.log('👤 User from memory:', getAuthUser());
     console.log('🔑 isAuthenticated:', !!getAuthToken());
+  }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const accessToken = params.get('access_token');
+    const serializedUser = params.get('auth_user');
+
+    if (!accessToken || !serializedUser) {
+      return;
+    }
+
+    try {
+      const parsedUser = JSON.parse(serializedUser);
+      const nextUser = mapApiUserToContextUser(parsedUser);
+
+      if (!nextUser) {
+        throw new Error('OAuth callback returned an invalid user payload.');
+      }
+
+      setAuthToken(accessToken);
+      setAuthUser(nextUser);
+      setToken(accessToken);
+      setUser(nextUser);
+    } catch (error) {
+      console.error('❌ Failed to hydrate OAuth login:', error);
+    } finally {
+      clearHandledAuthParams(params);
+    }
   }, []);
 
   useEffect(() => {
@@ -111,7 +149,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     console.log('📡 Login attempt for:', payload.email);
     
     try {
-      const data = await loginRequest(payload);
+      const data = await authService.login(payload);
       
       console.log('📡 Login response:', data);
       
@@ -119,7 +157,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const responseToken = data?.access_token;
       
       if (responseToken) {
-        console.log('✅ Token received and stored');
+        console.log('✅ Token received and cached');
+        setAuthToken(responseToken);
         setToken(responseToken);
       } else {
         console.warn('⚠️ No token in response');
@@ -134,6 +173,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       
       setUser(nextUser);
+      setAuthUser(nextUser);
       
       console.log('✅ Login successful:', {
         user: nextUser,
@@ -166,14 +206,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     console.log('📡 Register attempt for:', payload.email);
     
     try {
-      const data = await registerRequest(payload);
+      const data = await authService.register(payload);
       
       console.log('📡 Register response:', data);
       
       const responseToken = data?.access_token;
       
       if (responseToken) {
-        console.log('✅ Token received and stored');
+        console.log('✅ Token received and cached');
+        setAuthToken(responseToken);
         setToken(responseToken);
       }
       
@@ -186,6 +227,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       
       setUser(nextUser);
+      setAuthUser(nextUser);
       
       console.log('✅ Register successful:', {
         user: nextUser,
@@ -207,13 +249,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = async () => {
     console.log('👋 Logging out');
     try {
-      await logoutRequest();
+      await authService.logout();
     } catch (error) {
       console.error('Logout error:', error);
     } finally {
       setUser(null);
       setToken(null);
-      // authService.logout already clears storage
+      // authService.logout already clears cached auth data
       console.log('✅ Logged out successfully');
     }
   };

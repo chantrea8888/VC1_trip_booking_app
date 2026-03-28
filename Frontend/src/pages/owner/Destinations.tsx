@@ -49,6 +49,7 @@ interface DestinationFormData {
   address: string;
   price: string;
   image: string;
+  imageFile: File | null;
   rating: string;
   status: DestinationStatus;
 }
@@ -66,14 +67,24 @@ interface DestinationModalProps {
   isSubmitting: boolean;
   title: string;
   formData: DestinationFormData;
+  imagePreview: string;
   formErrors: Record<string, string>;
   submitError: string;
   onClose: () => void;
   onSubmit: () => void;
   onFieldChange: (field: keyof DestinationFormData, value: string) => void;
+  onImageChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
 }
 
 const DEFAULT_IMAGE = 'https://picsum.photos/seed/destination-default/800/600';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000/api';
+const API_ORIGIN = /^https?:\/\//i.test(API_BASE_URL)
+  ? API_BASE_URL.replace(/\/api\/?$/, '')
+  : '';
+const ASSET_ORIGIN =
+  import.meta.env.VITE_ASSET_ORIGIN ||
+  API_ORIGIN ||
+  (typeof window !== 'undefined' ? window.location.origin : '');
 
 const PROPERTY_TYPES = [
   'Boutique Hotel',
@@ -92,6 +103,7 @@ const createEmptyFormData = (): DestinationFormData => ({
   address: '',
   price: '',
   image: '',
+  imageFile: null,
   rating: '',
   status: 'active',
 });
@@ -107,12 +119,33 @@ const getErrorMessage = (error: any, fallback: string) => {
   return fallback;
 };
 
+const resolveImageUrl = (value?: string | null) => {
+  if (!value) return '';
+  const cleaned = value.replace(/\\/g, '/');
+  const normalizedScheme = cleaned.replace(/^https?:\/(?!\/)/i, (match) => `${match}/`);
+  if (normalizedScheme.startsWith('data:')) return normalizedScheme;
+  if (/^https?:\/\//i.test(normalizedScheme)) return normalizedScheme;
+
+  const normalized = normalizedScheme.startsWith('/') ? normalizedScheme : `/${normalizedScheme}`;
+  if (!ASSET_ORIGIN) return normalized;
+
+  if (normalized.startsWith('/storage/')) return `${ASSET_ORIGIN}${normalized}`;
+  if (normalized.startsWith('/images/')) return `${ASSET_ORIGIN}/storage${normalized}`;
+  if (normalized.startsWith('/destinations/')) return `${ASSET_ORIGIN}/storage${normalized}`;
+
+  return `${ASSET_ORIGIN}${normalized}`;
+
+};
+
+const getStatusLabel = (status: DestinationStatus) => (status === 'active' ? 'ACTIVE' : 'UPCOMING');
+
 const normalizeDestination = (destination: DestinationApiRecord): DestinationItem => {
   const imageList = Array.isArray(destination.images)
     ? destination.images.filter((image): image is string => typeof image === 'string' && image.trim().length > 0)
     : [];
   const image =
-    (typeof destination.image === 'string' && destination.image.trim()) || imageList[0] || DEFAULT_IMAGE;
+    resolveImageUrl((typeof destination.image === 'string' && destination.image.trim()) || imageList[0] || '') ||
+    DEFAULT_IMAGE;
   const totalBookings = Math.max(0, toNumber(destination.total_bookings ?? destination.totalBookings, 0));
 
   return {
@@ -124,7 +157,7 @@ const normalizeDestination = (destination: DestinationApiRecord): DestinationIte
     address: destination.address?.trim() || destination.location?.trim() || '',
     price: toNumber(destination.price, 0),
     image,
-    images: imageList.length > 0 ? imageList : [image],
+    images: imageList.length > 0 ? imageList.map(resolveImageUrl).filter(Boolean) : [image],
     rating: toNumber(destination.rating, 0),
     totalBookings,
     total_bookings: totalBookings,
@@ -142,6 +175,7 @@ const toFormData = (property: DestinationItem): DestinationFormData => ({
   address: property.address,
   price: property.price ? String(property.price) : '',
   image: property.image,
+  imageFile: null,
   rating: property.rating ? String(property.rating) : '',
   status: property.status,
 });
@@ -181,7 +215,7 @@ const PropertyCard = ({ property, onView, onEdit, onDelete, activePromotion }: P
       <div className="relative">
         <img src={property.image} alt={property.name} className="w-full h-48 object-cover" />
         <div className={`absolute top-2 left-2 px-3 py-1 rounded-full text-xs font-semibold text-white ${property.status === 'active' ? 'bg-green-500' : 'bg-yellow-500'}`}>
-          {property.status === 'active' ? 'ACTIVE' : 'DRAFT'}
+          {getStatusLabel(property.status)}
         </div>
         <div className="absolute top-2 right-2 flex space-x-2">
           <button
@@ -270,11 +304,13 @@ const DestinationModal = ({
   isSubmitting,
   title,
   formData,
+  imagePreview,
   formErrors,
   submitError,
   onClose,
   onSubmit,
   onFieldChange,
+  onImageChange,
 }: DestinationModalProps) => {
   if (!isOpen) return null;
 
@@ -380,13 +416,22 @@ const DestinationModal = ({
             </div>
 
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-2">Image URL</label>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-2">Image Upload</label>
               <input
-                value={formData.image}
-                onChange={(event) => onFieldChange('image', event.target.value)}
+                type="file"
+                accept="image/*"
+                onChange={onImageChange}
                 className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="https://example.com/photo.jpg"
               />
+              {(imagePreview || formData.image) && (
+                <div className="mt-3">
+                  <img
+                    src={imagePreview || formData.image}
+                    alt="Preview"
+                    className="h-36 w-full rounded-xl object-cover border border-slate-200 dark:border-slate-700"
+                  />
+                </div>
+              )}
             </div>
 
             <div className="md:col-span-2">
@@ -407,7 +452,7 @@ const DestinationModal = ({
                 onChange={(event) => onFieldChange('status', event.target.value)}
                 className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option value="draft">Draft</option>
+                <option value="draft">Upcoming</option>
                 <option value="active">Active</option>
               </select>
             </div>
@@ -446,6 +491,7 @@ const Destinations = () => {
   const [showFormModal, setShowFormModal] = React.useState(false);
   const [editingProperty, setEditingProperty] = React.useState<DestinationItem | null>(null);
   const [formData, setFormData] = React.useState<DestinationFormData>(createEmptyFormData());
+  const [imagePreview, setImagePreview] = React.useState('');
   const [formErrors, setFormErrors] = React.useState<Record<string, string>>({});
   const [submitError, setSubmitError] = React.useState('');
   const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -513,6 +559,10 @@ const Destinations = () => {
   const handleOpenCreate = () => {
     setEditingProperty(null);
     setFormData(createEmptyFormData());
+    if (imagePreview) {
+      URL.revokeObjectURL(imagePreview);
+    }
+    setImagePreview('');
     setFormErrors({});
     setSubmitError('');
     setShowFormModal(true);
@@ -521,6 +571,10 @@ const Destinations = () => {
   const handleOpenEdit = (property: DestinationItem) => {
     setEditingProperty(property);
     setFormData(toFormData(property));
+    if (imagePreview) {
+      URL.revokeObjectURL(imagePreview);
+    }
+    setImagePreview('');
     setFormErrors({});
     setSubmitError('');
     setShowFormModal(true);
@@ -528,6 +582,10 @@ const Destinations = () => {
 
   const handleCloseForm = () => {
     if (isSubmitting) return;
+    if (imagePreview) {
+      URL.revokeObjectURL(imagePreview);
+    }
+    setImagePreview('');
     setShowFormModal(false);
     setEditingProperty(null);
     setFormData(createEmptyFormData());
@@ -547,6 +605,23 @@ const Destinations = () => {
       delete nextErrors[field];
       return nextErrors;
     });
+  };
+
+  const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0] ?? null;
+
+    if (imagePreview) {
+      URL.revokeObjectURL(imagePreview);
+    }
+
+    if (!file) {
+      setFormData((previous) => ({ ...previous, imageFile: null }));
+      setImagePreview('');
+      return;
+    }
+
+    setFormData((previous) => ({ ...previous, imageFile: file }));
+    setImagePreview(URL.createObjectURL(file));
   };
 
   const validateForm = () => {
@@ -577,26 +652,50 @@ const Destinations = () => {
     setIsSubmitting(true);
     setSubmitError('');
 
-    const payload = {
-      name: formData.name.trim(),
-      type: formData.type.trim() || 'Boutique Hotel',
-      description: formData.description.trim(),
-      location: formData.location.trim(),
-      address: formData.address.trim(),
-      price: parseFloat(formData.price),
-      image: formData.image.trim() || DEFAULT_IMAGE,
-      images: formData.image.trim() ? [formData.image.trim()] : [],
-      rating: formData.rating.trim() ? parseFloat(formData.rating) : 0,
-      status: formData.status,
-    };
+    const payload = new FormData();
+    payload.append('name', formData.name.trim());
+    payload.append('type', formData.type.trim() || 'Boutique Hotel');
+    payload.append('description', formData.description.trim());
+    payload.append('location', formData.location.trim());
+    payload.append('address', formData.address.trim());
+    payload.append('price', String(parseFloat(formData.price)));
+    payload.append('rating', formData.rating.trim() ? String(parseFloat(formData.rating)) : '0');
+    payload.append('status', formData.status);
+
+    if (formData.imageFile) {
+      payload.append('image', formData.imageFile);
+      payload.append('images[]', formData.imageFile);
+    } else if (formData.image.trim()) {
+      payload.append('image', formData.image.trim());
+      payload.append('images[]', formData.image.trim());
+    }
+
+    if (editingProperty) {
+      payload.append('_method', 'PUT');
+    }
 
     try {
       const response = await apiRequest(editingProperty ? `/destinations/${editingProperty.id}` : '/destinations', {
-        method: editingProperty ? 'PUT' : 'POST',
-        body: JSON.stringify(payload),
+        method: 'POST',
+        body: payload,
       });
 
-      const savedProperty = normalizeDestination(response?.data ?? { ...payload, id: editingProperty?.id ?? Date.now() });
+      const fallbackImage = imagePreview || formData.image.trim() || DEFAULT_IMAGE;
+      const fallbackData = {
+        id: editingProperty?.id ?? Date.now(),
+        name: formData.name.trim(),
+        type: formData.type.trim() || 'Boutique Hotel',
+        description: formData.description.trim(),
+        location: formData.location.trim(),
+        address: formData.address.trim(),
+        price: parseFloat(formData.price),
+        image: fallbackImage,
+        images: fallbackImage ? [fallbackImage] : [],
+        rating: formData.rating.trim() ? parseFloat(formData.rating) : 0,
+        status: formData.status,
+      };
+
+      const savedProperty = normalizeDestination(response?.data ?? fallbackData);
 
       setProperties((previous) => {
         if (editingProperty) {
@@ -636,16 +735,26 @@ const Destinations = () => {
   const confirmDelete = async () => {
     if (!propertyToDelete) return;
 
+    console.log('🗑️ Confirming delete for destination:', {
+      id: propertyToDelete.id,
+      name: propertyToDelete.name,
+      type: typeof propertyToDelete.id
+    });
+
     setIsDeleting(true);
     setDeleteError('');
 
     try {
-      await apiRequest(`/destinations/${propertyToDelete.id}`, { method: 'DELETE' });
+      const deleteUrl = `/destinations/${propertyToDelete.id}`;
+      console.log('📍 Delete URL:', deleteUrl);
+      
+      await apiRequest(deleteUrl, { method: 'DELETE' });
       setProperties((previous) => previous.filter((item) => item.id !== propertyToDelete.id));
       setFeedbackMessage('Destination deleted successfully.');
       setShowDeleteModal(false);
       setPropertyToDelete(null);
     } catch (error) {
+      console.error('❌ Delete error:', error);
       setDeleteError(getErrorMessage(error, 'Failed to delete destination. Please try again.'));
     } finally {
       setIsDeleting(false);
@@ -726,7 +835,7 @@ const Destinations = () => {
                 onClick={() => setFilterStatus('draft')}
                 className={`px-4 py-2 rounded-lg font-medium transition-colors ${filterStatus === 'draft' ? 'bg-blue-600 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'}`}
               >
-                Draft ({properties.filter((property) => property.status === 'draft').length})
+                Upcoming ({properties.filter((property) => property.status === 'draft').length})
               </button>
             </div>
           </div>
@@ -759,11 +868,13 @@ const Destinations = () => {
           isSubmitting={isSubmitting}
           title={editingProperty ? 'Update Destination' : 'Create Destination'}
           formData={formData}
+          imagePreview={imagePreview}
           formErrors={formErrors}
           submitError={submitError}
           onClose={handleCloseForm}
           onSubmit={() => void handleSubmitForm()}
           onFieldChange={handleFormFieldChange}
+          onImageChange={handleImageChange}
         />
 
         {showDeleteModal && (
@@ -773,6 +884,7 @@ const Destinations = () => {
                 <div className="w-12 h-12 bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center">
                   <Trash2 size={24} className="text-red-600" />
                 </div>
+
                 <div>
                   <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100">Delete Property</h3>
                   <p className="text-sm text-slate-500">This action cannot be undone.</p>
@@ -782,13 +894,11 @@ const Destinations = () => {
               <p className="text-slate-700 dark:text-slate-300 mb-6">
                 Are you sure you want to delete "{propertyToDelete?.name}"? This will permanently remove the property and all associated data.
               </p>
-
               {deleteError && (
                 <div className="mb-4 rounded-xl border border-red-200 bg-red-50 text-red-700 px-4 py-3 text-sm dark:bg-red-900/20 dark:border-red-900/30 dark:text-red-300">
                   {deleteError}
                 </div>
               )}
-
               <div className="flex gap-3">
                 <button
                   onClick={cancelDelete}
@@ -814,3 +924,4 @@ const Destinations = () => {
 };
 
 export default Destinations;
+

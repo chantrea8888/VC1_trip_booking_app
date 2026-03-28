@@ -1,9 +1,14 @@
 import React from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+<<<<<<< HEAD
 import { ALL_HOTELS } from '../../data/hotels';
 import { RENTAL_VEHICLES } from '../../data/rentals';
+=======
+>>>>>>> social-account
 import { bookingService } from '@/services/bookingService';
 import { useAuth } from '../../context/AuthContext';
+import { apiRequest } from '../../services/api';
+import { getPublicDestinations } from '../../services/destinationService';
 
 const buildBookingId = () => `BK-${Date.now()}`;
 
@@ -12,8 +17,23 @@ export const BookTrip: React.FC = () => {
   const { user, isAuthenticated } = useAuth();
   const [searchParams] = useSearchParams();
 
-  const [destinationId, setDestinationId] = React.useState<number>(() => ALL_HOTELS[0]?.id ?? 1);
-  const [transportId, setTransportId] = React.useState<number>(() => RENTAL_VEHICLES[0]?.id ?? 1);
+  const [destinationId, setDestinationId] = React.useState<number | null>(null);
+  const [destinations, setDestinations] = React.useState<Array<{
+    id: number;
+    name: string;
+    location: string;
+  }>>([]);
+  const [destinationError, setDestinationError] = React.useState<string | null>(null);
+  const [loadingDestinations, setLoadingDestinations] = React.useState(false);
+  const [transportId, setTransportId] = React.useState<number | null>(null);
+  const [transports, setTransports] = React.useState<Array<{
+    id: number;
+    name: string;
+    type: string;
+    is_free: boolean;
+  }>>([]);
+  const [transportError, setTransportError] = React.useState<string | null>(null);
+  const [loadingTransports, setLoadingTransports] = React.useState(false);
   const [travelDate, setTravelDate] = React.useState<string>(() => {
     const d = new Date();
     d.setDate(d.getDate() + 7);
@@ -23,6 +43,73 @@ export const BookTrip: React.FC = () => {
   const [submitting, setSubmitting] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
+  const loadTransports = React.useCallback(async () => {
+    setLoadingTransports(true);
+    setTransportError(null);
+
+    try {
+      const response = await apiRequest('/transports') as { data?: any[] };
+      const mapped = (response?.data ?? [])
+        .map((item: any) => {
+          const rawType = String(item?.transport_type ?? 'Car Rental');
+          const type = rawType === 'Shuttle' ? 'Train' : rawType === 'Other' ? 'Car Rental' : rawType;
+          const rawId = item?.transport_id ?? item?.id;
+          const id = typeof rawId === 'number' ? rawId : parseInt(String(rawId), 10);
+          return {
+            id: Number.isFinite(id) ? id : 0,
+            name: String(item?.service_name ?? '').trim(),
+            type: String(type),
+            is_free: Boolean(item?.is_free ?? item?.isFree ?? false),
+          };
+        })
+        .filter((item: any) => item.id && item.name);
+
+      setTransports(mapped);
+    } catch (err: any) {
+      setTransportError(err?.data?.message ?? err?.message ?? 'Failed to load transports.');
+    } finally {
+      setLoadingTransports(false);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    const loadDestinations = async () => {
+      setLoadingDestinations(true);
+      setDestinationError(null);
+
+      try {
+        const data = await getPublicDestinations();
+        const mapped = data.map((item: any) => ({
+          id: item.id,
+          name: item.name,
+          location: item.location,
+        }));
+        setDestinations(mapped);
+      } catch (err: any) {
+        setDestinationError(err?.data?.message ?? err?.message ?? 'Failed to load destinations.');
+      } finally {
+        setLoadingDestinations(false);
+      }
+    };
+
+    loadDestinations();
+    loadTransports();
+  }, [loadTransports]);
+
+  React.useEffect(() => {
+    const handleFocus = () => loadTransports();
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') loadTransports();
+    };
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, [loadTransports]);
+
   React.useEffect(() => {
     const destinationParam = searchParams.get('destinationId');
     const transportParam = searchParams.get('transportId');
@@ -30,21 +117,34 @@ export const BookTrip: React.FC = () => {
     const nextDestinationId = destinationParam ? parseInt(destinationParam, 10) : NaN;
     const nextTransportId = transportParam ? parseInt(transportParam, 10) : NaN;
 
-    if (Number.isFinite(nextDestinationId) && ALL_HOTELS.some((h) => h.id === nextDestinationId)) {
+    if (Number.isFinite(nextDestinationId) && destinations.some((h) => h.id === nextDestinationId)) {
       setDestinationId(nextDestinationId);
     }
-    if (Number.isFinite(nextTransportId) && RENTAL_VEHICLES.some((v) => v.id === nextTransportId)) {
+
+    if (Number.isFinite(nextTransportId) && transports.some((v) => v.id === nextTransportId)) {
       setTransportId(nextTransportId);
     }
-  }, [searchParams]);
+  }, [searchParams, destinations, transports]);
+
+  React.useEffect(() => {
+    if (destinations.length === 0) return;
+    if (destinationId && destinations.some((d) => d.id === destinationId)) return;
+    setDestinationId(destinations[0].id);
+  }, [destinations, destinationId]);
+
+  React.useEffect(() => {
+    if (transports.length === 0) return;
+    if (transportId && transports.some((t) => t.id === transportId)) return;
+    setTransportId(transports[0].id);
+  }, [transports, transportId]);
 
   const selectedDestination = React.useMemo(
-    () => ALL_HOTELS.find((h) => h.id === destinationId) ?? ALL_HOTELS[0],
-    [destinationId],
+    () => destinations.find((h) => h.id === destinationId) ?? destinations[0],
+    [destinationId, destinations],
   );
   const selectedTransport = React.useMemo(
-    () => RENTAL_VEHICLES.find((v) => v.id === transportId) ?? RENTAL_VEHICLES[0],
-    [transportId],
+    () => transports.find((v) => v.id === transportId) ?? transports[0],
+    [transportId, transports],
   );
 
   const canSubmit =
@@ -143,30 +243,42 @@ export const BookTrip: React.FC = () => {
             <label className="block text-sm font-bold text-slate-700 dark:text-slate-200">Destination</label>
             <select
               className="select-base w-full mt-2"
-              value={destinationId}
+              value={destinationId ?? ''}
               onChange={(e) => setDestinationId(parseInt(e.target.value, 10))}
+              disabled={loadingDestinations || destinations.length === 0}
             >
-              {ALL_HOTELS.map((hotel) => (
+              {loadingDestinations && <option value="">Loading destinations...</option>}
+              {!loadingDestinations && destinations.length === 0 && <option value="">No destinations available</option>}
+              {destinations.map((hotel) => (
                 <option key={hotel.id} value={hotel.id}>
                   {hotel.name} — {hotel.location}
                 </option>
               ))}
             </select>
+            {destinationError && (
+              <p className="mt-2 text-xs text-red-600">{destinationError}</p>
+            )}
           </div>
 
           <div>
             <label className="block text-sm font-bold text-slate-700 dark:text-slate-200">Transport</label>
             <select
               className="select-base w-full mt-2"
-              value={transportId}
+              value={transportId ?? ''}
               onChange={(e) => setTransportId(parseInt(e.target.value, 10))}
+              disabled={loadingTransports || transports.length === 0}
             >
-              {RENTAL_VEHICLES.map((v) => (
+              {loadingTransports && <option value="">Loading transports...</option>}
+              {!loadingTransports && transports.length === 0 && <option value="">No transports available</option>}
+              {transports.map((v) => (
                 <option key={v.id} value={v.id}>
-                  {v.name} — {v.type} — {v.seats} seats
+                  {v.name} — {v.type}{v.is_free ? ' (Free)' : ''}
                 </option>
               ))}
             </select>
+            {transportError && (
+              <p className="mt-2 text-xs text-red-600">{transportError}</p>
+            )}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">

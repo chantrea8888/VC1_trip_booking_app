@@ -58,6 +58,7 @@ type SecurityPrefs = {
 };
 
 const SETTINGS_STORAGE_KEY = 'ownerSettingsPrefs';
+const OWNER_LOGO_STORAGE_KEY = 'ownerBusinessLogo';
 
 const Settings = () => {
   const [activeTab, setActiveTab] = React.useState('profile');
@@ -69,6 +70,8 @@ const Settings = () => {
     role: 'Owner',
     avatar: 'https://i.pravatar.cc/150?u=20',
   });
+  const [businessLogo, setBusinessLogo] = React.useState<string>('https://picsum.photos/seed/logo/200/200');
+  const logoInputRef = React.useRef<HTMLInputElement | null>(null);
 
   React.useEffect(() => {
     const raw = localStorage.getItem('ownerInfo');
@@ -83,6 +86,30 @@ const Settings = () => {
       return;
     }
   }, []);
+  
+  React.useEffect(() => {
+    const storedLogo = localStorage.getItem(OWNER_LOGO_STORAGE_KEY);
+    if (storedLogo) setBusinessLogo(storedLogo);
+  }, []);
+
+  const handleLogoChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      showToast('Please select an image file');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = typeof reader.result === 'string' ? reader.result : '';
+      if (!result) return;
+      setBusinessLogo(result);
+      localStorage.setItem(OWNER_LOGO_STORAGE_KEY, result);
+      showToast('Logo updated');
+    };
+    reader.readAsDataURL(file);
+  };
 
   const [isEditingOwner, setIsEditingOwner] = React.useState(false);
   const [ownerDraft, setOwnerDraft] = React.useState<OwnerInfo>(ownerInfo);
@@ -317,12 +344,24 @@ const Settings = () => {
                 <div className="flex flex-col sm:flex-row items-center gap-8">
                   <div className="relative group">
                     <div className="w-24 h-24 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 overflow-hidden border-2 border-slate-200 dark:border-slate-700">
-                      <img alt="Business Logo" className="w-full h-full object-cover" src="https://picsum.photos/seed/logo/200/200" />
+                      <img alt="Business Logo" className="w-full h-full object-cover" src={businessLogo} />
                     </div>
-                    <button className="absolute -bottom-2 -right-2 w-8 h-8 bg-blue-600 text-white rounded-lg flex items-center justify-center shadow-lg hover:bg-blue-700 transition-all">
+                    <button
+                      type="button"
+                      onClick={() => logoInputRef.current?.click()}
+                      className="absolute -bottom-2 -right-2 w-8 h-8 bg-blue-600 text-white rounded-lg flex items-center justify-center shadow-lg hover:bg-blue-700 transition-all"
+                      title="Change logo"
+                    >
                       <Camera size={16} />
                     </button>
                   </div>
+                  <input
+                    ref={logoInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleLogoChange}
+                  />
                   <div className="text-center sm:text-left">
                     <h4 className="text-xl font-bold">Sterling Travel Co.</h4>
                     <p className="text-sm text-slate-500 mt-1">Premium Travel Partner in Cambodia</p>

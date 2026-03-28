@@ -1,5 +1,6 @@
 import React from 'react';
 import { AnimatePresence, motion } from 'motion/react';
+<<<<<<< HEAD
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { Sidebar } from '../components/layout/Sidebar';
@@ -42,6 +43,51 @@ import OwnerSidebar from '../components/layout/owner/Sidebar';
 import { OwnerNotificationsProvider, useOwnerNotifications } from '../context/OwnerNotificationsContext';
 import { formatRelativeTime } from '../utils/utils';
 import { OwnerNotificationModal } from '../components/owner/OwnerNotificationModal';
+=======
+import { useAuth } from '@/context/AuthContext';
+import { useTheme } from '@/context/ThemeContext';
+import { Sidebar } from '@/components/layout/Sidebar';
+import { Header } from '@/components/layout/Header';
+import { AdminNotification } from '@/components/common/NotificationDropdown';
+import { Login } from '@/pages/auth/Login';
+import { Register } from '@/pages/auth/Register';
+import VisitorHome from '@/pages/public/VisitorHome';
+import { Dashboard as CustomerDashboard } from '@/pages/customer/Dashboard';
+import { Hotels } from '@/pages/customer/Destinations';
+import { HotelDetails } from '@/pages/customer/HotelDetails';
+import { TripPlanner } from '@/pages/customer/TripPlanner';
+import { BookingHistory } from '@/pages/customer/BookingHistory';
+import { GroupInvite } from '@/pages/customer/GroupInvite';
+import { GroupPlanning } from '@/pages/customer/GroupPlanning';
+import { Rentals } from '@/pages/customer/Rentals';
+import { Activities } from '@/pages/customer/Activities';
+import { Profile } from '@/pages/customer/Profile';
+import { Promotions } from '@/pages/customer/Promotions';
+import { BookTrip } from '@/pages/customer/BookTrip';
+import { CustomerBookings } from '@/pages/customer/CustomerBookings';
+import Payment from '@/pages/customer/Payment';
+import OwnerDashboard from '@/pages/owner/Dashboard';
+import OwnerDestinations from '@/pages/owner/Destinations';
+import OwnerTransport from '@/pages/owner/Transport';
+import OwnerBookings from '@/pages/owner/Bookings';
+import OwnerMessages from '@/pages/owner/Messages';
+import OwnerPromotions from '@/pages/owner/Promotions';
+import OwnerCreatePromotion from '@/pages/owner/CreatePromotion';
+import OwnerAnalytics from '@/pages/owner/Analytics';
+import OwnerFinancials from '@/pages/owner/Financials';
+import OwnerSettings from '@/pages/owner/Settings';
+import OwnerProfile from '@/pages/owner/Profile';
+import OwnerRegisterVehicle from '@/pages/owner/RegisterVehicle';
+import OwnerPropertyDetail from '@/pages/owner/PropertyDetail';
+import OwnerAddRoom from '@/pages/owner/AddRoom';
+import OwnerAddProperty from '@/pages/owner/AddProperty';
+import OwnerEditProperty from '@/pages/owner/EditProperty';
+import { useLocation, useNavigate } from 'react-router-dom';
+import OwnerSidebar from '@/components/layout/owner/Sidebar';
+import { OwnerNotificationsProvider, useOwnerNotifications } from '@/context/OwnerNotificationsContext';
+import { formatRelativeTime } from '@/utils/utils';
+import { OwnerNotificationModal } from '@/components/owner/OwnerNotificationModal';
+>>>>>>> social-account
 import {
   Dashboard as AdminDashboard,
   UserManagement,
@@ -55,7 +101,7 @@ import {
   AuditLogs,
   Settings,
   AdminProfile,
-} from '../pages/admin';
+} from '@/pages/admin';
 
 interface AppRoutesProps {
   view: string;
@@ -129,8 +175,10 @@ const getOwnerTitle = (pathname: string): string => {
   if (pathname.startsWith('/promotions')) return 'Promotions';
   if (pathname.startsWith('/analytics')) return 'Analytics';
   if (pathname.startsWith('/financials')) return 'Financials';
+  if (pathname.startsWith('/profile')) return 'Profile';
   if (pathname.startsWith('/settings')) return 'Settings';
   if (pathname.startsWith('/destinations')) return 'Destinations';
+  if (pathname.startsWith('/profile')) return 'Profile';
   return 'Overview Dashboard';
 };
 
@@ -142,10 +190,14 @@ const OwnerShellInner: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
   const {
     notifications,
     unreadCount,
+<<<<<<< HEAD
     refresh,
     markRead,
     markAllRead,
     openNotification,
+=======
+    markAllRead,
+>>>>>>> social-account
     activeNotification,
     closeNotification,
   } = useOwnerNotifications();
@@ -154,6 +206,7 @@ const OwnerShellInner: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
     const path = location.pathname;
 
     if (path === '/' || path === '/owner') return <OwnerDashboard />;
+    if (path.startsWith('/profile')) return <OwnerProfile />;
     if (path.startsWith('/destinations') && path.includes('/add-room')) return <OwnerAddRoom />;
     if (path.startsWith('/destinations') && path.includes('/edit')) return <OwnerEditProperty />;
     if (path.startsWith('/destinations') && path.includes('/new')) return <OwnerAddProperty />;
@@ -168,6 +221,7 @@ const OwnerShellInner: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
     if (path.startsWith('/promotions')) return <OwnerPromotions />;
     if (path.startsWith('/analytics')) return <OwnerAnalytics />;
     if (path.startsWith('/financials')) return <OwnerFinancials />;
+    if (path.startsWith('/profile')) return <OwnerProfile />;
     if (path.startsWith('/settings')) return <OwnerSettings />;
 
     return <OwnerDashboard />;
@@ -177,9 +231,13 @@ const OwnerShellInner: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
 
   const headerNotifications: AdminNotification[] = React.useMemo(
     () =>
+<<<<<<< HEAD
       notifications
         .filter((n) => !n.readAt)
         .map((n) => ({
+=======
+      notifications.map((n) => ({
+>>>>>>> social-account
         id: String(n.id),
         title: n.title,
         description: n.message ?? '',
@@ -194,6 +252,7 @@ const OwnerShellInner: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
     [notifications],
   );
 
+<<<<<<< HEAD
   const handleOwnerNotificationClick = React.useCallback(
     (notif: AdminNotification) => {
       const notificationId = notif?.meta?.ownerNotificationId ?? notif?.id ?? null;
@@ -213,6 +272,10 @@ const OwnerShellInner: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
     },
     [markRead, navigate, notifications, openNotification],
   );
+=======
+  // Clicking items in the bell dropdown is intentionally disabled for owners.
+  // Owners open details via Overview → Recent Activities (or "View all notifications").
+>>>>>>> social-account
 
   return (
     <div className="flex h-screen overflow-hidden font-sans transition-colors duration-200">
@@ -222,6 +285,7 @@ const OwnerShellInner: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
           title={title}
           isDark={isDarkMode}
           toggleTheme={toggleDarkMode}
+<<<<<<< HEAD
           notifications={headerNotifications}
           unreadCount={unreadCount}
           onNotificationsOpen={() => refresh({ silent: false })}
@@ -230,6 +294,15 @@ const OwnerShellInner: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
           onViewAllNotifications={() => navigate('/#recent-activities')}
           onNotificationClick={handleOwnerNotificationClick}
           onProfileClick={() => navigate('/profile')}
+=======
+          onNotificationClick={() => {}}
+          onProfileClick={() => navigate('/profile')}
+          onSettingsClick={() => navigate('/settings')}
+          notifications={headerNotifications}
+          unreadCount={unreadCount}
+          onMarkAllNotificationsRead={markAllRead}
+          onViewAllNotifications={() => navigate('/owner#recent-activities')}
+>>>>>>> social-account
           onLogoutClick={onLogout}
           user={user}
         />
@@ -400,6 +473,7 @@ const AdminShell: React.FC<{ view: string; setView: (view: string) => void; onLo
           toggleTheme={toggleDarkMode}
           onNotificationClick={handleNotificationClick}
           onProfileClick={() => safeSetView('profile')}
+          onSettingsClick={() => safeSetView('settings')}
           onLogoutClick={onLogout}
           user={user}
         />
@@ -793,7 +867,6 @@ export const AppRoutes: React.FC<AppRoutesProps> = ({
             setView('group-planning');
           }}
           selectedActivityIds={selectedActivityIds}
-          setSelectedActivityIds={setSelectedActivityIds}
           tripData={tripData}
           setTripData={setTripData}
         />

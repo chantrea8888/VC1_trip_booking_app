@@ -11,11 +11,15 @@ interface HeaderProps {
   onNotificationClick?: (notification: AdminNotification) => void;
   notifications?: AdminNotification[];
   unreadCount?: number;
+<<<<<<< HEAD
   onNotificationsOpen?: () => void;
   onMarkNotificationRead?: (id: string) => void;
+=======
+>>>>>>> social-account
   onMarkAllNotificationsRead?: () => void;
   onViewAllNotifications?: () => void;
   onProfileClick: () => void;
+  onSettingsClick?: () => void;
   onLogoutClick: () => void;
   user?: { name?: string; email?: string } | null;
 }
@@ -27,11 +31,15 @@ export const Header: React.FC<HeaderProps> = ({
   onNotificationClick,
   notifications,
   unreadCount,
+<<<<<<< HEAD
   onNotificationsOpen,
   onMarkNotificationRead,
+=======
+>>>>>>> social-account
   onMarkAllNotificationsRead,
   onViewAllNotifications,
   onProfileClick,
+  onSettingsClick,
   onLogoutClick,
   user,
 }) => {
@@ -103,12 +111,20 @@ export const Header: React.FC<HeaderProps> = ({
               </span>
             )}
           </button>
+<<<<<<< HEAD
 
           <NotificationDropdown
             isOpen={isNotificationsOpen}
             onClose={() => setIsNotificationsOpen(false)}
             notifications={notifications}
             onMarkAsRead={onMarkNotificationRead}
+=======
+          
+          <NotificationDropdown 
+            isOpen={isNotificationsOpen} 
+            onClose={() => setIsNotificationsOpen(false)} 
+            notifications={notifications}
+>>>>>>> social-account
             onMarkAllAsRead={onMarkAllNotificationsRead}
             onViewAll={onViewAllNotifications}
             onNotificationClick={
@@ -145,6 +161,7 @@ export const Header: React.FC<HeaderProps> = ({
               onClose={() => setIsProfileDropdownOpen(false)}
               onLogoutClick={handleLogoutClick}
               onProfileClick={onProfileClick}
+              onSettingsClick={onSettingsClick}
             />
           )}
         </div>

@@ -2,9 +2,41 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Accommodation extends Model
 {
-    // Accommodation model placeholder
+    use HasFactory;
+
+    protected $table = 'hotels';
+
+    protected $fillable = [
+        'owner_id',
+        'hotel_name',
+        'city',
+        'country',
+        'address',
+        'description',
+        'stars_rating',
+        'is_active',
+        'image',
+    ];
+
+    protected $casts = [
+        'stars_rating' => 'decimal:1',
+        'is_active' => 'boolean',
+    ];
+
+    public function owner(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'owner_id');
+    }
+
+    public function scopeActive($query)
+    {
+        return $query->where('is_active', true);
+    }
 }
+
