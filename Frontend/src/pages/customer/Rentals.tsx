@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { 
   Search, 
@@ -43,8 +43,8 @@ export const Rentals: React.FC<RentalsProps> = ({ onBack, onSelectVehicle }) => 
   const [sortBy, setSortBy] = useState<'recommended' | 'price-low' | 'price-high' | 'rating'>('recommended');
   const [currentPage, setCurrentPage] = useState(1);
 
-<<<<<<< HEAD
-  const vehicles = [
+  const fallbackVehicles = React.useMemo(
+    () => [
     {
       id: 1,
       name: "Tesla Model Y",
@@ -156,71 +156,58 @@ export const Rentals: React.FC<RentalsProps> = ({ onBack, onSelectVehicle }) => 
       mileage: "Unlim.",
       image: "https://images.unsplash.com/photo-1553440569-bcc63803a83d?auto=format&fit=crop&q=80&w=800",
       instantBook: false
-=======
+    }
+    ],
+    [],
+  );
+
   const loadVehicles = React.useCallback(async () => {
     setIsLoadingVehicles(true);
     setVehiclesError(null);
 
     try {
-      const response = await apiRequest('/transports') as { data?: any[] };
-      const backendOrigin =
-        import.meta.env.VITE_BACKEND_ORIGIN || 'http://127.0.0.1:8000';
+      const response = await apiRequest('/transports', { method: 'GET' });
+      const rawList = Array.isArray(response?.data) ? response.data : [];
 
-      const mapped = (response?.data ?? [])
+      const mapped = rawList
         .map((item: any) => {
-          const rawType = String(item?.transport_type ?? 'Car Rental');
-          const type = rawType === 'Shuttle' ? 'Train' : rawType === 'Other' ? 'Car Rental' : rawType;
-          const rawId = item?.transport_id ?? item?.id;
-          const id = typeof rawId === 'number' ? rawId : parseInt(String(rawId), 10);
-          const rawImage = String(item?.vehicle_photo_url ?? '');
-          const image = rawImage
-            ? (rawImage.startsWith('http') ? rawImage : `${backendOrigin}/${rawImage.replace(/^\/+/, '')}`)
-            : 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&q=80&w=800';
-          const isFree = Boolean(item?.is_free ?? item?.isFree ?? false);
-          const price = isFree
-            ? 0
-            : (
-                typeof item?.price_per_km === 'number'
-                  ? item.price_per_km
-                  : (item?.price_per_km ? parseFloat(item.price_per_km) : 0)
-              );
-          const status = String(item?.status ?? 'active');
-          const statusLabel =
-            status === 'active'
-              ? 'Active'
-              : status === 'inactive'
-                ? 'Not working'
-                : status === 'maintenance'
-                  ? 'Fixing'
-                  : 'Waiting';
+          if (!item) return null;
+
+          const price = Number(item?.price_per_km ?? item?.price ?? item?.pricePerKm ?? 0);
+          const type = String(item?.transport_type ?? item?.type ?? 'Car Rental');
+          const name = String(item?.service_name ?? item?.name ?? 'Vehicle');
 
           return {
-            id: Number.isFinite(id) ? id : Math.random(),
-            name: String(item?.service_name ?? 'Transport').trim(),
+            id: item?.transport_id ?? item?.id ?? name,
+            name,
             type,
-            price,
-            is_free: isFree,
-            status: statusLabel,
-            rating: 4.7,
-            seats: 4,
-            transmission: 'Auto',
-            mileage: item?.route_description ? String(item.route_description) : 'Route details',
-            image,
-            badge: String(type || '').toUpperCase(),
-            instantBook: status !== 'inactive',
+            price: Number.isFinite(price) ? price : 0,
+            rating: Number(item?.rating ?? 4.8),
+            seats: Number(item?.seats ?? 4),
+            transmission: item?.transmission ?? 'Auto',
+            mileage: item?.mileage ?? 'Unlim.',
+            image:
+              item?.vehicle_photo_url ??
+              item?.image ??
+              "https://images.unsplash.com/photo-1619767886558-efdc259cde1a?auto=format&fit=crop&q=80&w=800",
+            badge: item?.badge ?? null,
+            instantBook: Boolean(item?.instantBook ?? item?.instant_book ?? true),
           };
         })
-        .filter((item: any) => item.name);
+        .filter(Boolean) as any[];
 
-      setVehicles(mapped);
-    } catch (err: any) {
-      setVehiclesError(err?.data?.message ?? err?.message ?? 'Failed to load transports.');
-      setVehicles([]);
+      if (mapped.length > 0) {
+        setVehicles(mapped);
+      } else {
+        setVehicles(fallbackVehicles);
+      }
+    } catch (error: any) {
+      setVehicles(fallbackVehicles);
+      setVehiclesError(error?.data?.message ?? error?.message ?? 'Failed to load transports.');
     } finally {
       setIsLoadingVehicles(false);
->>>>>>> social-account
     }
-  }, []);
+  }, [fallbackVehicles]);
 
   const vehicleClasses = React.useMemo(() => {
     const unique = new Set<string>();

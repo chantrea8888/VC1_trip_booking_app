@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { Search, Bell, HelpCircle, Sun, Moon } from 'lucide-react';
 import { AdminNotification, NotificationDropdown } from '../common/NotificationDropdown';
 import { ProfileDropdown } from '../common/ProfileDropdown';
@@ -11,11 +11,8 @@ interface HeaderProps {
   onNotificationClick?: (notification: AdminNotification) => void;
   notifications?: AdminNotification[];
   unreadCount?: number;
-<<<<<<< HEAD
   onNotificationsOpen?: () => void;
   onMarkNotificationRead?: (id: string) => void;
-=======
->>>>>>> social-account
   onMarkAllNotificationsRead?: () => void;
   onViewAllNotifications?: () => void;
   onProfileClick: () => void;
@@ -31,11 +28,8 @@ export const Header: React.FC<HeaderProps> = ({
   onNotificationClick,
   notifications,
   unreadCount,
-<<<<<<< HEAD
   onNotificationsOpen,
   onMarkNotificationRead,
-=======
->>>>>>> social-account
   onMarkAllNotificationsRead,
   onViewAllNotifications,
   onProfileClick,
@@ -111,20 +105,12 @@ export const Header: React.FC<HeaderProps> = ({
               </span>
             )}
           </button>
-<<<<<<< HEAD
 
           <NotificationDropdown
             isOpen={isNotificationsOpen}
             onClose={() => setIsNotificationsOpen(false)}
             notifications={notifications}
             onMarkAsRead={onMarkNotificationRead}
-=======
-          
-          <NotificationDropdown 
-            isOpen={isNotificationsOpen} 
-            onClose={() => setIsNotificationsOpen(false)} 
-            notifications={notifications}
->>>>>>> social-account
             onMarkAllAsRead={onMarkAllNotificationsRead}
             onViewAll={onViewAllNotifications}
             onNotificationClick={

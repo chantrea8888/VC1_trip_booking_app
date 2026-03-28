@@ -1,10 +1,7 @@
-import React from 'react';
+﻿import React from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-<<<<<<< HEAD
 import { ALL_HOTELS } from '../../data/hotels';
 import { RENTAL_VEHICLES } from '../../data/rentals';
-=======
->>>>>>> social-account
 import { bookingService } from '@/services/bookingService';
 import { useAuth } from '../../context/AuthContext';
 import { apiRequest } from '../../services/api';
@@ -251,7 +248,7 @@ export const BookTrip: React.FC = () => {
               {!loadingDestinations && destinations.length === 0 && <option value="">No destinations available</option>}
               {destinations.map((hotel) => (
                 <option key={hotel.id} value={hotel.id}>
-                  {hotel.name} — {hotel.location}
+                  {hotel.name} â€” {hotel.location}
                 </option>
               ))}
             </select>
@@ -272,7 +269,7 @@ export const BookTrip: React.FC = () => {
               {!loadingTransports && transports.length === 0 && <option value="">No transports available</option>}
               {transports.map((v) => (
                 <option key={v.id} value={v.id}>
-                  {v.name} — {v.type}{v.is_free ? ' (Free)' : ''}
+                  {v.name} â€” {v.type}{v.is_free ? ' (Free)' : ''}
                 </option>
               ))}
             </select>
@@ -315,7 +312,7 @@ export const BookTrip: React.FC = () => {
               disabled={!canSubmit || submitting}
               className="h-11 px-5 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              {submitting ? 'Creating…' : 'Create booking'}
+              {submitting ? 'Creatingâ€¦' : 'Create booking'}
             </button>
           </div>
         </form>

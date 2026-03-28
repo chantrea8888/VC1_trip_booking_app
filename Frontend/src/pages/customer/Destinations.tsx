@@ -1,22 +1,6 @@
-
-<<<<<<< HEAD
+﻿
 import { MapPin, Search, Star } from 'lucide-react';
 import { apiRequest } from '@/services/api';
-=======
-import {
-  CheckCircle2,
-  ChevronLeft,
-  ChevronRight,
-  Filter,
-  Heart,
-  MapPin,
-  Search,
-  SlidersHorizontal,
-  Star,
-  Users,
-  Waves,
-} from 'lucide-react';
->>>>>>> social-account
 import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 
@@ -284,40 +268,40 @@ export const Hotels: React.FC<HotelsPageProps> = ({ tripData, onBack, onSelectHo
     }
   })();
 
-  const isKhmer = language === 'Khmer' || language === 'ខ្មែរ';
+  const isKhmer = language === 'Khmer' || language === 'ážáŸ’áž˜áŸ‚ážš';
 
   const t = (key: string): string => {
     const km: Record<string, string> = {
-      curated_collection: 'បញ្ជីជ្រើសរើសពិសេស',
-      prestige_stays: 'ស្នាក់នៅប្រណិត',
-      prestige_stays_desc: 'ស្វែងរកសណ្ឋាគារ និងរមណីយដ្ឋានដែលបានជ្រើសរើសសម្រាប់ភាពផាសុកភាព រចនាប័ទ្ម និងទិដ្ឋភាពដ៏អស្ចារ្យ។',
-      where_to_next: 'ទៅណាបន្ទាប់?',
-      explore: 'ស្វែងរក',
-      home: 'ទំព័រដើម',
-      hotels_resorts: 'សណ្ឋាគារ និង រមណីយដ្ឋាន',
-      filters: 'តម្រង',
-      nightly_rate: 'តម្លៃក្នុងមួយយប់',
-      up_to: 'រហូតដល់',
-      star_rating: 'ចំនួនផ្កាយ',
-      stars: 'ផ្កាយ',
-      amenities: 'សេវាកម្ម',
-      view_on_map: 'មើលលើផែនទី',
-      showing: 'បង្ហាញ',
-      property_singular: 'ទីតាំង',
-      property_plural: 'ទីតាំង',
-      for_query: 'សម្រាប់',
-      sort_by: 'តម្រៀបតាម',
-      recommended: 'ផ្ដល់អនុសាសន៍',
-      exceptional_stay: 'ការស្នាក់នៅពិសេស',
-      prestige_stay_badge: 'ស្នាក់នៅប្រណិត',
-      breakfast_included: 'អាហារពេលព្រឹករួមបញ្ចូល',
-      quick_booking: 'ការកក់រហ័ស',
-      nights_estimate: 'ប៉ាន់ស្មានចំនួនយប់',
-      night: 'យប់',
-      nights: 'យប់',
-      room_type: 'ប្រភេទបន្ទប់',
-      guests: 'ភ្ញៀវ',
-      night_suffix: '/យប់',
+      curated_collection: 'áž”áž‰áŸ’áž‡áž¸áž‡áŸ’ážšáž¾ážŸážšáž¾ážŸáž–áž·ážŸáŸážŸ',
+      prestige_stays: 'ážŸáŸ’áž“áž¶áž€áŸ‹áž“áŸ…áž”áŸ’ážšážŽáž·áž',
+      prestige_stays_desc: 'ážŸáŸ’ážœáŸ‚áž„ážšáž€ážŸážŽáŸ’áž‹áž¶áž‚áž¶ážš áž“áž·áž„ážšáž˜ážŽáž¸áž™ážŠáŸ’áž‹áž¶áž“ážŠáŸ‚áž›áž”áž¶áž“áž‡áŸ’ážšáž¾ážŸážšáž¾ážŸážŸáž˜áŸ’ážšáž¶áž”áŸ‹áž—áž¶áž–áž•áž¶ážŸáž»áž€áž—áž¶áž– ážšáž…áž“áž¶áž”áŸáž‘áŸ’áž˜ áž“áž·áž„áž‘áž·ážŠáŸ’áž‹áž—áž¶áž–ážŠáŸáž¢ážŸáŸ’áž…áž¶ážšáŸ’áž™áŸ”',
+      where_to_next: 'áž‘áŸ…ážŽáž¶áž”áž“áŸ’áž‘áž¶áž”áŸ‹?',
+      explore: 'ážŸáŸ’ážœáŸ‚áž„ážšáž€',
+      home: 'áž‘áŸ†áž–áŸážšážŠáž¾áž˜',
+      hotels_resorts: 'ážŸážŽáŸ’áž‹áž¶áž‚áž¶ážš áž“áž·áž„ ážšáž˜ážŽáž¸áž™ážŠáŸ’áž‹áž¶áž“',
+      filters: 'ážáž˜áŸ’ážšáž„',
+      nightly_rate: 'ážáž˜áŸ’áž›áŸƒáž€áŸ’áž“áž»áž„áž˜áž½áž™áž™áž”áŸ‹',
+      up_to: 'ážšáž áž¼ážážŠáž›áŸ‹',
+      star_rating: 'áž…áŸ†áž“áž½áž“áž•áŸ’áž€áž¶áž™',
+      stars: 'áž•áŸ’áž€áž¶áž™',
+      amenities: 'ážŸáŸážœáž¶áž€áž˜áŸ’áž˜',
+      view_on_map: 'áž˜áž¾áž›áž›áž¾áž•áŸ‚áž“áž‘áž¸',
+      showing: 'áž”áž„áŸ’áž áž¶áž‰',
+      property_singular: 'áž‘áž¸ážáž¶áŸ†áž„',
+      property_plural: 'áž‘áž¸ážáž¶áŸ†áž„',
+      for_query: 'ážŸáž˜áŸ’ážšáž¶áž”áŸ‹',
+      sort_by: 'ážáž˜áŸ’ážšáŸ€áž”ážáž¶áž˜',
+      recommended: 'áž•áŸ’ážŠáž›áŸ‹áž¢áž“áž»ážŸáž¶ážŸáž“áŸ',
+      exceptional_stay: 'áž€áž¶ážšážŸáŸ’áž“áž¶áž€áŸ‹áž“áŸ…áž–áž·ážŸáŸážŸ',
+      prestige_stay_badge: 'ážŸáŸ’áž“áž¶áž€áŸ‹áž“áŸ…áž”áŸ’ážšážŽáž·áž',
+      breakfast_included: 'áž¢áž¶áž áž¶ážšáž–áŸáž›áž–áŸ’ážšáž¹áž€ážšáž½áž˜áž”áž‰áŸ’áž…áž¼áž›',
+      quick_booking: 'áž€áž¶ážšáž€áž€áŸ‹ážšáž áŸážŸ',
+      nights_estimate: 'áž”áŸ‰áž¶áž“áŸ‹ážŸáŸ’áž˜áž¶áž“áž…áŸ†áž“áž½áž“áž™áž”áŸ‹',
+      night: 'áž™áž”áŸ‹',
+      nights: 'áž™áž”áŸ‹',
+      room_type: 'áž”áŸ’ážšáž—áŸáž‘áž”áž“áŸ’áž‘áž”áŸ‹',
+      guests: 'áž—áŸ’áž‰áŸ€ážœ',
+      night_suffix: '/áž™áž”áŸ‹',
     };
 
     const en: Record<string, string> = {
@@ -742,7 +726,7 @@ export const Hotels: React.FC<HotelsPageProps> = ({ tripData, onBack, onSelectHo
                           {hotel.name}
                         </h3>
                         <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                          {hotel.owner?.name ? `Owner: ${hotel.owner.name}` : 'Owner: Unknown'} · {formatHotelDate(hotel.created_at)}
+                          {hotel.owner?.name ? `Owner: ${hotel.owner.name}` : 'Owner: Unknown'} Â· {formatHotelDate(hotel.created_at)}
                         </div>
                         <button
                           type="button"
@@ -791,7 +775,7 @@ export const Hotels: React.FC<HotelsPageProps> = ({ tripData, onBack, onSelectHo
                               >
                                 {roomOptions.map((room) => (
                                   <option key={room.id} value={room.id}>
-                                    {room.name} • ${room.basePrice}{t('night_suffix')}
+                                    {room.name} â€¢ ${room.basePrice}{t('night_suffix')}
                                   </option>
                                 ))}
                               </select>
@@ -827,7 +811,7 @@ export const Hotels: React.FC<HotelsPageProps> = ({ tripData, onBack, onSelectHo
                           </div>
                           <div className="mt-3 flex items-center justify-between">
                             <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                              {selectedRoom.maxOccupancy} max guests • {selectedRoom.sizeSqm} sqm
+                              {selectedRoom.maxOccupancy} max guests â€¢ {selectedRoom.sizeSqm} sqm
                             </p>
                             <p className="text-sm font-bold text-blue-600">${quickTotal.toLocaleString()} total</p>
                           </div>
@@ -842,7 +826,7 @@ export const Hotels: React.FC<HotelsPageProps> = ({ tripData, onBack, onSelectHo
                             <span className="text-[10px] font-bold text-slate-400 uppercase">/ Night</span>
                           </div>
                           <p className="text-[9px] text-slate-400 font-medium mt-1 uppercase tracking-widest">
-                            {selectedGuests} {selectedGuests === 1 ? 'Guest' : 'Guests'} • {selectedRoom.category}
+                            {selectedGuests} {selectedGuests === 1 ? 'Guest' : 'Guests'} â€¢ {selectedRoom.category}
                           </p>
                         </div>
                         <button 

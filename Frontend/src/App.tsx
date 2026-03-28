@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Navbar } from './components/layout/Navbar';
@@ -8,7 +8,6 @@ import { AppRoutes } from './routes/AppRoutes';
 import { Login } from './pages/auth/Login';
 import { Register } from './pages/auth/Register';
 import { useAuth } from './context/AuthContext';
-import { ThemeProvider } from './context/ThemeContext';
 
 const AppContent = () => {
   const [view, setView] = useState('landing');
@@ -40,7 +39,7 @@ const AppContent = () => {
 
   const [tripData, setTripData] = useState({
     title: "Adventure in Siem Reap",
-    emoji: "🇰🇭",
+    emoji: "ðŸ‡°ðŸ‡­",
     dates: dateRangeString,
     guests: "2 Adults",
     reference: "#TP-48291",
@@ -59,7 +58,7 @@ const AppContent = () => {
     rental: {
       name: "Lexus LX570 SUV",
       pickup: "Siem Reap Angkor International (SAI)",
-      features: "Automatic • Premium Interior",
+      features: "Automatic â€¢ Premium Interior",
       dailyPrice: 15.00,
       price: 0.00,
       days: 7,
@@ -106,7 +105,15 @@ const AppContent = () => {
     setView(nextView);
   };
 
-<<<<<<< HEAD
+  React.useEffect(() => {
+    if (!isAuthModalOpen) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [isAuthModalOpen]);
+
   const leaveCustomerRouteIfNeeded = React.useCallback(() => {
     // Some pages are bound to explicit routes (e.g. `/customer/bookings`) and
     // ignore `view` changes. When navigating via the Navbar, move back to `/`
@@ -115,29 +122,6 @@ const AppContent = () => {
       navigate('/');
     }
   }, [location.pathname, navigate]);
-=======
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const authView = params.get('auth');
-    const nextView = params.get('next_view');
-
-    if (nextView) {
-      setView(nextView);
-
-      params.delete('next_view');
-      params.delete('auth');
-
-      const nextQuery = params.toString();
-      const nextUrl = `${window.location.pathname}${nextQuery ? `?${nextQuery}` : ''}${window.location.hash}`;
-      window.history.replaceState({}, '', nextUrl);
-      return;
-    }
-
-    if (authView === 'login' || authView === 'register') {
-      setView(authView);
-    }
-  }, []);
->>>>>>> social-account
 
   return (
     <div className="min-h-screen bg-white dark:bg-slate-900 transition-colors duration-300">
@@ -241,7 +225,7 @@ const AppContent = () => {
       <AnimatePresence>
         {isAuthModalOpen && (
           <motion.div
-            className="fixed inset-0 z-[100] bg-slate-950/55 backdrop-blur-[1px] overflow-y-auto"
+            className="fixed inset-0 z-[100] bg-slate-950/55 backdrop-blur-[1px] flex items-center justify-center p-4"
             onClick={() => setView('landing')}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -254,6 +238,7 @@ const AppContent = () => {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 18, scale: 0.98 }}
               transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+              className="w-full"
             >
               {view === 'login' ? (
                 <Login
@@ -282,10 +267,7 @@ const AppContent = () => {
 const App = () => {
   return (
     <>
-        <ThemeProvider>
-        <AppContent />
-      </ThemeProvider>
-      
+      <AppContent />
     </>
   );
 };

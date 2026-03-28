@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import {
   TrendingUp,
   TrendingDown,
@@ -83,45 +83,10 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { notifications, loading, markRead, openNotification } = useOwnerNotifications();
-<<<<<<< HEAD
   const recentActivities = React.useMemo(
-    () => notifications.filter((n) => !n.readAt).slice(0, 4),
+    () => notifications.slice(0, 4),
     [notifications],
   );
-=======
-  const recentActivities = React.useMemo(() => notifications.slice(0, 4), [notifications]);
-
-  React.useEffect(() => {
-    if (location.hash !== '#recent-activities') return;
-    const el = document.getElementById('recent-activities');
-    el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }, [location.hash]);
-
-  return (
-    <div className="p-8 max-w-[1440px] mx-auto space-y-8">
-      <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <StatCard 
-          title="Total Revenue" 
-          value="$12,845.50" 
-          change="14.2%" 
-          changeType="positive" 
-          icon={CreditCard} 
-        />
-        <StatCard 
-          title="Total Bookings" 
-          value="342" 
-          change="8.1%" 
-          changeType="positive" 
-          icon={Ticket} 
-        />
-        <StatCard 
-          title="Average Rating" 
-          value="4.8" 
-          subtitle="Stable" 
-          icon={Star} 
-        />
-      </section>
->>>>>>> social-account
 
   React.useEffect(() => {
     if (location.hash !== '#recent-activities') return;
@@ -202,7 +167,7 @@ const Dashboard = () => {
             </div>
             <div className="space-y-6">
               {loading && recentActivities.length === 0 ? (
-                <p className="text-xs text-slate-500 font-medium">Loading recent activity…</p>
+                <p className="text-xs text-slate-500 font-medium">Loading recent activityâ€¦</p>
               ) : recentActivities.length === 0 ? (
                 <p className="text-xs text-slate-500 font-medium">No recent activity yet.</p>
               ) : (
@@ -223,27 +188,12 @@ const Dashboard = () => {
                       <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center text-blue-600 flex-shrink-0">
                         <Icon size={20} />
                       </div>
-<<<<<<< HEAD
                       <div className={cn('flex-1 pb-4', i !== recentActivities.length - 1 && 'border-b border-slate-50 dark:border-slate-800/50')}>
                         <p className="text-sm font-bold">{n.title}</p>
                         <p className="text-xs text-slate-500 mt-1 font-medium">{n.message ?? ''}</p>
                         {time && <span className="text-[10px] font-bold text-slate-400 mt-2 block uppercase">{time}</span>}
                       </div>
                       {!n.readAt && <span className="mt-1 w-2.5 h-2.5 rounded-full bg-blue-600 flex-shrink-0" />}
-=======
-                      <div
-                        className={cn(
-                          "flex-1 pb-4",
-                          i !== recentActivities.length - 1 && "border-b border-slate-50 dark:border-slate-800/50",
-                        )}
-                      >
-                        <p className="text-sm font-bold">{n.title}</p>
-                        <p className="text-xs text-slate-500 mt-1 font-medium">{n.message ?? ''}</p>
-                        {time && (
-                          <span className="text-[10px] font-bold text-slate-400 mt-2 block uppercase">{time}</span>
-                        )}
-                      </div>
->>>>>>> social-account
                     </button>
                   );
                 })
@@ -312,7 +262,7 @@ const Dashboard = () => {
                 </div>
                 <div className="text-right">
                   <p className="text-sm font-bold text-slate-900 dark:text-white">
-                    {booking.date} • {booking.time}
+                    {booking.date} â€¢ {booking.time}
                   </p>
                   <span
                     className={cn(

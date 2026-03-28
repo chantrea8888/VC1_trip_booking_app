@@ -73,11 +73,7 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({
     setCurrentSlide(index);
   };
 
-  // Auto-advance removed - carousel is now frozen
-  useEffect(() => {
-    const timer = setInterval(nextSlide, 3000);
-    return () => clearInterval(timer);
-  }, []);
+  // Keep the carousel static; user can switch slides via dots.
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -95,7 +91,7 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({
   }, []);
 
   return (
-    <div className="flex min-h-screen items-center justify-center p-4 transition-colors duration-300">
+    <div className="flex w-full items-center justify-center p-4 transition-colors duration-300">
       <div
         className={`flex h-[min(90vh,620px)] w-full max-w-[1000px] overflow-hidden rounded-2xl shadow-[0_24px_60px_rgba(15,23,42,0.25)] md:flex-row ${
           isDarkMode ? 'bg-slate-800' : 'bg-white'

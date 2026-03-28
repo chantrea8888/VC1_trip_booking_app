@@ -6,17 +6,13 @@ use App\Http\Controllers\Controller;
 use App\Models\AppNotification;
 use App\Models\OwnerNotification;
 use Illuminate\Http\Request;
-<<<<<<< HEAD
 use Illuminate\Support\Facades\DB;
-=======
->>>>>>> social-account
 use Illuminate\Support\Facades\Schema;
 
 class OwnerNotificationController extends Controller
 {
     private function notificationsTableEnabled(): bool
     {
-<<<<<<< HEAD
         if (! Schema::hasTable('notifications')) {
             return false;
         }
@@ -31,9 +27,6 @@ class OwnerNotificationController extends Controller
         // Many Laravel installs also have the default `notifications` table which uses `notifiable_id` and
         // does NOT contain `user_id`. Treat those schemas as unsupported and fall back to `owner_notifications`.
         return in_array('user_id', $cols, true);
-=======
-        return Schema::hasTable('notifications');
->>>>>>> social-account
     }
 
     public function index(Request $request)
@@ -51,14 +44,8 @@ class OwnerNotificationController extends Controller
         $onlyUnread = filter_var($request->query('unread', false), FILTER_VALIDATE_BOOLEAN);
 
         $useNotifications = $this->notificationsTableEnabled();
-<<<<<<< HEAD
         $notifications = collect();
         $unreadCount = 0;
-=======
-        $query = ($useNotifications ? AppNotification::query() : OwnerNotification::query())
-            ->where('user_id', $user->id)
-            ->orderByDesc('id');
->>>>>>> social-account
 
         if ($useNotifications) {
             $cols = Schema::getColumnListing('notifications');
@@ -67,7 +54,6 @@ class OwnerNotificationController extends Controller
             }
         }
 
-<<<<<<< HEAD
         if ($useNotifications) {
             $idCol = in_array('id', $cols, true) ? 'id' : (in_array('notification_id', $cols, true) ? 'notification_id' : 'id');
             $typeCol = in_array('type', $cols, true) ? 'type' : (in_array('notification_type', $cols, true) ? 'notification_type' : null);
@@ -106,13 +92,6 @@ class OwnerNotificationController extends Controller
         }
 
         if (! $useNotifications) {
-=======
-        $notifications = $query->limit($limit)->get();
-
-        // If `notifications` exists but is empty (or the app is still writing to `owner_notifications`),
-        // fall back so the owner UI still shows activity.
-        if ($useNotifications && $notifications->isEmpty()) {
->>>>>>> social-account
             $fallbackQuery = OwnerNotification::query()
                 ->where('user_id', $user->id)
                 ->orderByDesc('id');
@@ -120,25 +99,12 @@ class OwnerNotificationController extends Controller
                 $fallbackQuery->whereNull('read_at');
             }
             $notifications = $fallbackQuery->limit($limit)->get();
-<<<<<<< HEAD
             $unreadCount = (int) OwnerNotification::query()->where('user_id', $user->id)->whereNull('read_at')->count();
-=======
-        }
-
-        $unreadCount = $useNotifications
-            ? AppNotification::query()->where('user_id', $user->id)->whereNull('read_at')->count()
-            : OwnerNotification::query()->where('user_id', $user->id)->whereNull('read_at')->count();
-
-        if ($useNotifications && $unreadCount === 0) {
-            $fallbackUnread = OwnerNotification::query()->where('user_id', $user->id)->whereNull('read_at')->count();
-            $unreadCount = $fallbackUnread;
->>>>>>> social-account
         }
 
         return response()->json([
             'success' => true,
             'unread_count' => $unreadCount,
-<<<<<<< HEAD
             'data' => $notifications->map(function ($n) use ($useNotifications) {
                 if ($useNotifications) {
                     $cols = Schema::getColumnListing('notifications');
@@ -179,9 +145,6 @@ class OwnerNotificationController extends Controller
                     ];
                 }
 
-=======
-            'data' => $notifications->map(function ($n) {
->>>>>>> social-account
                 return [
                     'id' => $n->id,
                     'title' => $n->title,
@@ -200,7 +163,6 @@ class OwnerNotificationController extends Controller
     {
         $user = $request->user();
 
-<<<<<<< HEAD
         $unreadCount = 0;
 
         if ($this->notificationsTableEnabled()) {
@@ -223,15 +185,6 @@ class OwnerNotificationController extends Controller
 
         if ($unreadCount === 0) {
             $unreadCount = (int) OwnerNotification::query()->where('user_id', $user->id)->whereNull('read_at')->count();
-=======
-        $useNotifications = $this->notificationsTableEnabled();
-        $unreadCount = $useNotifications
-            ? AppNotification::query()->where('user_id', $user->id)->whereNull('read_at')->count()
-            : OwnerNotification::query()->where('user_id', $user->id)->whereNull('read_at')->count();
-
-        if ($useNotifications && $unreadCount === 0) {
-            $unreadCount = OwnerNotification::query()->where('user_id', $user->id)->whereNull('read_at')->count();
->>>>>>> social-account
         }
 
         return response()->json([
@@ -244,7 +197,6 @@ class OwnerNotificationController extends Controller
     {
         $user = $request->user();
 
-<<<<<<< HEAD
         if ($this->notificationsTableEnabled()) {
             $cols = Schema::getColumnListing('notifications');
             if (! in_array('user_id', $cols, true)) {
@@ -274,17 +226,6 @@ class OwnerNotificationController extends Controller
         }
 
         $n = OwnerNotification::query()->where('user_id', $user->id)->where('id', $id)->first();
-=======
-        $useNotifications = $this->notificationsTableEnabled();
-
-        $n = $useNotifications
-            ? AppNotification::query()->where('user_id', $user->id)->where('id', $id)->first()
-            : null;
-
-        if (! $n) {
-            $n = OwnerNotification::query()->where('user_id', $user->id)->where('id', $id)->first();
-        }
->>>>>>> social-account
 
         if (! $n) {
             return response()->json(['message' => 'Notification not found'], 404);
@@ -309,7 +250,6 @@ class OwnerNotificationController extends Controller
         $user = $request->user();
 
         if ($this->notificationsTableEnabled()) {
-<<<<<<< HEAD
             $cols = Schema::getColumnListing('notifications');
             if (! in_array('user_id', $cols, true)) {
                 $cols = [];
@@ -322,9 +262,6 @@ class OwnerNotificationController extends Controller
             if (!empty($update)) {
                 DB::table('notifications')->where('user_id', $user->id)->update($update);
             }
-=======
-            AppNotification::query()->where('user_id', $user->id)->whereNull('read_at')->update(['read_at' => now()]);
->>>>>>> social-account
         }
 
         OwnerNotification::query()->where('user_id', $user->id)->whereNull('read_at')->update(['read_at' => now()]);

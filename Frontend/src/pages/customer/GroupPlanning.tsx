@@ -1,21 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { socketService } from '../../services/socketService';
-<<<<<<< HEAD
 import { tripGroupService } from '../../services/tripGroupService';
 import { useAuth } from '../../context/AuthContext';
-=======
-import { GroupPlanningAccessPanel } from './group-planning/GroupPlanningAccessPanel';
-import { GroupPlanningModal } from './group-planning/GroupPlanningModal';
-import {
-  createId,
-  findGroupByCode,
-  loadGroupsFromStorage,
-  normalizeAccessCode,
-  upsertGroupInStorage,
-} from './group-planning/storage';
-import type { ItineraryItem, Member, Message, Poll, StoredGroup } from './group-planning/types';
->>>>>>> social-account
 import { 
   Users, 
   Send, 
@@ -36,7 +23,6 @@ import {
   X,
 } from 'lucide-react';
 
-<<<<<<< HEAD
 interface Message {
   id: string;
   sender_name: string;
@@ -120,8 +106,6 @@ const findGroupByCode = (code: string): StoredGroup | null => {
 
 const createId = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 
-=======
->>>>>>> social-account
 interface GroupPlanningProps {
   onBack: () => void;
   tripTitle?: string;
@@ -257,13 +241,8 @@ export const GroupPlanning: React.FC<GroupPlanningProps> = ({ onBack, tripTitle 
       setPolls(group.polls);
       setGroupName(group.name);
 
-<<<<<<< HEAD
         const socket = socketService.connect();
         socket.emit('join-group', { groupId, email: userEmail });
-=======
-      const socket = socketService.connect();
-      socket.emit('join-group', { groupId, email: userEmail });
->>>>>>> social-account
 
       const onNewMessage = (msg: Message) => {
         setMessages((prev) => {
@@ -309,16 +288,9 @@ export const GroupPlanning: React.FC<GroupPlanningProps> = ({ onBack, tripTitle 
       };
     } catch {
       setError('Access denied or group not found');
-<<<<<<< HEAD
         clearActiveGroup();
       }
     }, [groupId, userEmail]);
-=======
-      setGroupId(null);
-      localStorage.removeItem('activeGroupId');
-    }
-  }, [groupId, userEmail]);
->>>>>>> social-account
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -561,7 +533,7 @@ export const GroupPlanning: React.FC<GroupPlanningProps> = ({ onBack, tripTitle 
     const trimmed = newMessage.trim();
     if (!trimmed && !pendingAttachment) return;
 
-    const attachmentLabel = pendingAttachment ? `📎 ${pendingAttachment.name}` : '';
+    const attachmentLabel = pendingAttachment ? `ðŸ“Ž ${pendingAttachment.name}` : '';
     const nextText = trimmed && attachmentLabel ? `${trimmed}\n${attachmentLabel}` : trimmed || attachmentLabel;
     const msg: Message = {
       id: createId(),
@@ -704,17 +676,10 @@ export const GroupPlanning: React.FC<GroupPlanningProps> = ({ onBack, tripTitle 
         upsertGroupInStorage({ ...group, polls: next });
       }
 
-<<<<<<< HEAD
         const updatedPoll = next.find((p) => p.id === pollId);
         if (updatedPoll) socketService.getSocket()?.emit('poll-updated', updatedPoll);
         return next;
       });
-=======
-      const updatedPoll = next.find((p) => p.id === pollId);
-      if (updatedPoll) socketService.getSocket()?.emit('poll-updated', updatedPoll);
-      return next;
-    });
->>>>>>> social-account
   };
 
   const [isAddingActivity, setIsAddingActivity] = useState(false);
@@ -747,18 +712,9 @@ export const GroupPlanning: React.FC<GroupPlanningProps> = ({ onBack, tripTitle 
       }
       socketService.getSocket()?.emit('itinerary-updated', next);
       return next;
-<<<<<<< HEAD
       });
 
     socketService.getSocket()?.emit('update-itinerary', { groupId, email: userEmail, item });
-=======
-    });
-    socketService.getSocket()?.emit('update-itinerary', {
-      groupId,
-      email: userEmail,
-      item: newActivity
-    });
->>>>>>> social-account
     setIsAddingActivity(false);
     setNewActivity({ time: '', activity: '', location: '' });
   };
@@ -970,7 +926,7 @@ export const GroupPlanning: React.FC<GroupPlanningProps> = ({ onBack, tripTitle 
                                       {msg.text}
                                     </div>
                                     <span className="text-[9px] font-bold text-slate-400 mt-2 block uppercase tracking-widest">
-                                      {msg.sender_name} • {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                      {msg.sender_name} â€¢ {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                     </span>
                                   </>
                                 )}

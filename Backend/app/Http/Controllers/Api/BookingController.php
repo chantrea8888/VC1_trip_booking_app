@@ -584,9 +584,8 @@ class BookingController extends Controller
                 $amount = (float) ($snapshot['amount'] ?? 0);
 
                 $title = 'New booking: ' . $booking->id;
-                $message = trim($guest . ' booked ' . $service . ($route ? ' (' . $route . ')' : '') . ' • $' . number_format($amount, 2));
+                $message = trim($guest . ' booked ' . $service . ($route ? ' (' . $route . ')' : '') . ' â€¢ $' . number_format($amount, 2));
 
-<<<<<<< HEAD
                 // Resolve owner recipients. Trip bookings can involve both a destination owner and a transport owner.
                 $recipientUserIds = [];
                 $transportId = $payload['transport_id'] ?? null;
@@ -788,41 +787,6 @@ class BookingController extends Controller
                     }
                 } catch (\Throwable $inner) {
                     Log::error('Failed to write owner notification: ' . $inner->getMessage());
-=======
-                // Role values can vary by casing across deployments ("Owner" vs "owner").
-                $owners = User::query()
-                    ->whereRaw('LOWER(role) IN (?, ?)', ['owner', 'admin'])
-                    ->get(['id']);
-
-                $useNotificationsTable = Schema::hasTable('notifications');
-                $notificationsColumns = $useNotificationsTable ? Schema::getColumnListing('notifications') : [];
-                $supportsTypeColumn = $useNotificationsTable && in_array('type', $notificationsColumns, true);
-
-                foreach ($owners as $owner) {
-                    $payload = [
-                        'user_id' => $owner->id,
-                        'booking_id' => (string) $booking->id,
-                        'title' => $title,
-                        'message' => $message,
-                        'data' => $snapshot,
-                        'read_at' => null,
-                    ];
-
-                    if ($useNotificationsTable) {
-                        $row = $payload;
-                        if ($supportsTypeColumn) {
-                            $row['type'] = 'booking_created';
-                        }
-                        try {
-                            AppNotification::create($row);
-                        } catch (\Throwable $inner) {
-                            // If the `notifications` table exists but has a mismatched schema, fall back.
-                            OwnerNotification::create($payload);
-                        }
-                    } else {
-                        OwnerNotification::create($payload);
-                    }
->>>>>>> social-account
                 }
             } catch (\Throwable $e) {
                 Log::error('Failed to create owner notification: ' . $e->getMessage());

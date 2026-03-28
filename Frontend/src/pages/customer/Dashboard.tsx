@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { format, addDays } from 'date-fns';
 import { Link } from 'react-router-dom';
@@ -35,10 +35,6 @@ import {
 } from 'date-fns';
 import { useAuth } from '../../context/AuthContext';
 import { bookingService } from '@/services/bookingService';
-<<<<<<< HEAD
-=======
-import { getPublicDestinations } from '../../services/destinationService';
->>>>>>> social-account
 
 // --- Sub-components (could be further split) ---
 const normalizeSearchText = (value: string): string =>
@@ -416,7 +412,7 @@ const Hero = ({
                         <div className="flex items-center justify-between">
                           <div>
                             <p className="text-sm font-bold text-white text-left">Children</p>
-                            <p className="text-[10px] text-white/40 text-left">Ages 2–12</p>
+                            <p className="text-[10px] text-white/40 text-left">Ages 2â€“12</p>
                           </div>
                           <div className="flex items-center gap-4">
                             <button 

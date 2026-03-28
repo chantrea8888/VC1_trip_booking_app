@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { AuthLayout } from '../../components/auth/AuthLayout';
-import { User, Mail, Lock, Eye, EyeOff, Check, X } from 'lucide-react';
+import { User, Mail, Eye, EyeOff, Check, X } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 interface RegisterProps {
@@ -18,10 +18,6 @@ export const Register: React.FC<RegisterProps> = ({
 }) => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-<<<<<<< HEAD
-  const [role, setRole] = useState<'owner' | 'customer'>('customer');
-=======
->>>>>>> social-account
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -71,22 +67,13 @@ export const Register: React.FC<RegisterProps> = ({
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setErrorMessage('');
-<<<<<<< HEAD
     setSuggestLogin(false);
-=======
-
-    if (!validateForm()) {
-      return;
-    }
-
->>>>>>> social-account
     setIsSubmitting(true);
 
     try {
-      const result = await register({ name, email, password, password_confirmation: password });
+      const result = await register({ name, email, password, password_confirmation: password, role: 'customer' });
       onSuccess(result.nextView);
     } catch (error: any) {
-<<<<<<< HEAD
       const fieldErrors = error?.data?.errors;
       if (fieldErrors) {
         const emailErrors = fieldErrors?.email as string[] | string | undefined;
@@ -98,17 +85,6 @@ export const Register: React.FC<RegisterProps> = ({
           const firstError = Object.values(fieldErrors)[0] as string[] | string | undefined;
           setErrorMessage(Array.isArray(firstError) ? firstError[0] : 'Registration failed');
         }
-=======
-      // Handle backend validation errors
-      if (error.errors) {
-        // Set field-specific errors from backend
-        setFieldErrors({
-          name: error.errors.name?.[0],
-          email: error.errors.email?.[0],
-          password: error.errors.password?.[0],
-        });
-        setErrorMessage(error.message || 'Registration failed');
->>>>>>> social-account
       } else {
         setErrorMessage(error.message || 'Registration failed');
         // Highlight fields that might have issues
@@ -169,41 +145,8 @@ export const Register: React.FC<RegisterProps> = ({
           )}
         </div>
 
-<<<<<<< HEAD
         <div className="space-y-1.5">
-          <label className="ml-1 text-sm font-medium text-slate-700">Account Type</label>
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={() => setRole('customer')}
-              className={`rounded-xl border px-3 py-3 text-sm font-semibold transition-all ${
-                role === 'customer'
-                  ? 'border-blue-600 bg-blue-600 text-white shadow-[0_10px_20px_rgba(0,82,204,0.25)]'
-                  : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
-              }`}
-            >
-              Customer
-            </button>
-            <button
-              type="button"
-              onClick={() => setRole('owner')}
-              className={`rounded-xl border px-3 py-3 text-sm font-semibold transition-all ${
-                role === 'owner'
-                  ? 'border-blue-600 bg-blue-600 text-white shadow-[0_10px_20px_rgba(0,82,204,0.25)]'
-                  : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
-              }`}
-            >
-              Owner
-            </button>
-          </div>
-        </div>
-
-        <div className="space-y-1.5">
-          <label className="ml-1 text-sm font-medium text-slate-700">Email Address</label>
-=======
-        <div className="space-y-1">
           <label className="ml-1 text-xs font-medium text-slate-600 dark:text-slate-300">Email Address</label>
->>>>>>> social-account
           <div className="relative group">
             <input
               type="email"
@@ -260,7 +203,6 @@ export const Register: React.FC<RegisterProps> = ({
           )}
         </div>
 
-<<<<<<< HEAD
         {errorMessage && (
           <div className="rounded-lg border border-rose-400/40 bg-rose-500/10 px-3 py-2 text-sm text-rose-300">
             <p>{errorMessage}</p>
@@ -275,13 +217,6 @@ export const Register: React.FC<RegisterProps> = ({
             )}
           </div>
         )}
-=======
-        {/* {errorMessage && (
-          <p className="rounded-md border border-rose-400/40 bg-rose-500/10 px-2 py-1.5 text-xs text-rose-600 dark:text-rose-400 max-w-sm mx-auto">
-            {errorMessage}
-          </p>
-        )} */}
->>>>>>> social-account
 
         <div className="max-w-sm mx-auto">
           <button

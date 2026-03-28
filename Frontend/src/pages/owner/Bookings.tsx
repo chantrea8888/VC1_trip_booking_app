@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import {
   Search, 
   Download, 
@@ -22,10 +22,6 @@ import {
 import { useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/utils/utils';
 import { bookingService } from '@/services/bookingService';
-<<<<<<< HEAD
-=======
-import { API_BASE_URL } from '@/services/api';
->>>>>>> social-account
 import { useAuth } from '../../context/AuthContext';
 import { ALL_HOTELS } from '../../data/hotels';
 import { RENTAL_VEHICLES } from '../../data/rentals';
@@ -143,11 +139,11 @@ const Bookings = () => {
 
   // Debug auth state on mount
   React.useEffect(() => {
-    console.log('🔍 ===== DEBUG INFO =====');
+    console.log('ðŸ” ===== DEBUG INFO =====');
     console.log('Auth Context - isAuthenticated:', isAuthenticated);
     console.log('Auth Context - user:', user);
     console.log('Auth Context - token exists:', !!token);
-    console.log('🔍 =====================');
+    console.log('ðŸ” =====================');
   }, []);
 
   // Check if user is owner
@@ -157,7 +153,7 @@ const Bookings = () => {
       
       // First check if authenticated
       if (!isAuthenticated || !token) {
-        console.log('❌ Not authenticated');
+        console.log('âŒ Not authenticated');
         setAuthError('Please log in to access this page');
         setTimeout(() => navigate('/login'), 3000);
         return;
@@ -174,27 +170,27 @@ const Bookings = () => {
 
         if (response.ok) {
           const data = await response.json();
-          console.log('✅ Backend user verification:', data);
+          console.log('âœ… Backend user verification:', data);
           
           const userRole = data.user?.role || data.role;
           const nextView = data.next_view;
           
           // Check if user is owner
           if (userRole === 'owner' || userRole === 'admin' || nextView === 'owner-dashboard') {
-            console.log('✅ Access granted - User is owner');
+            console.log('âœ… Access granted - User is owner');
           } else {
-            console.log('❌ Access denied - User is not owner');
+            console.log('âŒ Access denied - User is not owner');
             setAuthError('You do not have permission to access this page');
             setTimeout(() => navigate('/dashboard'), 3000);
           }
         } else {
-          console.log('❌ Backend verification failed');
+          console.log('âŒ Backend verification failed');
           setAuthError('Session expired. Please log in again.');
           logout();
           setTimeout(() => navigate('/login'), 3000);
         }
       } catch (error) {
-        console.error('❌ Error verifying user:', error);
+        console.error('âŒ Error verifying user:', error);
         setAuthError(null);
         setPageError('Backend not reachable. Showing cached data (if available).');
       }
@@ -210,8 +206,8 @@ const Bookings = () => {
     
     const testAPI = async () => {
       try {
-        console.log('🧪 ===== TESTING API CONNECTION =====');
-        console.log(`🧪 Fetching from: ${API_BASE_URL}/bookings`);
+        console.log('ðŸ§ª ===== TESTING API CONNECTION =====');
+        console.log(`ðŸ§ª Fetching from: ${API_BASE_URL}/bookings`);
         
         const response = await fetch(`${API_BASE_URL}/bookings`, {
           headers: {
@@ -220,18 +216,18 @@ const Bookings = () => {
           },
         });
         
-        console.log('🧪 Response status:', response.status);
+        console.log('ðŸ§ª Response status:', response.status);
         
         const data = await response.json();
-        console.log('🧪 API Response Data:', data);
+        console.log('ðŸ§ª API Response Data:', data);
         
         if (data.data && data.data.length > 0) {
-          console.log(`✅ SUCCESS: Found ${data.data.length} bookings in database`);
+          console.log(`âœ… SUCCESS: Found ${data.data.length} bookings in database`);
         } else {
-          console.log('❌ No bookings found in database');
+          console.log('âŒ No bookings found in database');
         }
       } catch (error) {
-        console.error('❌ API TEST FAILED:', error);
+        console.error('âŒ API TEST FAILED:', error);
       }
     };
     
@@ -306,7 +302,7 @@ const Bookings = () => {
       id: 'TB-2001', 
       guest: 'Michael Brown', 
       service: 'Private SUV - Toyota Camry', 
-      route: 'Phnom Penh → Siem Reap', 
+      route: 'Phnom Penh â†’ Siem Reap', 
       date: formatDate(addDays(now, 1)), 
       time: '08:00 AM', 
       pax: 3, 
@@ -336,14 +332,14 @@ const Bookings = () => {
         booking_id: focusBookingId || undefined,
       };
       
-      console.log('📡 FetchBookings - Calling API with filters:', apiFilters);
+      console.log('ðŸ“¡ FetchBookings - Calling API with filters:', apiFilters);
       
       const response = await bookingService.getBookings(apiFilters);
       
-      console.log('📡 FetchBookings - Response:', response);
+      console.log('ðŸ“¡ FetchBookings - Response:', response);
       
       const next = Array.isArray(response.data) ? response.data : [];
-      console.log(`✅ FetchBookings - Got ${next.length} bookings from API`);
+      console.log(`âœ… FetchBookings - Got ${next.length} bookings from API`);
       setBookings(next);
 
       if (focusBookingId) {
@@ -358,7 +354,7 @@ const Bookings = () => {
         // ignore cache write errors
       }
     } catch (error) {
-      console.error('❌ FetchBookings - Error:', error);
+      console.error('âŒ FetchBookings - Error:', error);
       setPageError('Failed to load bookings. Showing cached data (if available).');
     } finally {
       setLoading(false);
@@ -370,9 +366,9 @@ const Bookings = () => {
     if (!isAuthenticated) return;
     
     try {
-      console.log('📊 FetchStats - Getting booking stats');
+      console.log('ðŸ“Š FetchStats - Getting booking stats');
       const response = await bookingService.getBookingStats();
-      console.log('📊 FetchStats - Response:', response);
+      console.log('ðŸ“Š FetchStats - Response:', response);
       
       const nextStats = {
         totalBookings: response.total_bookings || '1,240',
@@ -387,14 +383,14 @@ const Bookings = () => {
         // ignore cache write errors
       }
     } catch (error) {
-      console.error('❌ FetchStats - Error:', error);
+      console.error('âŒ FetchStats - Error:', error);
     }
   }, [isAuthenticated]);
 
   // Initial data fetch
   React.useEffect(() => {
     if (isAuthenticated) {
-      console.log('🔄 Initial data fetch triggered');
+      console.log('ðŸ”„ Initial data fetch triggered');
       fetchBookings();
       fetchStats();
     }
@@ -439,7 +435,7 @@ const Bookings = () => {
 
   React.useEffect(() => {
     if (isAuthenticated) {
-      console.log('🔄 Filters changed, resetting to page 1');
+      console.log('ðŸ”„ Filters changed, resetting to page 1');
       setCurrentPage(1);
     }
   }, [serviceFilter, dateRange, searchTerm, filters, isAuthenticated]);
@@ -490,7 +486,7 @@ const Bookings = () => {
   const formatStay = (booking: any) => {
     const start = booking?.dateStart ?? booking?.date_start;
     const end = booking?.dateEnd ?? booking?.date_end;
-    if (start && end) return `${formatDateOnly(start)} → ${formatDateOnly(end)}`;
+    if (start && end) return `${formatDateOnly(start)} â†’ ${formatDateOnly(end)}`;
     if (start) return formatDateOnly(start);
     return '-';
   };
@@ -589,7 +585,7 @@ const Bookings = () => {
       return true;
     });
 
-  console.log('📊 Current filteredBookings count:', filteredBookings.length);
+  console.log('ðŸ“Š Current filteredBookings count:', filteredBookings.length);
 
   const totalPages = Math.max(1, Math.ceil(filteredBookings.length / pageSize));
   const safeCurrentPage = Math.min(currentPage, totalPages);
@@ -1824,13 +1820,13 @@ const Bookings = () => {
                                 <span className="font-medium">{booking.date}</span>
                                 <span className="text-[8px] text-slate-400">{booking.time}</span>
                                 {booking.category === 'hotel' && booking.dateStart && booking.dateEnd && (
-                                  <span className="text-[8px] text-slate-400">Stay: {booking.dateStart} → {booking.dateEnd}</span>
+                                  <span className="text-[8px] text-slate-400">Stay: {booking.dateStart} â†’ {booking.dateEnd}</span>
                                 )}
                               </>
                             ) : booking.category === 'hotel' ? (
                               <>
                                 <span className="font-medium">{booking.dateStart}</span>
-                                <span className="text-[8px] text-slate-400">→ {booking.dateEnd}</span>
+                                <span className="text-[8px] text-slate-400">â†’ {booking.dateEnd}</span>
                               </>
                             ) : (
                               <>

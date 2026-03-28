@@ -168,19 +168,11 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('/customer/bookings', [BookingController::class, 'myBookings']);
         Route::post('/customer/bookings', [BookingController::class, 'store']);
 
-<<<<<<< HEAD
         // Trip group planning (group chat + access code join)
         Route::post('/trip-groups', [TripGroupController::class, 'create']);
         Route::post('/trip-groups/join', [TripGroupController::class, 'join']);
         Route::get('/trip-groups/{groupId}', [TripGroupController::class, 'show']);
         Route::post('/trip-groups/{groupId}/messages', [TripGroupController::class, 'sendMessage']);
-=======
-        // Customer hotel selection routes
-        Route::apiResource('hotel-selections', HotelSelectionController::class);
-        Route::get('/hotel-selections/status/{status}', [HotelSelectionController::class, 'getByStatus']);
-        Route::post('/hotel-selections/{hotelSelection}/confirm', [HotelSelectionController::class, 'confirm']);
-        Route::post('/hotel-selections/{hotelSelection}/cancel', [HotelSelectionController::class, 'cancel']);
->>>>>>> social-account
     });
 
     // Owner routes - accessible by owners and admins
@@ -238,7 +230,7 @@ if (app()->environment('local')) {
 
 /*
 |--------------------------------------------------------------------------
-| Messaging System (Owner ↔ Customer)
+| Messaging System (Owner â†” Customer)
 |--------------------------------------------------------------------------
 */
 
@@ -254,7 +246,7 @@ Route::middleware(['auth:sanctum','role:owner'])->group(function () {
 });
 /*
 |--------------------------------------------------------------------------
-| Messaging System (Customer ↔ Owner)
+| Messaging System (Customer â†” Owner)
 |--------------------------------------------------------------------------
 |
 | Routes for customers to view and send messages to owners.

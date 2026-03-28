@@ -54,33 +54,9 @@ export const Login: React.FC<LoginProps> = ({ onSwitchToRegister, onBack, onSucc
       const result = await login({ email, password });
       onSuccess(result.nextView);
     } catch (error: any) {
-<<<<<<< HEAD
       console.error('âŒ Login error:', error);
       setPassword('');
       setErrorMessage(error?.data?.message ?? error?.message ?? 'Login failed');
-=======
-      // Handle backend validation errors
-      if (error.errors) {
-        // Set field-specific errors from backend
-        setFieldErrors({
-          email: error.errors.email?.[0],
-          password: error.errors.password?.[0],
-        });
-        setErrorMessage(error.message || 'Login failed');
-      } else {
-        const errorMsg = error.message || 'Invalid credentials';
-        setErrorMessage(errorMsg);
-        
-        // Highlight fields based on error type
-        if (errorMsg.toLowerCase().includes('invalid credentials')) {
-          setFieldErrors({ email: 'Invalid credentials', password: 'Invalid credentials' });
-        } else if (errorMsg.toLowerCase().includes('email')) {
-          setFieldErrors(prev => ({ ...prev, email: errorMsg }));
-        } else if (errorMsg.toLowerCase().includes('password')) {
-          setFieldErrors(prev => ({ ...prev, password: errorMsg }));
-        }
-      }
->>>>>>> social-account
     } finally {
       setIsSubmitting(false);
     }

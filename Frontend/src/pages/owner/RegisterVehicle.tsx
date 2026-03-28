@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { 
   ArrowLeft, 
   Truck, 
@@ -12,11 +12,6 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/utils/utils';
-<<<<<<< HEAD
-=======
-import { apiRequest } from '@/services/api';
-import { getAuthToken } from '@/services/authService';
->>>>>>> social-account
 
 const RegisterVehicle = () => {
   const navigate = useNavigate();
@@ -228,7 +223,7 @@ const RegisterVehicle = () => {
                     value={formData.details}
                     onChange={(e) => setFormData({ ...formData, details: e.target.value })}
                     className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border-transparent rounded-xl text-sm focus:bg-white dark:focus:bg-slate-900 focus:ring-2 focus:ring-blue-600/10 transition-all font-medium"
-                    placeholder="e.g. Daily • Airport connections • Checked baggage"
+                    placeholder="e.g. Daily â€¢ Airport connections â€¢ Checked baggage"
                   />
                 </div>
               </div>
