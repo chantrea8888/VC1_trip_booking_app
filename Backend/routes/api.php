@@ -169,9 +169,11 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::post('/customer/bookings', [BookingController::class, 'store']);
 
         // Trip group planning (group chat + access code join)
+        Route::get('/trip-groups', [TripGroupController::class, 'index']);
         Route::post('/trip-groups', [TripGroupController::class, 'create']);
         Route::post('/trip-groups/join', [TripGroupController::class, 'join']);
         Route::get('/trip-groups/{groupId}', [TripGroupController::class, 'show']);
+        Route::get('/trip-groups/{groupId}/messages', [TripGroupController::class, 'messages']);
         Route::post('/trip-groups/{groupId}/messages', [TripGroupController::class, 'sendMessage']);
     });
 

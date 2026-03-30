@@ -57,13 +57,22 @@ class MessageController extends Controller
     {
         $request->validate([
             'receiver_id' => 'required|exists:users,id',
-            'content' => 'required|string|max:2000',
+            'content' => 'nullable|string|max:2000',
+            'message' => 'nullable|string|max:2000',
         ]);
+
+        $text = (string) ($request->input('content') ?? $request->input('message') ?? '');
+        if (trim($text) === '') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Message content is required',
+            ], 422);
+        }
 
         $message = Message::create([
             'sender_id' => auth()->id(),
             'receiver_id' => $request->receiver_id,
-            'content' => $request->content,
+            'content' => $text,
         ]);
 
         return response()->json([

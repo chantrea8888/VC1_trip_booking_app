@@ -44,9 +44,13 @@ class LoginController extends Controller
 
         $user = User::query()->where('email', $email)->first();
 
-        if (! $user || ! Hash::check($validated['password'], $user->password)) {
+        if (! $user) {
             RateLimiter::hit($throttleKey, 60);
             return response()->json(['message' => 'Invalid credentials'], 401);
+        }
+        if (! Hash::check($validated['password'], $user->password)) {
+            RateLimiter::hit($throttleKey, 60);
+            return response()->json(['message' => 'Wrong password'], 401);
         }
 
         $allowedRoles = ['admin', 'customer', 'owner'];

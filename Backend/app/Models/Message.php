@@ -9,9 +9,24 @@ class Message extends Model
     protected $fillable = [
         'sender_id',
         'receiver_id',
+        'message',
+        // Backwards compatibility: some controllers/clients use `content`.
         'content',
-        'is_read'
     ];
+
+    protected $appends = [
+        'content',
+    ];
+
+    public function getContentAttribute(): ?string
+    {
+        return $this->attributes['message'] ?? null;
+    }
+
+    public function setContentAttribute($value): void
+    {
+        $this->attributes['message'] = $value;
+    }
 
     public function sender()
     {

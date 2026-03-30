@@ -43,6 +43,39 @@ class TripGroupController extends Controller
         ];
     }
 
+    public function index(Request $request)
+    {
+        $user = $request->user();
+        if (! $user) {
+            return response()->json(['message' => 'Unauthenticated'], 401);
+        }
+
+        $groupIds = DB::table('trip_group_members')
+            ->where('user_id', (int) $user->id)
+            ->orderByDesc('joined_at')
+            ->pluck('group_id')
+            ->map(fn ($id) => (int) $id)
+            ->values()
+            ->all();
+
+        if (empty($groupIds)) {
+            return response()->json([
+                'success' => true,
+                'data' => [],
+            ]);
+        }
+
+        $groups = DB::table('trip_groups')
+            ->whereIn('id', $groupIds)
+            ->orderByRaw('FIELD(id, ' . implode(',', $groupIds) . ')')
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => $groups,
+        ]);
+    }
+
     public function create(Request $request)
     {
         $user = $request->user();
@@ -222,5 +255,28 @@ class TripGroupController extends Controller
             'data' => $message,
         ], 201);
     }
-}
 
+    public function messages(Request $request, $groupId)
+    {
+        $user = $request->user();
+        if (! $user) {
+            return response()->json(['message' => 'Unauthenticated'], 401);
+        }
+
+        $groupId = (int) $groupId;
+        if (! $this->requireMember($groupId, (int) $user->id)) {
+            return response()->json(['message' => 'Forbidden'], 403);
+        }
+
+        $messages = DB::table('trip_group_messages')
+            ->where('group_id', $groupId)
+            ->orderBy('id', 'asc')
+            ->limit(200)
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => $messages,
+        ]);
+    }
+}
