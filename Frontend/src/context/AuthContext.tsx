@@ -9,7 +9,7 @@ import {
   setAuthToken,
   authService,
 } from '../services/authService';
-import { clearApiAuthToken, setApiAuthToken } from '../services/api';
+import { apiRequest, clearApiAuthToken, setApiAuthToken } from '../services/api';
 
 type UserRole = 'customer' | 'owner' | 'admin';
 
@@ -144,6 +144,43 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       isAuthenticated: !!token && !!user
     });
   }, [user, token]);
+
+  // Verify the token against backend role-protected endpoints.
+  useEffect(() => {
+    if (!token || !user?.role) return;
+
+    let cancelled = false;
+
+    const verifyRoleAccess = async () => {
+      try {
+        if (user.role === 'customer') {
+          await apiRequest('/customer/access', { method: 'GET' });
+        } else if (user.role === 'owner') {
+          await apiRequest('/owner/access', { method: 'GET' });
+        } else if (user.role === 'admin') {
+          await apiRequest('/admin/access', { method: 'GET' });
+        }
+      } catch (e: any) {
+        if (cancelled) return;
+
+        const status = e?.status;
+        if (status === 401 || status === 403) {
+          try {
+            await authService.logout();
+          } finally {
+            setUser(null);
+            setToken(null);
+          }
+        }
+      }
+    };
+
+    verifyRoleAccess();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [token, user?.role]);
 
   const login = async (payload: LoginPayload) => {
     console.log('📡 Login attempt for:', payload.email);

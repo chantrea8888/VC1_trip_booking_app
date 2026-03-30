@@ -817,6 +817,10 @@ export const AppRoutes: React.FC<AppRoutesProps> = ({
           onHotelsClick={onHotelsClick}
           onRentalsClick={onRentalsClick}
           onActivitiesClick={onActivitiesClick}
+          onStartGroupBooking={() => {
+            if (!requireAuth()) return;
+            setView('group-planning');
+          }}
         />
       );
     case 'landing':
@@ -830,6 +834,10 @@ export const AppRoutes: React.FC<AppRoutesProps> = ({
           onHotelsClick={onHotelsClick}
           onRentalsClick={onRentalsClick}
           onActivitiesClick={onActivitiesClick}
+          onStartGroupBooking={() => {
+            if (!requireAuth()) return;
+            setView('group-planning');
+          }}
         />
       );
   }

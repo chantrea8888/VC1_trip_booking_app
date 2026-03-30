@@ -3,6 +3,8 @@ import { Mail, Phone, MapPin, Briefcase, Building2, PencilLine, Camera } from 'l
 import { useAuth } from '@/context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/utils/utils';
+import { ownerProfileService } from '@/services/ownerProfileService';
+import { imageService } from '@/services/imageService';
 
 type OwnerProfileData = {
   name: string;
@@ -28,56 +30,89 @@ const Profile = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [profile, setProfile] = React.useState<OwnerProfileData>(DEFAULT_PROFILE);
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+  const [avatarUploading, setAvatarUploading] = React.useState(false);
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
 
   React.useEffect(() => {
-    const raw = localStorage.getItem('ownerInfo');
-    const storedAvatar = localStorage.getItem('ownerProfileAvatar');
-    let next = { ...DEFAULT_PROFILE };
+    let cancelled = false;
 
-    if (raw) {
+    const seed: OwnerProfileData = {
+      ...DEFAULT_PROFILE,
+      name: user?.name || DEFAULT_PROFILE.name,
+      email: user?.email || DEFAULT_PROFILE.email,
+      role: user?.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : DEFAULT_PROFILE.role,
+    };
+
+    setProfile(seed);
+
+    const load = async () => {
+      setError(null);
+      setLoading(true);
       try {
-        const parsed = JSON.parse(raw) as Partial<OwnerProfileData>;
-        next = { ...next, ...parsed };
-      } catch {
-        // ignore storage parsing errors
+        const resp = await ownerProfileService.getOwnerProfile();
+        const apiUser = resp?.user;
+        const apiProfile = resp?.profile;
+
+        const next: OwnerProfileData = {
+          ...seed,
+          name: apiUser?.name || seed.name,
+          email: apiUser?.email || seed.email,
+          phone: apiUser?.phone_number || seed.phone,
+          role: apiUser?.role ? String(apiUser.role).charAt(0).toUpperCase() + String(apiUser.role).slice(1) : seed.role,
+          company: apiProfile?.business_name || seed.company,
+          location: apiProfile?.business_address || seed.location,
+          avatar: apiProfile?.avatar || seed.avatar,
+        };
+
+        if (!cancelled) {
+          setProfile(next);
+        }
+      } catch (e: any) {
+        if (!cancelled) {
+          setError(e?.data?.message || e?.message || 'Failed to load owner profile');
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
-    }
+    };
 
-    if (storedAvatar) {
-      next.avatar = storedAvatar;
-    }
+    load();
 
-    next.name = user?.name || next.name;
-    next.email = user?.email || next.email;
-    next.role = user?.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : next.role;
-
-    setProfile(next);
+    return () => {
+      cancelled = true;
+    };
   }, [user]);
 
-  const handleAvatarChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith('image/')) return;
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = typeof reader.result === 'string' ? reader.result : '';
-      if (!result) return;
+    setAvatarUploading(true);
+    setError(null);
 
-      setProfile((prev) => ({ ...prev, avatar: result }));
-      localStorage.setItem('ownerProfileAvatar', result);
+    try {
+      const uploadResp = await imageService.uploadImage(file, 'avatars');
+      const avatarUrl = uploadResp?.url || uploadResp?.path;
 
-      const raw = localStorage.getItem('ownerInfo');
-      try {
-        const parsed = raw ? (JSON.parse(raw) as Partial<OwnerProfileData>) : {};
-        const next = { ...parsed, avatar: result };
-        localStorage.setItem('ownerInfo', JSON.stringify(next));
-      } catch {
-        localStorage.setItem('ownerInfo', JSON.stringify({ avatar: result }));
+      if (!avatarUrl) {
+        throw new Error('Image upload did not return a URL.');
       }
-    };
-    reader.readAsDataURL(file);
+
+      await ownerProfileService.updateOwnerProfile({ avatar: avatarUrl });
+      setProfile((prev) => ({ ...prev, avatar: avatarUrl }));
+    } catch (e: any) {
+      setError(e?.data?.message || e?.message || 'Failed to update avatar');
+    } finally {
+      setAvatarUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
   };
 
   const infoItems = [
@@ -99,6 +134,11 @@ const Profile = () => {
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
             Manage your profile and keep your business details up to date.
           </p>
+          {error && (
+            <p className="mt-3 text-sm text-rose-600 dark:text-rose-400">
+              {error}
+            </p>
+          )}
         </div>
         <button
           onClick={() => navigate('/settings')}
@@ -117,6 +157,7 @@ const Profile = () => {
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
+                disabled={avatarUploading || loading}
                 className="absolute -bottom-1 -right-1 w-9 h-9 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-lg shadow-blue-500/30 hover:bg-blue-700 transition-colors"
                 title="Change photo"
               >

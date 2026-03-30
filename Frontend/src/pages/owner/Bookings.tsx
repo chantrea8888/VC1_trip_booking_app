@@ -22,6 +22,7 @@ import {
 import { useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/utils/utils';
 import { bookingService } from '@/services/bookingService';
+import { apiRequest } from '@/services/api';
 import { useAuth } from '../../context/AuthContext';
 import { ALL_HOTELS } from '../../data/hotels';
 import { RENTAL_VEHICLES } from '../../data/rentals';
@@ -160,37 +161,32 @@ const Bookings = () => {
       }
 
       try {
-        // Verify with backend
-        const response = await fetch(`${API_BASE_URL}/auth/user`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Accept': 'application/json',
-          },
-        });
+        const data = await apiRequest('/auth/user', { method: 'GET' });
+        console.log('âœ… Backend user verification:', data);
 
-        if (response.ok) {
-          const data = await response.json();
-          console.log('âœ… Backend user verification:', data);
-          
-          const userRole = data.user?.role || data.role;
-          const nextView = data.next_view;
-          
-          // Check if user is owner
-          if (userRole === 'owner' || userRole === 'admin' || nextView === 'owner-dashboard') {
-            console.log('âœ… Access granted - User is owner');
-          } else {
-            console.log('âŒ Access denied - User is not owner');
-            setAuthError('You do not have permission to access this page');
-            setTimeout(() => navigate('/dashboard'), 3000);
-          }
-        } else {
-          console.log('âŒ Backend verification failed');
+        const userRole = data?.user?.role || data?.role;
+        const nextView = data?.next_view;
+
+        // Check if user is owner (or admin allowed to view owner bookings APIs)
+        if (userRole === 'owner' || userRole === 'admin' || nextView === 'owner-dashboard') {
+          console.log('âœ… Access granted - User is owner');
+          return;
+        }
+
+        console.log('âŒ Access denied - User is not owner');
+        setAuthError('You do not have permission to access this page');
+        setTimeout(() => navigate('/dashboard'), 3000);
+      } catch (error) {
+        console.error('âŒ Error verifying user:', error);
+
+        const status = (error as any)?.status;
+        if (status === 401) {
           setAuthError('Session expired. Please log in again.');
           logout();
           setTimeout(() => navigate('/login'), 3000);
+          return;
         }
-      } catch (error) {
-        console.error('âŒ Error verifying user:', error);
+
         setAuthError(null);
         setPageError('Backend not reachable. Showing cached data (if available).');
       }
@@ -198,41 +194,6 @@ const Bookings = () => {
 
     checkAccess();
   }, [isAuthenticated, token, navigate, logout]);
-
-  // Test API connection
-  React.useEffect(() => {
-    return;
-    if (!isAuthenticated) return;
-    
-    const testAPI = async () => {
-      try {
-        console.log('ðŸ§ª ===== TESTING API CONNECTION =====');
-        console.log(`ðŸ§ª Fetching from: ${API_BASE_URL}/bookings`);
-        
-        const response = await fetch(`${API_BASE_URL}/bookings`, {
-          headers: {
-            'Authorization': token ? `Bearer ${token}` : '',
-            'Accept': 'application/json',
-          },
-        });
-        
-        console.log('ðŸ§ª Response status:', response.status);
-        
-        const data = await response.json();
-        console.log('ðŸ§ª API Response Data:', data);
-        
-        if (data.data && data.data.length > 0) {
-          console.log(`âœ… SUCCESS: Found ${data.data.length} bookings in database`);
-        } else {
-          console.log('âŒ No bookings found in database');
-        }
-      } catch (error) {
-        console.error('âŒ API TEST FAILED:', error);
-      }
-    };
-    
-    testAPI();
-  }, [isAuthenticated, token]);
 
   // Auto-hide messages
   React.useEffect(() => {

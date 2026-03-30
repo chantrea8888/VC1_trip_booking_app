@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from 'motion/react';
 import { socketService } from '../../services/socketService';
 import { tripGroupService } from '../../services/tripGroupService';
 import { useAuth } from '../../context/AuthContext';
+import { GroupPlanningAccessPanel } from './group-planning/GroupPlanningAccessPanel';
+import { GroupPlanningModal } from './group-planning/GroupPlanningModal';
 import { 
   Users, 
   Send, 

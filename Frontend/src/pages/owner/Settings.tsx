@@ -25,6 +25,8 @@ import {
   X
 } from 'lucide-react';
 import { cn } from '@/utils/utils';
+import { ownerProfileService } from '@/services/ownerProfileService';
+import { useAuth } from '@/context/AuthContext';
 
 type OwnerInfo = {
   name: string;
@@ -63,6 +65,7 @@ const OWNER_LOGO_STORAGE_KEY = 'ownerBusinessLogo';
 const Settings = () => {
   const [activeTab, setActiveTab] = React.useState('profile');
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [ownerInfo, setOwnerInfo] = React.useState<OwnerInfo>({
     name: 'Alex Sterling',
     email: 'alex@komroung.com',
@@ -74,18 +77,52 @@ const Settings = () => {
   const logoInputRef = React.useRef<HTMLInputElement | null>(null);
 
   React.useEffect(() => {
-    const raw = localStorage.getItem('ownerInfo');
-    if (!raw) return;
-    try {
-      const parsed = JSON.parse(raw) as Partial<OwnerInfo>;
-      setOwnerInfo((prev) => ({
-        ...prev,
-        ...parsed,
-      }));
-    } catch {
-      return;
-    }
-  }, []);
+    let cancelled = false;
+
+    const load = async () => {
+      try {
+        const resp = await ownerProfileService.getOwnerProfile();
+        const apiUser = resp?.user;
+        const apiProfile = resp?.profile;
+
+        if (cancelled) return;
+
+        setOwnerInfo((prev) => ({
+          ...prev,
+          name: apiUser?.name || user?.name || prev.name,
+          email: apiUser?.email || user?.email || prev.email,
+          phone: apiUser?.phone_number || prev.phone,
+          role: apiUser?.role
+            ? String(apiUser.role).charAt(0).toUpperCase() + String(apiUser.role).slice(1)
+            : prev.role,
+          avatar: apiProfile?.avatar || prev.avatar,
+        }));
+
+        return;
+      } catch {
+        // fall back to local storage below
+      }
+
+      try {
+        const raw = localStorage.getItem('ownerInfo');
+        if (!raw) return;
+        const parsed = JSON.parse(raw) as Partial<OwnerInfo>;
+        if (cancelled) return;
+        setOwnerInfo((prev) => ({
+          ...prev,
+          ...parsed,
+        }));
+      } catch {
+        return;
+      }
+    };
+
+    load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
   
   React.useEffect(() => {
     const storedLogo = localStorage.getItem(OWNER_LOGO_STORAGE_KEY);
@@ -129,10 +166,36 @@ const Settings = () => {
     setIsEditingOwner(false);
   };
 
-  const saveOwnerInfo = () => {
-    setOwnerInfo(ownerDraft);
-    localStorage.setItem('ownerInfo', JSON.stringify(ownerDraft));
-    setIsEditingOwner(false);
+  const saveOwnerInfo = async () => {
+    try {
+      const resp = await ownerProfileService.updateOwnerProfile({
+        name: ownerDraft.name,
+        email: ownerDraft.email,
+        phone_number: ownerDraft.phone,
+        avatar: ownerDraft.avatar,
+      });
+
+      const apiUser = resp?.user;
+      const apiProfile = resp?.profile;
+
+      setOwnerInfo((prev) => ({
+        ...prev,
+        ...ownerDraft,
+        name: apiUser?.name || ownerDraft.name,
+        email: apiUser?.email || ownerDraft.email,
+        phone: apiUser?.phone_number || ownerDraft.phone,
+        avatar: apiProfile?.avatar || ownerDraft.avatar,
+        role: apiUser?.role
+          ? String(apiUser.role).charAt(0).toUpperCase() + String(apiUser.role).slice(1)
+          : ownerDraft.role,
+      }));
+
+      localStorage.setItem('ownerInfo', JSON.stringify(ownerDraft));
+      showToast('Profile updated');
+      setIsEditingOwner(false);
+    } catch (e: any) {
+      showToast(e?.data?.message || e?.message || 'Failed to update profile');
+    }
   };
 
   const tabs = [
