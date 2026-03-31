@@ -42,9 +42,13 @@ export default function Destinations({ onOpenMessages }: { onOpenMessages?: () =
   const [priceRange, setPriceRange] = React.useState(500);
   const DEST_CACHE_KEY = 'customer_destinations_cache';
 
-  const loadDestinations = React.useCallback(async () => {
-    setLoadError('');
-    setIsLoading(true);
+  const loadDestinations = React.useCallback(
+    async (options: { showLoading?: boolean } = {}) => {
+      const showLoading = options.showLoading ?? true;
+      setLoadError('');
+      if (showLoading) {
+        setIsLoading(true);
+      }
 
     try {
       const data = await getPublicDestinations();
@@ -59,12 +63,17 @@ export default function Destinations({ onOpenMessages }: { onOpenMessages?: () =
       const runtimeMessage = typeof (error as any)?.message === 'string' ? (error as any).message.trim() : '';
       setLoadError(apiMessage || runtimeMessage || 'Failed to load destinations.');
     } finally {
-      setIsLoading(false);
+      if (showLoading) {
+        setIsLoading(false);
+      }
     }
-  }, []);
+    },
+    [],
+  );
 
   React.useEffect(() => {
     // hydrate from cache first for instant display
+    let cacheUsed = false;
     try {
       const cached = localStorage.getItem(DEST_CACHE_KEY);
       if (cached) {
@@ -72,13 +81,14 @@ export default function Destinations({ onOpenMessages }: { onOpenMessages?: () =
         if (Array.isArray(parsed?.data)) {
           setDestinations(parsed.data);
           setIsLoading(false);
+          cacheUsed = true;
         }
       }
     } catch {
       /* ignore cache parse errors */
     }
 
-    void loadDestinations();
+    void loadDestinations({ showLoading: !cacheUsed });
   }, [loadDestinations]);
 
   // keep in sync without manual refresh: focus + light polling
@@ -89,7 +99,7 @@ export default function Destinations({ onOpenMessages }: { onOpenMessages?: () =
     };
     window.addEventListener('focus', refresh);
     window.addEventListener('visibilitychange', onVisibility);
-    const id = window.setInterval(refresh, 15000);
+    const id = window.setInterval(refresh, 500);
     return () => {
       window.removeEventListener('focus', refresh);
       window.removeEventListener('visibilitychange', onVisibility);
