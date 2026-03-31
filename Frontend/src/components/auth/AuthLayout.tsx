@@ -125,8 +125,13 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({
           isDarkMode ? 'bg-slate-800' : 'bg-white'
         }`}
       >
-        {/* Left Side: Carousel & Branding */}
+        {/* Left Side: Carousel */}
         <div className="relative hidden overflow-hidden md:flex md:w-1/2">
+          {/* Logo - Top Left of Carousel */}
+          <div className="absolute top-4 left-4 z-10 rounded-[100px] overflow-hidden border border-white/10 bg-white/80">
+            <BrandLogo variant="full" className="h-20 w-[80px]" />
+          </div>
+
           <AnimatePresence mode="wait">
             <motion.div
               key={currentSlide}
@@ -149,9 +154,7 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({
                 <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
                 
                 <div className="absolute inset-0 flex flex-col justify-between p-8 lg:p-10">
-                  <div className="flex items-center gap-3">
-                  <BrandLogo variant="full" className="h-16 w-[280px] max-w-[45vw]" />
-                </div>
+                  <div className="h-12"></div>
 
                   <div className="max-w-[300px]">
                     <motion.h1 

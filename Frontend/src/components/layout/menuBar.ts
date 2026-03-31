@@ -42,10 +42,10 @@ export const MAIN_MENU_ITEMS: MenuItem[] = [
     path: '/destinations'
   },
   {
-    id: 'payments',
+    id: 'finances',
     label: 'Payments',
     icon: CreditCard,
-    path: '/payments'
+    path: '/finances'
   },
   {
     id: 'users',
@@ -54,10 +54,10 @@ export const MAIN_MENU_ITEMS: MenuItem[] = [
     path: '/users'
   },
   {
-    id: 'reports',
+    id: 'logs',
     label: 'Reports',
     icon: BarChart3,
-    path: '/reports'
+    path: '/logs'
   }
 ];
 

@@ -113,6 +113,10 @@ const normalizeAdminView = (view: string): AdminView => {
   switch (view) {
     case 'customers':
       return 'users';
+    case 'payments':
+      return 'finances';
+    case 'reports':
+      return 'logs';
     case 'users':
     case 'owners':
     case 'owners-applications':
@@ -344,7 +348,7 @@ const getAdminTitle = (view: AdminView): string => {
     case 'owners-details':
       return 'Owner Details';
     case 'destinations':
-      return 'Destinations Management';
+      return 'Destination Management';
     case 'bookings':
       return 'Bookings Management';
     case 'finances':

@@ -39,8 +39,8 @@ export const Destinations: React.FC = () => {
     <div className="p-8 space-y-8">
       <div className="flex items-end justify-between">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">Destinations Management</h2>
-          <p className="text-slate-500 mt-1">Manage and curate travel locations for the booking platform</p>
+          <h2 className="text-2xl font-bold tracking-tight">Destination Management</h2>
+          <p className="text-slate-500 mt-1">Manage and curate travel destinations for the booking platform</p>
         </div>
       </div>
 
@@ -144,7 +144,9 @@ export const Destinations: React.FC = () => {
           </tbody>
         </table>
         <div className="px-6 py-4 border-t border-slate-200 dark:border-[#17335e] flex items-center justify-between bg-slate-50/70 dark:bg-[#041533]">
-          <span className="text-sm text-slate-500 dark:text-slate-400">Showing 1 to {filteredDestinations.length} of {destinations.length} results</span>
+          <span className="text-sm text-slate-500 dark:text-slate-400">
+            Showing 1 to {filteredDestinations.length} of {destinations.length} destinations
+          </span>
           <div className="pagination-wrap">
             <button className="pagination-btn min-w-0 w-12 text-slate-400 dark:text-slate-500" disabled>
               <ChevronLeft size={18} />

@@ -15,6 +15,8 @@ import {
   ChevronRight
 } from 'lucide-react';
 import { cn } from '../../../utils/utils';
+import { bookingService } from '@/services/bookingService';
+
 const StatCard = ({ title, value, trend, icon: Icon }: any) => (
   <div className="card p-4">
     <div className="flex items-start justify-between">
@@ -45,13 +47,55 @@ export const Bookings: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'Confirmed' | 'Pending' | 'Cancelled'>('all');
   const [paymentFilter, setPaymentFilter] = useState<'all' | 'Paid' | 'Pending' | 'Refunded'>('all');
+  const [bookings, setBookings] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({
+    totalBookings: 0,
+    pendingApprovals: 0,
+    completedTrips: 0,
+    totalRevenue: 0,
+    activeGuests: 0,
+    pendingPayments: '0',
+  });
 
-  const bookings = [
+  const initialBookings: any[] = [
     { id: 'BK-9482', customer: 'Jane Doe', avatar: 'https://i.pravatar.cc/150?u=jane', dest: 'Siem Reap, KH', date: 'Oct 24, 2023', price: '$1,250.00', payment: 'Paid', status: 'Confirmed' },
     { id: 'BK-9475', customer: 'Robert Smith', avatar: 'https://i.pravatar.cc/150?u=robert', dest: 'Bali, ID', date: 'Nov 12, 2023', price: '$3,400.00', payment: 'Pending', status: 'Pending' },
     { id: 'BK-9460', customer: 'Alice Lu', avatar: 'https://i.pravatar.cc/150?u=alice', dest: 'Phuket, TH', date: 'Oct 18, 2023', price: '$850.00', payment: 'Refunded', status: 'Cancelled' },
     { id: 'BK-9452', customer: 'Michael K.', avatar: 'https://i.pravatar.cc/150?u=mike', dest: 'Kyoto, JP', date: 'Dec 05, 2023', price: '$2,100.00', payment: 'Paid', status: 'Confirmed' },
-  ] as const;
+  ];
+
+  React.useEffect(() => {
+    const loadData = async () => {
+      setLoading(true);
+
+      try {
+        const bookingsResult = await bookingService.getBookings();
+        const bookingList = Array.isArray(bookingsResult.data) && bookingsResult.data.length > 0
+          ? bookingsResult.data
+          : initialBookings;
+
+        setBookings(bookingList);
+
+        const statsResult = await bookingService.getBookingStats();
+        setStats({
+          totalBookings: Number(statsResult.total_bookings ?? bookingList.length),
+          pendingApprovals: Number(statsResult.pending_approvals ?? bookingList.filter((b: any) => b.status === 'Pending').length),
+          completedTrips: Number(statsResult.completed_trips ?? bookingList.filter((b: any) => b.status === 'Confirmed').length),
+          totalRevenue: Number(statsResult.total_revenue ?? bookingList.reduce((sum: number, b: any) => sum + Number(String(b.price).replace(/[^0-9.]/g, '')), 0)),
+          activeGuests: Number(statsResult.active_guests ?? bookingList.filter((b: any) => b.status === 'Confirmed').length),
+          pendingPayments: statsResult.pending_payments ?? '$0',
+        });
+      } catch (error) {
+        setBookings(initialBookings);
+        setStats((prev) => ({ ...prev, pendingPayments: prev.pendingPayments || '$0' }));
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
+  }, []);
 
   const filteredBookings = useMemo(() => {
     const byView = bookingView === 'active'
@@ -123,29 +167,29 @@ export const Bookings: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard 
-          title="Total Bookings" 
-          value="1,284" 
-          trend={12} 
-          icon={CalendarCheck} 
+        <StatCard
+          title="Total Bookings"
+          value={stats.totalBookings.toLocaleString()}
+          trend={stats.totalBookings > 0 ? 12 : 0}
+          icon={CalendarCheck}
         />
-        <StatCard 
-          title="Pending Approvals" 
-          value="42" 
-          trend={5.2} 
-          icon={Clock} 
+        <StatCard
+          title="Pending Approvals"
+          value={stats.pendingApprovals.toLocaleString()}
+          trend={stats.pendingApprovals > 0 ? 5.2 : 0}
+          icon={Clock}
         />
-        <StatCard 
-          title="Completed Trips" 
-          value="1,150" 
-          trend={-2.1} 
-          icon={CheckCircle2} 
+        <StatCard
+          title="Completed Trips"
+          value={stats.completedTrips.toLocaleString()}
+          trend={stats.completedTrips > 0 ? -2.1 : 0}
+          icon={CheckCircle2}
         />
-        <StatCard 
-          title="Total Revenue" 
-          value="$124,500" 
-          trend={18.4} 
-          icon={TrendingUp} 
+        <StatCard
+          title="Total Revenue"
+          value={`$${Number(stats.totalRevenue).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+          trend={stats.totalRevenue > 0 ? 18.4 : 0}
+          icon={TrendingUp}
         />
       </div>
 

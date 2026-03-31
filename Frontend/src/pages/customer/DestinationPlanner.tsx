@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import {
   BedDouble,
@@ -12,6 +12,7 @@ import {
   Users,
   Grid3X3
 } from 'lucide-react';
+import { getPublicDestinations } from '@/services/destinationService';
 
 interface DestinationPlannerProps {
   tripData: any;
@@ -159,6 +160,53 @@ const PROPERTY_LISTINGS: PropertyListing[] = [
   }
 ];
 
+const DEFAULT_PROPERTY_IMAGE = PROPERTY_LISTINGS[0]?.image || '';
+
+const splitLocation = (location?: string) => {
+  const parts = String(location || '')
+    .split(',')
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  return {
+    city: parts[0] || 'Unknown',
+    country: parts.length > 1 ? parts[parts.length - 1] : 'Cambodia',
+  };
+};
+
+const mapDestinationRecordToListing = (destination: any, fallbackId: number): PropertyListing => {
+  const location = String(destination?.location || destination?.address || destination?.name || '').trim();
+  const { city, country } = splitLocation(location);
+  const rating = Number(destination?.rating ?? 0);
+  const price = Number(destination?.price ?? 0);
+  const type = String(destination?.type || 'hotel').toLowerCase();
+  const image = String(destination?.image || destination?.images?.[0] || DEFAULT_PROPERTY_IMAGE || '').trim();
+
+  return {
+    id: Number(destination?.id ?? destination?.destination_id ?? fallbackId),
+    name: String(destination?.name || city).trim() || city,
+    city,
+    country: country || 'Cambodia',
+    locationLabel: location || city,
+    distanceKm: Number.isFinite(Number(destination?.distanceKm)) ? Number(destination.distanceKm) : 1.5,
+    image,
+    description:
+      String(destination?.description || '').trim() ||
+      `Discover ${city} with a stay sourced from your live destination catalog.`,
+    stars: Math.max(3, Math.min(5, Math.round(rating || 4))),
+    reviewScore: rating > 0 ? rating : 8.8,
+    reviewText: rating >= 9 ? 'Wonderful' : rating >= 8 ? 'Very Good' : 'Good',
+    reviewCount: Math.max(25, Number(destination?.total_bookings ?? 0) * 10 + 120),
+    locationScore: rating > 0 ? Math.min(10, rating) : 8.7,
+    pricePerNight: price > 0 ? price : 0,
+    type: type === 'resort' || type === 'apartment' ? (type as PropertyType) : 'hotel',
+    amenities: Array.isArray(destination?.amenities)
+      ? destination.amenities.filter((amenity: any) => typeof amenity === 'string' && amenity.trim())
+      : [],
+    privateBathroom: true
+  };
+};
+
 const formatSafeDateRange = (startValue: unknown, endValue: unknown, fallback = 'Check-in date — Check-out date'): string => {
   const start = startValue ? new Date(String(startValue)) : null;
   const end = endValue ? new Date(String(endValue)) : null;
@@ -193,11 +241,12 @@ export const DestinationPlanner: React.FC<DestinationPlannerProps> = ({
   onBack,
   onAddToTrip
 }) => {
-  const initialDestination = tripData?.destination?.name || 'Phnom Penh';
+  const initialDestination = tripData?.destination?.name || tripData?.hotel?.location?.split(',')[0] || PROPERTY_LISTINGS[0]?.city || 'Phnom Penh';
   const guestInfo = parseGuestInfo(tripData?.guests);
 
   const [destinationInput, setDestinationInput] = useState(initialDestination);
   const [activeDestination, setActiveDestination] = useState(initialDestination);
+  const [propertyListings, setPropertyListings] = useState<PropertyListing[]>(PROPERTY_LISTINGS);
   const [adults, setAdults] = useState(guestInfo.adults);
   const [children, setChildren] = useState(guestInfo.children);
   const [rooms, setRooms] = useState(guestInfo.rooms);
@@ -214,9 +263,45 @@ export const DestinationPlanner: React.FC<DestinationPlannerProps> = ({
 
   const checkInText = formatSafeDateRange(tripData?.startDate, tripData?.endDate);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadDestinations = async () => {
+      try {
+        const records = await getPublicDestinations();
+        const mapped = (Array.isArray(records) ? records : []).map((destination, index) =>
+          mapDestinationRecordToListing(destination, index + 1),
+        );
+
+        if (!cancelled && mapped.length > 0) {
+          setPropertyListings(mapped);
+        }
+      } catch {
+        if (!cancelled) {
+          setPropertyListings(PROPERTY_LISTINGS);
+        }
+      }
+    };
+
+    void loadDestinations();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const cityMatchedListings = useMemo(
-    () => PROPERTY_LISTINGS.filter((item) => item.city.toLowerCase().includes(activeDestination.toLowerCase())),
-    [activeDestination]
+    () => {
+      const query = activeDestination.trim().toLowerCase();
+      if (!query) return propertyListings;
+
+      return propertyListings.filter((item) =>
+        [item.name, item.city, item.country, item.locationLabel]
+          .filter(Boolean)
+          .some((value) => String(value).toLowerCase().includes(query)),
+      );
+    },
+    [activeDestination, propertyListings]
   );
 
   const filteredListings = useMemo(() => {
