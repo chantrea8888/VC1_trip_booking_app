@@ -12,7 +12,7 @@ $allowedOrigins = array_filter(
 return [
     'paths' => ['api/*', 'sanctum/csrf-cookie'],
     'allowed_methods' => ['*'],
-
+    
     'allowed_origins' => $allowedOrigins,
     // Allow any localhost port during local development.
     'allowed_origins_patterns' => ['#^https?://(localhost|127\\.0\\.0\\.1)(:\\d+)?$#'],
