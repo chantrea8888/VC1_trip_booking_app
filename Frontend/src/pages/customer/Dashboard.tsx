@@ -81,6 +81,12 @@ const getDatesFromTripData = (tripData?: any): { start: Date | null; end: Date |
   return { start: null, end: null };
 };
 
+type SearchCallback = (
+  query: string,
+  dates: { start: Date | null; end: Date | null },
+  guests: { adults: number; children: number }
+) => void | Promise<unknown>;
+
 const DESTINATION_SUGGESTIONS = Array.from(
   new Set([
     ...ALL_HOTELS.map((hotel) => hotel.location),
@@ -99,7 +105,7 @@ const Hero = ({
   setLocation,
   tripData
 }: { 
-  onSearch: (query: string, dates: { start: Date | null, end: Date | null }, guests: { adults: number, children: number }) => void;
+  onSearch: SearchCallback;
   location: string;
   setLocation: (val: string) => void;
   tripData?: any;
@@ -146,10 +152,14 @@ const Hero = ({
 
   const handleSearch = () => {
     setIsSearching(true);
-    setTimeout(() => {
-      setIsSearching(false);
-      onSearch(location, dates, guests);
-    }, 800);
+    const finishSearch = () => setIsSearching(false);
+    const result = onSearch(location, dates, guests);
+
+    if (result && typeof (result as Promise<unknown>).then === 'function') {
+      (result as Promise<unknown>).then(finishSearch, finishSearch);
+    } else {
+      finishSearch();
+    }
   };
 
   const renderMonth = (month: Date) => {
@@ -1033,12 +1043,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
 }) => {
   const [location, setLocation] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-const [searchResults, setSearchResults] = useState<any[]>([]);
-const [hasSearched, setHasSearched] = useState(false);
-const { user, isAuthenticated } = useAuth();
-const [myBookings, setMyBookings] = useState<any[]>([]);
-const [myBookingsLoading, setMyBookingsLoading] = useState(false);
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [hasSearched, setHasSearched] = useState(false);
+  const { user, isAuthenticated } = useAuth();
+  const [myBookings, setMyBookings] = useState<any[]>([]);
+  const [myBookingsLoading, setMyBookingsLoading] = useState(false);
   const navigate = useNavigate();
+  const BOOKINGS_CACHE_KEY = 'dashboard_recent_bookings';
 
   const handleCreateBooking = () => {
     if (onOpenBookTrip) {
@@ -1057,17 +1068,39 @@ const [myBookingsLoading, setMyBookingsLoading] = useState(false);
   };
 
   useEffect(() => {
-    const run = async () => {
-      if (!isAuthenticated || user?.role !== 'customer' || !user?.id) {
+    const cacheKey = user?.id ? `${BOOKINGS_CACHE_KEY}:${user.id}` : undefined;
+    const hasValidIdentity = Boolean(isAuthenticated && user?.role === 'customer' && user?.id);
+
+    if (!hasValidIdentity) {
+      setMyBookings([]);
+      setMyBookingsLoading(false);
+      return;
+    }
+
+    const cachedValue =
+      typeof window !== 'undefined' && cacheKey ? window.localStorage.getItem(cacheKey) : null;
+    if (cachedValue) {
+      try {
+        setMyBookings(JSON.parse(cachedValue));
+      } catch {
         setMyBookings([]);
-        return;
+      }
+    }
+
+    const run = async () => {
+      const shouldShowLoader = !cachedValue;
+      if (shouldShowLoader) {
+        setMyBookingsLoading(true);
       }
 
       try {
-        setMyBookingsLoading(true);
         const response = await bookingService.getCustomerBookings(user.id);
         const data = Array.isArray(response.data) ? response.data : [];
-        setMyBookings(data.slice(0, 3));
+        const sliced = data.slice(0, 3);
+        setMyBookings(sliced);
+        if (cacheKey && typeof window !== 'undefined') {
+          window.localStorage.setItem(cacheKey, JSON.stringify(sliced));
+        }
       } catch {
         setMyBookings([]);
       } finally {
