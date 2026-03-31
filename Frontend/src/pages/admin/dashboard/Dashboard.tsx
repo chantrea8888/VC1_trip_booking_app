@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   BarChart,
   Bar,
@@ -20,45 +20,11 @@ import {
   CheckCircle2,
   MoreHorizontal,
   Filter,
-  Download
+  Download,
+  Loader2
 } from 'lucide-react';
 import { cn } from '../../../utils/utils';
-
-const data = [
-  { name: 'JAN', income: 400, expenses: 220 },
-  { name: 'FEB', income: 300, expenses: 170 },
-  { name: 'MAR', income: 600, expenses: 350 },
-  { name: 'APR', income: 450, expenses: 260 },
-  { name: 'MAY', income: 900, expenses: 540 },
-  { name: 'JUN', income: 700, expenses: 430 },
-];
-
-const incomeOverviewData = {
-  '1W': [
-    { name: 'MON', income: 180, expenses: 90 },
-    { name: 'TUE', income: 240, expenses: 120 },
-    { name: 'WED', income: 210, expenses: 110 },
-    { name: 'THU', income: 310, expenses: 170 },
-    { name: 'FRI', income: 350, expenses: 200 },
-    { name: 'SAT', income: 280, expenses: 160 },
-    { name: 'SUN', income: 260, expenses: 140 },
-  ],
-  '1M': data,
-  '1Y': [
-    { name: 'JAN', income: 400, expenses: 220 },
-    { name: 'FEB', income: 360, expenses: 200 },
-    { name: 'MAR', income: 520, expenses: 300 },
-    { name: 'APR', income: 480, expenses: 270 },
-    { name: 'MAY', income: 620, expenses: 350 },
-    { name: 'JUN', income: 700, expenses: 410 },
-    { name: 'JUL', income: 760, expenses: 440 },
-    { name: 'AUG', income: 690, expenses: 400 },
-    { name: 'SEP', income: 640, expenses: 360 },
-    { name: 'OCT', income: 820, expenses: 470 },
-    { name: 'NOV', income: 910, expenses: 530 },
-    { name: 'DEC', income: 980, expenses: 580 },
-  ],
-} as const;
+import { adminDashboardService } from '../../../services/adminDashboardService';
 
 const StatCard = ({ title, value, trend, icon: Icon, onClick }: any) => (
   <button
@@ -100,20 +66,22 @@ interface DashboardProps {
 }
 
 interface RecentUser {
-  id: number;
+  id: string | number;
   name: string;
   email: string;
-  role: 'User' | 'Owner';
+  role: 'User' | 'Owner' | 'Admin';
   status: 'Active' | 'Pending';
   date: string;
 }
 
-const recentUsers: RecentUser[] = [
-  { id: 1, name: 'Lilly Dawson', email: 'lilly.d@example.com', role: 'User', status: 'Active', date: 'Oct 24, 2023' },
-  { id: 2, name: 'David Miller', email: 'd.miller@example.com', role: 'Owner', status: 'Pending', date: 'Oct 22, 2023' },
-  { id: 3, name: 'Ethan Brown', email: 'ethan.b@example.com', role: 'User', status: 'Pending', date: 'Oct 21, 2023' },
-  { id: 4, name: 'Clara Reed', email: 'clara.r@example.com', role: 'Owner', status: 'Active', date: 'Oct 18, 2023' },
-];
+interface PendingOwner {
+  id: string | number;
+  name: string;
+  email: string;
+  business: string;
+  status: 'Pending';
+  date: string;
+}
 
 export const Dashboard: React.FC<DashboardProps> = ({
   onOpenTotalUsersDetails,
@@ -122,14 +90,76 @@ export const Dashboard: React.FC<DashboardProps> = ({
   onOpenSystemIncomeDetails,
   onOpenOwnerApplicationsDetails,
 }) => {
-  const [incomeRange, setIncomeRange] = React.useState<'1W' | '1M' | '1Y'>('1M');
-  const [users, setUsers] = React.useState<RecentUser[]>(recentUsers);
-  const [searchTerm, setSearchTerm] = React.useState('');
-  const [roleFilter, setRoleFilter] = React.useState<'All' | 'User' | 'Owner'>('All');
-  const [statusFilter, setStatusFilter] = React.useState<'All' | 'Active' | 'Pending'>('All');
-  const [isFilterOpen, setIsFilterOpen] = React.useState(false);
-  const [openActionUserId, setOpenActionUserId] = React.useState<number | null>(null);
-  const incomeData = incomeOverviewData[incomeRange];
+  // State for statistics
+  const [stats, setStats] = useState({
+    totalUsers: 0,
+    usersTrend: 0,
+    totalOwners: 0,
+    ownersTrend: 0,
+    totalBookings: 0,
+    bookingsTrend: 0,
+    systemIncome: 0,
+    incomeTrend: 0,
+  });
+
+  // State for income chart
+  const [incomeRange, setIncomeRange] = useState<'1W' | '1M' | '1Y'>('1M');
+  const [incomeData, setIncomeData] = useState<any[]>([]);
+
+  // State for recent users
+  const [users, setUsers] = useState<RecentUser[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [roleFilter, setRoleFilter] = useState<'All' | 'User' | 'Owner'>('All');
+  const [statusFilter, setStatusFilter] = useState<'All' | 'Active' | 'Pending'>('All');
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [openActionUserId, setOpenActionUserId] = useState<string | number | null>(null);
+
+  // State for pending owners
+  const [pendingOwners, setPendingOwners] = useState<PendingOwner[]>([]);
+  const [pendingOwnersCount, setPendingOwnersCount] = useState(0);
+
+  // State for loading
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Fetch all data on component mount
+  useEffect(() => {
+    const fetchAllData = async () => {
+      try {
+        setIsLoading(true);
+        const [statsData, recentUsersData, pendingOwnersData, pendingCountData] = await Promise.all([
+          adminDashboardService.getStatistics(),
+          adminDashboardService.getRecentUsers(10),
+          adminDashboardService.getPendingOwners(5),
+          adminDashboardService.getPendingOwnersCount(),
+        ]);
+
+        setStats(statsData);
+        setUsers(recentUsersData);
+        setPendingOwners(pendingOwnersData);
+        setPendingOwnersCount(pendingCountData.count);
+      } catch (error) {
+        console.error('Failed to fetch dashboard data:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchAllData();
+  }, []);
+
+  // Fetch income data when range changes
+  useEffect(() => {
+    const fetchIncomeData = async () => {
+      try {
+        const data = await adminDashboardService.getIncomeOverview(incomeRange);
+        setIncomeData(data);
+      } catch (error) {
+        console.error('Failed to fetch income data:', error);
+      }
+    };
+
+    fetchIncomeData();
+  }, [incomeRange]);
 
   const filteredRecentUsers = React.useMemo(() => {
     return users.filter((user) => {
@@ -144,12 +174,30 @@ export const Dashboard: React.FC<DashboardProps> = ({
     });
   }, [users, searchTerm, roleFilter, statusFilter]);
 
-  const handleDeleteUser = (userId: number) => {
+  // Format income value to currency
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 0,
+    }).format(value);
+  };
+
+  const handleDeleteUser = (userId: string | number) => {
     setUsers((prevUsers) => prevUsers.filter((user) => user.id !== userId));
     setOpenActionUserId(null);
   };
 
-  const handleOpenUserDetails = (user: RecentUser) => {
+  interface RecentUserWithStringId {
+    id: string | number;
+    name: string;
+    email: string;
+    role: 'User' | 'Owner' | 'Admin';
+    status: 'Active' | 'Pending';
+    date: string;
+  }
+
+  const handleOpenUserDetails = (user: RecentUserWithStringId) => {
     if (user.role === 'Owner' && user.status === 'Pending') {
       onOpenOwnerApplicationsDetails?.();
       return;
@@ -163,12 +211,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
     onOpenTotalUsersDetails?.();
   };
 
-  const handleViewDetails = (user: RecentUser) => {
+  const handleViewDetails = (user: RecentUserWithStringId) => {
     handleOpenUserDetails(user);
     setOpenActionUserId(null);
   };
 
-  const handleEditUser = (userId: number) => {
+  const handleEditUser = (userId: string | number) => {
     const currentUser = users.find((user) => user.id === userId);
     if (!currentUser) return;
 
@@ -183,7 +231,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     setOpenActionUserId(null);
   };
 
-  const handleSuspendUser = (userId: number) => {
+  const handleSuspendUser = (userId: string | number) => {
     setUsers((prevUsers) =>
       prevUsers.map((user) =>
         user.id === userId ? { ...user, status: 'Pending' } : user,
@@ -192,7 +240,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     setOpenActionUserId(null);
   };
 
-  const handleApproveUser = (userId: number) => {
+  const handleApproveUser = (userId: string | number) => {
     setUsers((prevUsers) =>
       prevUsers.map((user) =>
         user.id === userId ? { ...user, status: 'Active' } : user,
@@ -231,36 +279,48 @@ export const Dashboard: React.FC<DashboardProps> = ({
         <p className="text-slate-500">Real-time platform statistics and user activity monitoring.</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard 
-          title="Total Users" 
-          value="24,512" 
-          trend={12.5} 
-          icon={Users} 
-          onClick={onOpenTotalUsersDetails}
-        />
-        <StatCard 
-          title="Total Owners" 
-          value="1,842" 
-          trend={4.2} 
-          icon={Building2} 
-          onClick={onOpenTotalOwnersDetails}
-        />
-        <StatCard 
-          title="Total Bookings" 
-          value="58,190" 
-          trend={18.1} 
-          icon={CalendarDays} 
-          onClick={onOpenTotalBookingsDetails}
-        />
-        <StatCard 
-          title="System Income" 
-          value="$142,840" 
-          trend={9.3} 
-          icon={Wallet} 
-          onClick={onOpenSystemIncomeDetails}
-        />
-      </div>
+      {isLoading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="card p-4 animate-pulse">
+              <div className="h-6 bg-slate-200 dark:bg-slate-700 rounded w-1/2 mb-4"></div>
+              <div className="h-8 bg-slate-200 dark:bg-slate-700 rounded w-3/4 mb-2"></div>
+              <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-1/2"></div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <StatCard 
+            title="Total Users" 
+            value={stats.totalUsers.toLocaleString()} 
+            trend={stats.usersTrend} 
+            icon={Users} 
+            onClick={onOpenTotalUsersDetails}
+          />
+          <StatCard 
+            title="Total Owners" 
+            value={stats.totalOwners.toLocaleString()} 
+            trend={stats.ownersTrend} 
+            icon={Building2} 
+            onClick={onOpenTotalOwnersDetails}
+          />
+          <StatCard 
+            title="Total Bookings" 
+            value={stats.totalBookings.toLocaleString()} 
+            trend={stats.bookingsTrend} 
+            icon={CalendarDays} 
+            onClick={onOpenTotalBookingsDetails}
+          />
+          <StatCard 
+            title="System Income" 
+            value={formatCurrency(stats.systemIncome)} 
+            trend={stats.incomeTrend} 
+            icon={Wallet} 
+            onClick={onOpenSystemIncomeDetails}
+          />
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 card p-6">
@@ -291,58 +351,66 @@ export const Dashboard: React.FC<DashboardProps> = ({
               ))}
             </div>
           </div>
-          <div className="h-[300px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={incomeData} barGap={8}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                <XAxis 
-                  dataKey="name" 
-                  axisLine={false} 
-                  tickLine={false} 
-                  tick={{fontSize: 10, fill: '#94a3b8'}}
-                  dy={10}
-                />
-                <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#94a3b8'}} />
-                <Tooltip 
-                  contentStyle={{ 
-                    borderRadius: '8px', 
-                    border: '1px solid #e2e8f0',
-                    backgroundColor: '#ffffff',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)' 
-                  }} 
-                />
-                <Legend iconType="circle" wrapperStyle={{ fontSize: '12px' }} />
-                <Bar dataKey="income" name="Income" fill="#0052cc" radius={[6, 6, 0, 0]} />
-                <Bar dataKey="expenses" name="Expenses" fill="#94a3b8" radius={[6, 6, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+          {incomeData.length > 0 ? (
+            <div className="h-[300px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={incomeData} barGap={8}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                  <XAxis 
+                    dataKey="name" 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{fontSize: 10, fill: '#94a3b8'}}
+                    dy={10}
+                  />
+                  <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#94a3b8'}} />
+                  <Tooltip 
+                    contentStyle={{ 
+                      borderRadius: '8px', 
+                      border: '1px solid #e2e8f0',
+                      backgroundColor: '#ffffff',
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.1)' 
+                    }} 
+                  />
+                  <Legend iconType="circle" wrapperStyle={{ fontSize: '12px' }} />
+                  <Bar dataKey="income" name="Income" fill="#0052cc" radius={[6, 6, 0, 0]} />
+                  <Bar dataKey="expenses" name="Expenses" fill="#94a3b8" radius={[6, 6, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          ) : (
+            <div className="h-[300px] w-full flex items-center justify-center">
+              <Loader2 className="animate-spin text-slate-400" size={24} />
+            </div>
+          )}
         </div>
 
         <div className="card p-6">
           <div className="flex items-center justify-between mb-6">
             <h3 className="font-bold text-lg">Approve Owners</h3>
-            <span className="text-[10px] font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full uppercase">4 Pending</span>
+            <span className="text-[10px] font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full uppercase">{pendingOwnersCount} Pending</span>
           </div>
           <div className="space-y-4">
-            {[
-              { name: 'Marc Stevens', business: 'Mountain Lodge', avatar: 'https://i.pravatar.cc/150?u=marc' },
-              { name: 'Elena Rossi', business: 'Urban Loft Stay', avatar: 'https://i.pravatar.cc/150?u=elena' },
-              { name: 'James Wu', business: 'Island Villas', avatar: 'https://i.pravatar.cc/150?u=james' },
-            ].map((owner, i) => (
-              <div key={i} className="flex items-center justify-between p-3 border border-slate-100 dark:border-slate-800 rounded-xl">
-                <div className="flex items-center gap-3">
-                  <img src={owner.avatar} className="w-10 h-10 rounded-full object-cover" alt="" />
-                  <div>
-                    <p className="text-sm font-bold">{owner.name}</p>
-                    <p className="text-xs text-slate-500">{owner.business}</p>
+            {pendingOwners.length > 0 ? (
+              pendingOwners.map((owner) => (
+                <div key={owner.id} className="flex items-center justify-between p-3 border border-slate-100 dark:border-slate-800 rounded-xl">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs">
+                      {owner.name.split(' ').map(n => n[0]).join('')}
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold">{owner.name}</p>
+                      <p className="text-xs text-slate-500">{owner.business}</p>
+                    </div>
                   </div>
+                  <button className="text-primary hover:bg-primary/10 p-1.5 rounded-full transition-colors">
+                    <CheckCircle2 size={20} />
+                  </button>
                 </div>
-                <button className="text-primary hover:bg-primary/10 p-1.5 rounded-full transition-colors">
-                  <CheckCircle2 size={20} />
-                </button>
-              </div>
-            ))}
+              ))
+            ) : (
+              <p className="text-sm text-slate-500 text-center py-4">No pending owner applications</p>
+            )}
           </div>
           <button
             type="button"
@@ -355,36 +423,46 @@ export const Dashboard: React.FC<DashboardProps> = ({
       </div>
 
       <div className="card overflow-hidden">
-        <div className="p-6 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between relative">
-          <h3 className="font-bold text-lg">Recent User Management</h3>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={onOpenTotalUsersDetails}
-              className="px-3 py-1.5 rounded-lg text-xs font-bold bg-primary text-white hover:bg-primary/90 transition-colors"
-            >
-              View All Users
-            </button>
-            <button
-              type="button"
-              onClick={() => setIsFilterOpen((prev) => !prev)}
-              className="flex items-center gap-2 px-3 py-1.5 border border-slate-200 dark:border-slate-800 rounded-lg text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-800/70 transition-colors"
-            >
-              <Filter size={14} />
-              Filter
-            </button>
-            <button
-              type="button"
-              onClick={handleExportRecentUsers}
-              className="flex items-center gap-2 px-3 py-1.5 border border-slate-200 dark:border-slate-800 rounded-lg text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-800/70 transition-colors"
-            >
-              <Download size={14} />
-              Export
-            </button>
+        <div className="p-6 border-b border-slate-200 dark:border-slate-800 space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="font-bold text-lg">Recent User Management</h3>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={onOpenTotalUsersDetails}
+                className="px-3 py-1.5 rounded-lg text-xs font-bold bg-primary text-white hover:bg-primary/90 transition-colors"
+              >
+                View All Users
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsFilterOpen((prev) => !prev)}
+                className="flex items-center gap-2 px-3 py-1.5 border border-slate-200 dark:border-slate-800 rounded-lg text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-800/70 transition-colors"
+              >
+                <Filter size={14} />
+                Filter
+              </button>
+              <button
+                type="button"
+                onClick={handleExportRecentUsers}
+                className="flex items-center gap-2 px-3 py-1.5 border border-slate-200 dark:border-slate-800 rounded-lg text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-800/70 transition-colors"
+              >
+                <Download size={14} />
+                Export
+              </button>
+            </div>
           </div>
+          
           {isFilterOpen && (
-            <div className="absolute right-6 top-[calc(100%-10px)] z-20 w-[320px] rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-lg p-4 space-y-3">
-              <div className="grid grid-cols-2 gap-2">
+            <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 p-4 space-y-3">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                <input
+                  type="text"
+                  placeholder="Search by name or email..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 outline-none"
+                />
                 <select
                   value={roleFilter}
                   onChange={(e) => setRoleFilter(e.target.value as 'All' | 'User' | 'Owner')}

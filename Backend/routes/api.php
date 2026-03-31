@@ -30,6 +30,7 @@ use App\Http\Controllers\Api\OwnerNotificationController;
 use App\Http\Controllers\Api\PromotionController as ApiPromotionController;
 use App\Http\Controllers\Api\TripGroupController;
 use App\Http\Controllers\Api\OwnerRecentActivityController;
+use App\Http\Controllers\Admin\AdminDashboardController;
 
 // Simple health check (useful for confirming API + DB connectivity from the frontend).
 Route::get('/health', function () {
@@ -210,6 +211,13 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('/admin/access', function () {
             return response()->json(['message' => 'Admin access granted']);
         });
+
+        // Admin Dashboard endpoints
+        Route::get('/admin/dashboard/statistics', [AdminDashboardController::class, 'getStatistics']);
+        Route::get('/admin/dashboard/income-overview', [AdminDashboardController::class, 'getIncomeOverview']);
+        Route::get('/admin/dashboard/recent-users', [AdminDashboardController::class, 'getRecentUsers']);
+        Route::get('/admin/dashboard/pending-owners', [AdminDashboardController::class, 'getPendingOwners']);
+        Route::get('/admin/dashboard/pending-owners-count', [AdminDashboardController::class, 'getPendingOwnersCount']);
     });
     
     // Customer routes
