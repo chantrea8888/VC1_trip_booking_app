@@ -3,6 +3,7 @@
 $defaultOrigins = [
     'http://localhost:5173',
     'http://127.0.0.1:5173',
+    'https://vc-1-trip-booking-app-b767-cn7ehylhp-han-chantreas-projects.vercel.app',
 ];
 
 $allowedOrigins = array_filter(
@@ -21,9 +22,10 @@ return [
     'max_age' => 0,
     'supports_credentials' => true,
     // Allow local dev on localhost, loopback, and LAN IPs (Vite default port 5173).
-    'allowed_origins' => ['http://localhost:5173', 'http://127.0.0.1:5173', 'http://[::1]:5173'],
+    // add vercel app url to allowed origins
+    'allowed_origins' => ['http://localhost:5173', 'http://127.0.0.1:5173', 'http://[::1]:5173', 'https://vc-1-trip-booking-app-b767-cn7ehylhp-han-chantreas-projects.vercel.app'],
     'allowed_origins_patterns' => ['/^http:\\/\\/\\d{1,3}(?:\\.\\d{1,3}){3}:5173$/'],
-    'allowed_origins' => ['http://localhost:5173', 'http://127.0.0.1:5173'], // Your React app URL
+    'allowed_origins' => ['http://localhost:5173', 'http://127.0.0.1:5173', 'https://vc-1-trip-booking-app-b767-cn7ehylhp-han-chantreas-projects.vercel.app'], // Your React app URL
     'allowed_origins_patterns' => [
         '/^http:\\/\\/(localhost|127\\.0\\.0\\.1)(:\\d+)?$/',
     ],
