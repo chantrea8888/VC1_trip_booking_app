@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { format, addDays } from 'date-fns';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { 
   Search, 
   Calendar, 
@@ -1008,6 +1008,8 @@ interface DashboardProps {
   onActivitiesClick: () => void;
   onSearch?: (query: string, dates: { start: Date | null, end: Date | null }, guests: { adults: number, children: number }) => void;
   onStartGroupBooking?: () => void;
+  onOpenBookTrip?: () => void;
+  onOpenMyBookings?: () => void;
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({ 
@@ -1020,14 +1022,33 @@ export const Dashboard: React.FC<DashboardProps> = ({
   onActivitiesClick,
   onSearch,
   onStartGroupBooking,
+  onOpenBookTrip,
+  onOpenMyBookings,
 }) => {
   const [location, setLocation] = useState(() => String(tripData?.destination?.name || ''));
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<any[]>([]);
-  const [hasSearched, setHasSearched] = useState(false);
-  const { user, isAuthenticated } = useAuth();
-  const [myBookings, setMyBookings] = useState<any[]>([]);
-  const [myBookingsLoading, setMyBookingsLoading] = useState(false);
+const [searchResults, setSearchResults] = useState<any[]>([]);
+const [hasSearched, setHasSearched] = useState(false);
+const { user, isAuthenticated } = useAuth();
+const [myBookings, setMyBookings] = useState<any[]>([]);
+const [myBookingsLoading, setMyBookingsLoading] = useState(false);
+  const navigate = useNavigate();
+
+  const handleCreateBooking = () => {
+    if (onOpenBookTrip) {
+      onOpenBookTrip();
+      return;
+    }
+    navigate('/customer/book');
+  };
+
+  const handleViewAllBookings = () => {
+    if (onOpenMyBookings) {
+      onOpenMyBookings();
+      return;
+    }
+    navigate('/customer/bookings');
+  };
 
   useEffect(() => {
     const run = async () => {
@@ -1110,12 +1131,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
             <div className="flex flex-wrap items-center gap-3">
               {isAuthenticated && user?.role === 'customer' ? (
-                <Link
-                  to="/customer/book"
+                <button
+                  type="button"
+                  onClick={handleCreateBooking}
                   className="h-11 px-5 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-700 transition-colors inline-flex items-center justify-center"
                 >
                   Create booking
-                </Link>
+                </button>
               ) : (
                 <Link
                   to="/login"
@@ -1124,12 +1146,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   Login to book
                 </Link>
               )}
-              <Link
-                to="/customer/bookings"
+              <button
+                type="button"
+                onClick={handleViewAllBookings}
                 className="h-11 px-5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors inline-flex items-center justify-center"
               >
                 View all
-              </Link>
+              </button>
             </div>
           </div>
 
