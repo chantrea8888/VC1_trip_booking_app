@@ -27,6 +27,15 @@ const getBookingDateLabel = (booking: any) => {
   return time ? `${date} ${time}` : date;
 };
 
+const normalizeBooking = (booking: any) => {
+  if (!booking || typeof booking !== 'object') return null;
+
+  return {
+    ...booking,
+    id: String(booking.id ?? booking.booking_id ?? booking.reference ?? `BK-${Date.now()}`),
+  };
+};
+
 export const CustomerBookings: React.FC = () => {
   const { isAuthenticated } = useAuth();
   const [loading, setLoading] = React.useState(true);
@@ -44,7 +53,24 @@ export const CustomerBookings: React.FC = () => {
         setLoading(true);
         setError(null);
         const response = await bookingService.getMyBookings();
-        setBookings(Array.isArray(response.data) ? response.data : []);
+        const apiBookings = Array.isArray(response.data) ? response.data.map(normalizeBooking).filter(Boolean) : [];
+
+        let pendingBooking: any = null;
+        try {
+          const stored = sessionStorage.getItem('pending_customer_booking');
+          if (stored) {
+            pendingBooking = normalizeBooking(JSON.parse(stored));
+            sessionStorage.removeItem('pending_customer_booking');
+          }
+        } catch {
+          pendingBooking = null;
+        }
+
+        const mergedBookings = pendingBooking
+          ? [pendingBooking, ...apiBookings.filter((booking: any) => String(booking.id) !== String(pendingBooking.id))]
+          : apiBookings;
+
+        setBookings(mergedBookings);
       } catch (err: any) {
         setError(err?.data?.message ?? err?.message ?? 'Failed to load bookings');
         setBookings([]);

@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { differenceInCalendarDays, format } from 'date-fns';
 import { 
   CheckCircle2, 
   ChevronRight, 
@@ -28,6 +29,36 @@ import { AVAILABLE_ACTIVITIES } from '../../data/activities';
 import { bookingService } from '@/services/bookingService'; // Add this import
 import { useAuth } from '../../context/AuthContext';
 import { calculateTripPricing } from '@/utils/pricing';
+
+const parseGuestCount = (value: unknown) => {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return Math.max(1, Math.floor(value));
+  }
+
+  const match = String(value ?? '').match(/\d+/);
+  return match ? Math.max(1, parseInt(match[0], 10) || 1) : 2;
+};
+
+const toDateInputValue = (value: unknown) => {
+  if (!value) return '';
+
+  const date = value instanceof Date ? value : new Date(String(value));
+  if (Number.isNaN(date.getTime())) return '';
+
+  const tzOffsetMs = date.getTimezoneOffset() * 60000;
+  return new Date(date.getTime() - tzOffsetMs).toISOString().slice(0, 10);
+};
+
+const toReadableDateRange = (startDate: string, endDate: string) => {
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+    return '';
+  }
+
+  return `${format(start, 'MMM d, yyyy')} - ${format(end, 'MMM d, yyyy')}`;
+};
 
 interface BookingHistoryProps {
   onPaymentClick: () => void;
@@ -69,11 +100,12 @@ export const BookingHistory: React.FC<BookingHistoryProps> = ({
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
-  const [editForm, setEditForm] = useState({
-    title: tripData.title,
-    dates: tripData.dates,
-    guests: tripData.guests
-  });
+  const [editForm, setEditForm] = useState(() => ({
+    title: tripData.title || '',
+    startDate: toDateInputValue(tripData?.startDate ?? tripData?.dateStart),
+    endDate: toDateInputValue(tripData?.endDate ?? tripData?.dateEnd),
+    guestCount: parseGuestCount(tripData?.guests)
+  }));
 
   const [paymentForm, setPaymentForm] = useState<{
     method: 'aba' | 'acleda';
@@ -94,6 +126,27 @@ export const BookingHistory: React.FC<BookingHistoryProps> = ({
 
   const selectedActivities = availableActivities.filter((a) => selectedActivityIds.includes(a.id));
   const pricing = calculateTripPricing({ tripData, selectedActivities });
+  const bookingStayLabel = React.useMemo(() => {
+    const startValue = editForm.startDate || tripData?.startDate || tripData?.dateStart;
+    const endValue = editForm.endDate || tripData?.endDate || tripData?.dateEnd;
+    const start = startValue ? new Date(String(startValue)) : null;
+    const end = endValue ? new Date(String(endValue)) : null;
+    if (start && end && !Number.isNaN(start.getTime()) && !Number.isNaN(end.getTime())) {
+      return `${format(start, 'dd/MM/yyyy')} - ${format(end, 'dd/MM/yyyy')}`;
+    }
+    return String(tripData?.dates || '');
+  }, [editForm.endDate, editForm.startDate, tripData?.dateEnd, tripData?.dateStart, tripData?.dates, tripData?.endDate, tripData?.startDate]);
+
+  useEffect(() => {
+    if (isEditModalOpen) return;
+
+    setEditForm({
+      title: tripData.title || '',
+      startDate: toDateInputValue(tripData?.startDate ?? tripData?.dateStart),
+      endDate: toDateInputValue(tripData?.endDate ?? tripData?.dateEnd),
+      guestCount: parseGuestCount(tripData?.guests)
+    });
+  }, [tripData, isEditModalOpen]);
 
   // Function to save booking to database
   const saveBookingToDatabase = async (opts?: { paymentMethod?: string; paymentDate?: string; paymentTime?: string; phone?: string }) => {
@@ -151,7 +204,7 @@ export const BookingHistory: React.FC<BookingHistoryProps> = ({
       if (!checkInIso || !checkOutIso) {
         throw new Error('Missing Check-in / Check-out dates');
       }
-      
+
       // Create booking ID (reduce collision risk)
       const bookingId = `BK-${Date.now()}-${Math.random().toString(16).slice(2, 6)}`;
       
@@ -308,11 +361,46 @@ export const BookingHistory: React.FC<BookingHistoryProps> = ({
   };
 
   const handleSaveEdit = () => {
+    const startDate = editForm.startDate || toDateInputValue(tripData?.startDate ?? tripData?.dateStart);
+    const endDate = editForm.endDate || toDateInputValue(tripData?.endDate ?? tripData?.dateEnd);
+
+    if (!startDate || !endDate) {
+      setBookingError('Please choose both check-in and check-out dates.');
+      return;
+    }
+
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+      setBookingError('Please choose valid check-in and check-out dates.');
+      return;
+    }
+    if (end < start) {
+      setBookingError('Check-out must be the same day or after check-in.');
+      return;
+    }
+
+    const nights = Math.max(1, differenceInCalendarDays(end, start) || 0);
+    const guestsLabel = `${editForm.guestCount} Guest${editForm.guestCount === 1 ? '' : 's'}`;
+
     setTripData(prev => ({
       ...prev,
-      title: editForm.title,
-      dates: editForm.dates,
-      guests: editForm.guests
+      title: editForm.title.trim() || prev.title,
+      startDate,
+      endDate,
+      dates: toReadableDateRange(startDate, endDate),
+      guests: guestsLabel,
+      hotel: {
+        ...prev.hotel,
+        guests: guestsLabel,
+        nights,
+        price: (prev.hotel?.dailyPrice || 0) * nights
+      },
+      rental: {
+        ...prev.rental,
+        days: nights,
+        price: (prev.rental?.dailyPrice || 0) * nights
+      }
     }));
     setIsEditModalOpen(false);
   };
@@ -351,7 +439,7 @@ export const BookingHistory: React.FC<BookingHistoryProps> = ({
     // Details Section
     doc.setFontSize(12);
     doc.setTextColor(15, 23, 42);
-    doc.text(`Dates: ${tripData.dates}`, margin, y);
+    doc.text(`Dates: ${bookingStayLabel}`, margin, y);
     y += 7;
     doc.text(`Guests: ${tripData.guests}`, margin, y);
     y += 15;
@@ -437,7 +525,7 @@ export const BookingHistory: React.FC<BookingHistoryProps> = ({
       console.error('Failed to generate PDF:', err);
       // Fallback: copy trip summary to clipboard
       const shareText = `Trip Summary - ${tripData.title}
-Dates: ${tripData.dates}
+Dates: ${bookingStayLabel}
 Guests: ${tripData.guests}
 Reference: ${tripData.reference}
 Hotel: ${tripData.hotel.name} - $${tripData.hotel.price.toFixed(2)}
@@ -452,7 +540,7 @@ TOTAL: $${pricing.total.toFixed(2)}`;
 
   const handleShare = async () => {
     const shareText = `Check out my trip to ${tripData.title}! 
-Dates: ${tripData.dates}
+Dates: ${bookingStayLabel}
 Guests: ${tripData.guests}
 Reference: ${tripData.reference}
 Booked via Cambodia Travel`;
@@ -608,7 +696,7 @@ Booked via Cambodia Travel`;
             <div className="flex flex-wrap items-center gap-6 mt-4">
               <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 font-medium">
                 <Calendar className="w-4 h-4" />
-                <span>{tripData.dates}</span>
+                <span>{bookingStayLabel || 'Check-in / Check-out not set'}</span>
               </div>
               <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 font-medium">
                 <Users className="w-4 h-4" />
@@ -1011,23 +1099,51 @@ Booked via Cambodia Travel`;
                       className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white font-medium focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                     />
                   </div>
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Dates</label>
-                    <input 
-                      type="text"
-                      value={editForm.dates}
-                      onChange={(e) => setEditForm(prev => ({ ...prev, dates: e.target.value }))}
-                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white font-medium focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-                    />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Check-in</label>
+                      <input 
+                        type="date"
+                        value={editForm.startDate}
+                        onChange={(e) => setEditForm(prev => ({ ...prev, startDate: e.target.value }))}
+                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white font-medium focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Check-out</label>
+                      <input 
+                        type="date"
+                        value={editForm.endDate}
+                        min={editForm.startDate || undefined}
+                        onChange={(e) => setEditForm(prev => ({ ...prev, endDate: e.target.value }))}
+                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white font-medium focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                      />
+                    </div>
                   </div>
                   <div>
                     <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Guests</label>
-                    <input 
-                      type="text"
-                      value={editForm.guests}
-                      onChange={(e) => setEditForm(prev => ({ ...prev, guests: e.target.value }))}
-                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white font-medium focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-                    />
+                    <div className="flex items-center justify-between gap-4 px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl">
+                      <span className="text-sm font-bold text-slate-900 dark:text-white">
+                        {editForm.guestCount} {editForm.guestCount === 1 ? 'Guest' : 'Guests'}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setEditForm(prev => ({ ...prev, guestCount: Math.max(1, prev.guestCount - 1) }))}
+                          className="w-8 h-8 rounded-full border border-slate-200 dark:border-slate-700 text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors disabled:opacity-40"
+                          disabled={editForm.guestCount <= 1}
+                        >
+                          -
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEditForm(prev => ({ ...prev, guestCount: prev.guestCount + 1 }))}
+                          className="w-8 h-8 rounded-full border border-slate-200 dark:border-slate-700 text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors"
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
                   </div>
 
                   <div className="pt-4 space-y-3">

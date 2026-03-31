@@ -159,6 +159,17 @@ const PROPERTY_LISTINGS: PropertyListing[] = [
   }
 ];
 
+const formatSafeDateRange = (startValue: unknown, endValue: unknown, fallback = 'Check-in date — Check-out date'): string => {
+  const start = startValue ? new Date(String(startValue)) : null;
+  const end = endValue ? new Date(String(endValue)) : null;
+
+  if (!start || !end || Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+    return fallback;
+  }
+
+  return `${format(start, 'dd/MM/yyyy')} - ${format(end, 'dd/MM/yyyy')}`;
+};
+
 type SortMode = 'top' | 'price' | 'distance' | 'rating';
 type ViewMode = 'list' | 'grid';
 
@@ -201,10 +212,7 @@ export const DestinationPlanner: React.FC<DestinationPlannerProps> = ({
   const [hotelsOnly, setHotelsOnly] = useState(false);
   const [freeWifi, setFreeWifi] = useState(false);
 
-  const checkInText =
-    tripData?.startDate && tripData?.endDate
-      ? `${format(new Date(tripData.startDate), 'MMM d')} - ${format(new Date(tripData.endDate), 'MMM d')}`
-      : 'Check-in date — Check-out date';
+  const checkInText = formatSafeDateRange(tripData?.startDate, tripData?.endDate);
 
   const cityMatchedListings = useMemo(
     () => PROPERTY_LISTINGS.filter((item) => item.city.toLowerCase().includes(activeDestination.toLowerCase())),

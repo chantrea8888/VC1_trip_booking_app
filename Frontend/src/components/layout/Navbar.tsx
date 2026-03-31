@@ -17,10 +17,11 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { useTheme } from '../../context/ThemeContext';
 import { LogoutConfirmModal } from '../common/LogoutConfirmModal';
+import { BrandLogo } from '../common/BrandLogo';
 
 interface NavbarProps {
   onLoginClick: () => void;
-  user: { name: string; email?: string; avatar?: string } | null;
+  user: { name: string; email?: string; avatar?: string; role?: string } | null;
   onLogout: () => void;
   onProfileClick: (tab?: any) => void;
   notifications: any[];
@@ -64,8 +65,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     visible: (index: number) => ({
       opacity: 1,
       y: 0,
-      
-      transition: { delay: 0.04 * index, duration: 0.2, ease: 'easeOut' },
+      transition: { delay: 0.04 * index, duration: 0.2, ease: [0.22, 1, 0.36, 1] },
     }),
   };
 
@@ -99,12 +99,10 @@ export const Navbar: React.FC<NavbarProps> = ({
           className="flex items-center gap-3 cursor-pointer group"
           onClick={onHomeClick}
         >
-          <div className="w-12 h-12 rounded-2xl overflow-hidden flex-shrink-0 bg-slate-900 dark:bg-white p-2.5 group-hover:scale-110 group-hover:rotate-3 transition-all shadow-xl shadow-blue-500/10">
-            <Compass className="w-full h-full text-white dark:text-slate-900" />
-          </div>
+          <BrandLogo variant="mark" className="w-12 h-12 rounded-2xl overflow-hidden flex-shrink-0 group-hover:scale-110 group-hover:rotate-3 transition-all" />
           <div className="flex flex-col">
             <span className="text-xl font-bold text-slate-900 dark:text-white leading-none tracking-tighter">Komrong</span>
-            <span className="text-[9px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-[0.4em] mt-0.5">Kingdom of Wonder</span>
+            <span className="text-[9px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-[0.4em] mt-0.5">BOOKING TRIP APP</span>
           </div>
         </div>
         

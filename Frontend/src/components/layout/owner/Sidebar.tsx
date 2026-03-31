@@ -10,12 +10,12 @@ import {
   BarChart3, 
   Wallet, 
   Settings,
-  User,
-  Grid
+  User
 } from 'lucide-react';
 import { cn } from '@/utils/utils';
 import { apiRequest } from '@/services/api';
 import { messageService } from '@/services/messageService';
+import { BrandLogo } from '@/components/common/BrandLogo';
 
 const Sidebar = () => {
   const [destinationsCount, setDestinationsCount] = React.useState<number | null>(null);
@@ -64,9 +64,7 @@ const Sidebar = () => {
     <aside className="fixed inset-y-0 left-0 w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 z-30 hidden lg:flex flex-col">
       <div className="p-6">
         <div className="flex items-center gap-3 mb-6">
-          <div className="bg-blue-600 p-2 rounded-xl text-white flex items-center justify-center shadow-lg shadow-blue-500/20">
-            <Grid size={20} />
-          </div>
+          <BrandLogo variant="mark" className="w-10 h-10 rounded-xl" />
           <div>
             <h1 className="font-bold text-lg leading-none tracking-tight">Komroung</h1>
             <span className="text-[10px] font-bold text-blue-600 uppercase tracking-wider">Platform</span>

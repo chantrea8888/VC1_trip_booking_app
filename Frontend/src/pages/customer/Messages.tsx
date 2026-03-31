@@ -32,6 +32,12 @@ type PendingThread = {
   ownerAvatar?: string;
 };
 
+type OwnerThread = {
+  owner: AppUser;
+  lastMessage: MessageItem;
+  unreadCount?: number;
+};
+
 const API_BASE = ((import.meta as any).env.VITE_API_URL || '').replace(/\/$/, '');
 
 const authToken = () => {
@@ -139,6 +145,36 @@ function collectConversationOwners(messages: MessageItem[], currentUserId?: stri
   return [...unique.values()];
 }
 
+function collectConversationThreads(messages: MessageItem[], currentUserId?: string) {
+  const threadMap = new Map<string, OwnerThread>();
+
+  messages.forEach((message) => {
+    const owner = ownerFromMessage(message, currentUserId);
+    if (!owner?.id) return;
+
+    const key = String(owner.id);
+    const existing = threadMap.get(key);
+
+    if (!existing || new Date(message.created_at).getTime() > new Date(existing.lastMessage.created_at).getTime()) {
+      threadMap.set(key, {
+        owner,
+        lastMessage: message,
+        unreadCount: threadMap.has(key)
+          ? (threadMap.get(key)?.unreadCount ?? 0)
+          : 0,
+      });
+    }
+
+    const current = threadMap.get(key);
+    if (current && String(message.receiver_id) === String(currentUserId) && !message.read_at) {
+      current.unreadCount = (current.unreadCount ?? 0) + 1;
+      threadMap.set(key, current);
+    }
+  });
+
+  return [...threadMap.values()];
+}
+
 async function loadMessageThread(targetId?: string) {
   const paths = targetId
     ? [`/customer/messages/${targetId}`, `/messages/${targetId}`]
@@ -164,8 +200,9 @@ async function loadMessageThread(targetId?: string) {
 
 export default function CustomerMessagesPage() {
   const { user } = useAuth();
+  const [allMessages, setAllMessages] = useState<MessageItem[]>([]);
   const [messages, setMessages] = useState<MessageItem[]>([]);
-  const [owners, setOwners] = useState<AppUser[]>([]);
+  const [ownerThreads, setOwnerThreads] = useState<OwnerThread[]>([]);
   const [draft, setDraft] = useState('');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
@@ -229,18 +266,18 @@ export default function CustomerMessagesPage() {
   }, [conversationMessages]);
 
   const recentOwners = useMemo(() => {
-    const unique = new Map<string, AppUser>();
-    owners.forEach((item) => {
-      const key = String(item.id);
-      if (!unique.has(key)) unique.set(key, item);
-    });
-
     const q = search.trim().toLowerCase();
-    const list = [...unique.values()];
+    const list = ownerThreads
+      .sort((a, b) => new Date(b.lastMessage.created_at).getTime() - new Date(a.lastMessage.created_at).getTime())
+      .map((thread) => ({ ...thread.owner, lastMessage: thread.lastMessage, unreadCount: thread.unreadCount }));
+
     return q
-      ? list.filter((item) => displayName(item).toLowerCase().includes(q) || (item.email || '').toLowerCase().includes(q))
+      ? list.filter((item) =>
+          displayName(item).toLowerCase().includes(q) || (item.email || '').toLowerCase().includes(q) ||
+          String(item.lastMessage?.message || '').toLowerCase().includes(q)
+        )
       : list;
-  }, [owners, search]);
+  }, [ownerThreads, search]);
 
   useEffect(() => {
     if (bottomRef.current) {
@@ -276,36 +313,43 @@ export default function CustomerMessagesPage() {
 
     try {
       const stored = sessionStorage.getItem('pending_message_thread');
-
       const parsed = stored ? (JSON.parse(stored) as PendingThread) : null;
       setThread(parsed);
 
-      const targetId = parsed?.ownerId ? String(parsed.ownerId) : '';
-      const normalized = await loadMessageThread(targetId);
-      setMessages(normalized);
-      setOwners(collectConversationOwners(normalized, currentUserId));
+      // Load full customer inbox and extract owner threads
+      const allPayload = await loadMessageThread();
+      setAllMessages(allPayload);
+      const threads = collectConversationThreads(allPayload, currentUserId);
+      setOwnerThreads(threads);
 
-      if (!targetId) {
-        const latestOwnerMessage = [...normalized]
-          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-          .find((message) => String(message.sender_id) !== currentUserId);
-
-        if (latestOwnerMessage) {
-          const derivedOwner = ownerFromMessage(latestOwnerMessage, currentUserId);
-          if (derivedOwner) {
-            setThread({
-              ownerId: derivedOwner.id,
-              ownerEmail: derivedOwner.email || '',
-              ownerName: displayName(derivedOwner),
-              ownerAvatar: derivedOwner.avatar || '',
-            });
-          }
-        } else {
-          setThread(null);
-        }
+      const targetOwnerId = parsed?.ownerId ? String(parsed.ownerId) : threads[0]?.owner?.id ? String(threads[0].owner.id) : '';
+      if (targetOwnerId) {
+        await loadOwnerConversation(targetOwnerId);
+      } else {
+        setMessages(allPayload);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load messages');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function loadOwnerConversation(ownerId: string) {
+    try {
+      setLoading(true);
+      const conv = await loadMessageThread(ownerId);
+      setMessages(conv);
+
+      const ownerInfoFromThread = ownerThreads.find((t) => String(t.owner.id) === String(ownerId))?.owner;
+      const previousThread = thread;
+
+      setThread({
+        ownerId,
+        ownerName: ownerInfoFromThread?.name || ownerInfoFromThread?.full_name || previousThread?.ownerName || '',
+        ownerEmail: ownerInfoFromThread?.email || previousThread?.ownerEmail || '',
+        ownerAvatar: ownerInfoFromThread?.avatar || previousThread?.ownerAvatar || '',
+      });
     } finally {
       setLoading(false);
     }
@@ -387,14 +431,15 @@ export default function CustomerMessagesPage() {
                 <button
                   key={String(item.id)}
                   type="button"
-                  onClick={() =>
+                  onClick={async () => {
                     setThread({
                       ownerId: item.id,
                       ownerEmail: item.email || '',
                       ownerName: displayName(item),
                       ownerAvatar: item.avatar || '',
-                    })
-                  }
+                    });
+                    await loadOwnerConversation(String(item.id));
+                  }}
                   className={`flex w-full items-center gap-4 px-6 py-4 text-left transition hover:bg-slate-50 ${
                     String(thread?.ownerId || '') === String(item.id) ? 'bg-blue-50/50' : ''
                   }`}
@@ -412,10 +457,13 @@ export default function CustomerMessagesPage() {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-2">
                       <p className="truncate font-bold text-slate-900 leading-tight">{displayName(item)}</p>
-                      <span className="text-[10px] font-medium text-slate-400 uppercase tracking-tighter">10:45 AM</span>
+                      <span className="text-[10px] font-medium text-slate-400 uppercase tracking-tighter">{formatClock(item.lastMessage?.created_at || '')}</span>
                     </div>
                     <p className="mt-1.5 flex items-center gap-2 truncate text-xs font-medium text-slate-500">
-                      <span className="truncate">Open secure chat with agent</span>
+                      <span className="truncate">{item.lastMessage?.message || 'No messages yet'}</span>
+                      {item.unreadCount > 0 && (
+                        <span className="rounded-full bg-red-500 px-2 py-0.5 text-[10px] font-bold text-white">{item.unreadCount}</span>
+                      )}
                     </p>
                   </div>
                 </button>

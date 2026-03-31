@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { BrandLogo } from './BrandLogo';
 
 interface Slide {
   id: number;
@@ -71,16 +72,7 @@ export const HeroCarousel: React.FC = () => {
             
             <div className="absolute inset-0 flex items-center justify-center">
               <div className="max-w-4xl mx-auto text-center px-6">
-                <div className="mb-auto flex items-center gap-3 absolute top-8 left-8">
-                  <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-lg overflow-hidden">
-                    <img 
-                      src="/logos/logoBookingTrip.png"
-                      alt="Logo" 
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                  <span className="text-white font-bold text-xl">Komrong</span>
-                </div>
+                <BrandLogo variant="full" className="absolute top-8 left-8 h-16 w-[280px] max-w-[70vw]" />
                 
                 <motion.h1 
                   initial={{ opacity: 0, y: 20 }}

@@ -50,7 +50,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
       if (nextTheme === 'light' || nextTheme === 'dark') {
         const nextDarkMode = nextTheme === 'dark';
-        setIsDarkMode((current) => (current === nextDarkMode ? current : nextDarkMode));
+        setIsDarkMode((current: boolean) => (current === nextDarkMode ? current : nextDarkMode));
       }
     };
 

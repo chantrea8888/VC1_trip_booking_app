@@ -1,12 +1,12 @@
 import React from 'react';
 import { 
   LogOut,
-  ShieldCheck
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { cn } from '../../utils/utils';
 import { MAIN_MENU_ITEMS, SYSTEM_MENU_ITEMS } from './menuBar';
 import { LogoutConfirmModal } from '../common/LogoutConfirmModal';
+import { BrandLogo } from '../common/BrandLogo';
 
 interface SidebarProps {
   activeTab: string;
@@ -70,9 +70,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onPro
   return (
     <aside className="w-64 flex-shrink-0 border-r border-slate-200/50 dark:border-slate-800/50 bg-white/60 dark:bg-slate-900/40 backdrop-blur-xl flex flex-col h-screen">
       <div className="p-6 flex items-center gap-3">
-        <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center text-white">
-          <ShieldCheck size={24} />
-        </div>
+        <BrandLogo variant="mark" className="w-10 h-10 rounded-lg" />
         <div>
           <h1 className="text-sm font-bold leading-tight">Komrong Admin</h1>
           <p className="text-xs text-slate-500">Super Admin</p>

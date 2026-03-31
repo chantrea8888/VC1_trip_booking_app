@@ -50,12 +50,7 @@ export const Header: React.FC<HeaderProps> = ({
     onLogoutClick(); // Use the logout prop from parent component
   };
 
-  const computedUnreadCount =
-    typeof unreadCount === 'number'
-      ? unreadCount
-      : Array.isArray(notifications)
-        ? notifications.filter((n) => !n.read).length
-        : null;
+  const computedUnreadCount = unreadNotificationCount; // use local computed unread notification count
 
   return (
     <header className="h-16 flex items-center justify-between px-8 border-b border-slate-200/50 dark:border-slate-800/50 bg-white/60 dark:bg-slate-900/40 backdrop-blur-xl sticky top-0 z-10">

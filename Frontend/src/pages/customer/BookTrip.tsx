@@ -4,6 +4,7 @@ import { bookingService } from '@/services/bookingService';
 import { useAuth } from '../../context/AuthContext';
 import { apiRequest } from '../../services/api';
 import { getPublicDestinations } from '../../services/destinationService';
+import { getPublicPromotions } from '@/services/promotionService';
 
 type DestinationOption = {
   id: number;
@@ -92,7 +93,9 @@ export const BookTrip: React.FC = () => {
   }, []);
 
   const isPromotionActive = React.useCallback((promo: any) => {
-    if (!promo?.is_active) return false;
+    const statusValue = String(promo?.status ?? '').toLowerCase();
+    const isActive = promo?.is_active ?? statusValue === 'active';
+    if (!isActive) return false;
     const now = new Date();
     const startRaw = promo.start_date ?? promo.startDate ?? null;
     const endRaw = promo.end_date ?? promo.endDate ?? promo.expiry ?? null;
@@ -201,8 +204,8 @@ export const BookTrip: React.FC = () => {
     // Load promotions
     const loadPromotions = async () => {
       try {
-      const response = await apiRequest('/promotions/public') as { data?: any[] };
-        setPromotions(Array.isArray(response?.data) ? response.data : []);
+        const payload = await getPublicPromotions();
+        setPromotions(payload);
       } catch (err) {
         // Silently fail if promotions can't be loaded
         console.warn('Failed to load promotions:', err);
@@ -324,7 +327,15 @@ export const BookTrip: React.FC = () => {
         promotion_id: destinationPromotion?.id || transportPromotion?.id || null,
       };
 
-      await bookingService.createBooking(payload);
+      const response = await bookingService.createBooking(payload);
+
+      try {
+        const createdBooking = (response as any)?.data ?? payload;
+        sessionStorage.setItem('pending_customer_booking', JSON.stringify(createdBooking));
+      } catch {
+        // Ignore storage issues; the booking is still saved on the backend.
+      }
+
       navigate('/customer/bookings');
     } catch (err: any) {
       setError(err?.data?.message ?? err?.message ?? 'Failed to create booking');

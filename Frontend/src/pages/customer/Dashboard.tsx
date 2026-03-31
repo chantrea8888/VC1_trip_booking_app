@@ -1,11 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { format, addDays } from 'date-fns';
-import { Link, useNavigate } from 'react-router-dom';
+import { format } from 'date-fns';
+import { Link } from 'react-router-dom';
 import { 
   Search, 
   Calendar, 
-  Users, 
   Hotel, 
   Ship, 
   Waves, 
@@ -64,12 +63,12 @@ const parseGuestsFromLabel = (guestLabel: unknown): { adults: number; children: 
   const numericParts = rawValue.match(/\d+/g) || [];
   if (numericParts.length > 0) {
     return {
-      adults: Math.max(1, parseInt(numericParts[0], 10) || 2),
+      adults: Math.max(0, parseInt(numericParts[0], 10) || 0),
       children: Math.max(0, parseInt(numericParts[1] || '0', 10) || 0)
     };
   }
 
-  return { adults: 2, children: 0 };
+  return { adults: 0, children: 0 };
 };
 
 const getDatesFromTripData = (tripData?: any): { start: Date | null; end: Date | null } => {
@@ -79,12 +78,20 @@ const getDatesFromTripData = (tripData?: any): { start: Date | null; end: Date |
     return { start, end };
   }
 
-  const today = new Date();
-  return {
-    start: addDays(today, 7),
-    end: addDays(today, 14)
-  };
+  return { start: null, end: null };
 };
+
+const DESTINATION_SUGGESTIONS = Array.from(
+  new Set([
+    ...ALL_HOTELS.map((hotel) => hotel.location),
+    'Siem Reap',
+    'Seim Reap',
+    'Phnom Penh',
+    'Sihanoukville',
+    'Koh Rong',
+    'Kampot',
+  ]),
+);
 
 const Hero = ({ 
   onSearch, 
@@ -98,7 +105,6 @@ const Hero = ({
   tripData?: any;
 }) => {
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [showGuestPicker, setShowGuestPicker] = useState(false);
   const initialDates = getDatesFromTripData(tripData);
   const [guests, setGuests] = useState(() => parseGuestsFromLabel(tripData?.guests));
   
@@ -107,6 +113,27 @@ const Hero = ({
   const [currentMonth, setCurrentMonth] = useState(initialDates.start || new Date());
   const [hoveredDate, setHoveredDate] = useState<Date | null>(null);
   const [isSearching, setIsSearching] = useState(false);
+  const [showLocationSuggestions, setShowLocationSuggestions] = useState(false);
+  const stayWindowLabel =
+    dates.start && dates.end
+      ? `${format(dates.start, 'MMM d')} - ${format(dates.end, 'MMM d')}`
+      : 'your selected dates';
+  const locationSuggestions = React.useMemo(() => {
+    const query = normalizeSearchText(location.trim());
+    if (!query) {
+      return DESTINATION_SUGGESTIONS.slice(0, 6);
+    }
+
+    return DESTINATION_SUGGESTIONS
+      .filter((option) => normalizeSearchText(option).includes(query))
+      .sort((a, b) => {
+        const aStarts = normalizeSearchText(a).startsWith(query) ? 0 : 1;
+        const bStarts = normalizeSearchText(b).startsWith(query) ? 0 : 1;
+        if (aStarts !== bStarts) return aStarts - bStarts;
+        return a.localeCompare(b);
+      })
+      .slice(0, 6);
+  }, [location]);
 
   useEffect(() => {
     const nextDates = getDatesFromTripData(tripData);
@@ -291,178 +318,155 @@ const Hero = ({
             transition={{ delay: 0.2 }}
             className="max-w-5xl mx-auto w-full"
           >
-            <div className="bg-white/10 backdrop-blur-2xl border border-white/20 p-2 rounded-[2.5rem] shadow-2xl flex flex-col md:flex-row items-center gap-2 w-full">
+            <div className="bg-white/10 backdrop-blur-2xl border border-white/20 p-2 rounded-[2.5rem] shadow-2xl flex flex-col md:flex-row items-stretch gap-2 w-full">
               <div className="flex-1 flex items-center gap-4 px-8 py-4 w-full border-b md:border-b-0 md:border-r border-white/10">
-                <Search className="w-5 h-5 text-white/60" />
-                <input 
-                  type="text" 
-                  value={location}
-                  onChange={(e) => setLocation(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                  placeholder="Where to next?" 
-                  className="bg-transparent border-none focus:ring-0 text-white placeholder:text-white/40 w-full text-base p-0 font-medium"
-                />
-              </div>
-              
-              <div className="relative px-8 py-4 border-b md:border-b-0 md:border-r border-white/10 w-full md:w-auto">
-                <button 
-                  onClick={() => {
-                    setShowDatePicker(!showDatePicker);
-                    setShowGuestPicker(false);
-                  }}
-                  className="text-sm font-bold text-white whitespace-nowrap flex items-center gap-3"
-                >
-                  <Calendar className="w-4 h-4 text-white/60" />
-                  {dates.start && dates.end 
-                    ? `${format(dates.start, 'MMM d')} - ${format(dates.end, 'MMM d')}` 
-                    : dates.start 
-                      ? `${format(dates.start, 'MMM d')} - ...`
-                      : 'Add Dates'}
-                </button>
-                
-                <AnimatePresence>
-                  {showDatePicker && (
-                    <motion.div 
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: 10 }}
-                      className="absolute top-full left-1/2 -translate-x-1/2 md:left-auto md:right-0 md:translate-x-0 mt-4 w-[95vw] md:w-[720px] bg-slate-900/95 backdrop-blur-xl rounded-[2.5rem] shadow-2xl border border-white/10 p-8 md:p-10 z-[100]"
-                    >
-                      {renderCalendar()}
-                      
-                      <div className="mt-10 pt-8 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-6">
-                        <div className="flex items-center gap-8">
-                          <div className="flex flex-col">
-                            <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest mb-1 text-left">Duration</span>
-                            <span className="text-sm font-bold text-white">
-                              {dates.start && dates.end 
-                                ? `${Math.ceil((dates.end.getTime() - dates.start.getTime()) / (1000 * 60 * 60 * 24))} Nights` 
-                                : 'Select range'}
-                            </span>
-                          </div>
-                          <div className="w-px h-8 bg-white/10" />
-                          <div className="flex flex-col">
-                            <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest mb-1 text-left">Price Range</span>
-                            <span className="text-sm font-bold text-blue-400">Premium Selection</span>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-4 w-full sm:w-auto">
-                          <button 
-                            onClick={() => setDates({ start: null, end: null })}
-                            className="text-[11px] font-bold text-white/40 hover:text-white transition-colors uppercase tracking-widest"
-                          >
-                            Clear
-                          </button>
-                          <button 
-                            onClick={() => {
-                              if (!dates.start || !dates.end) return;
-                              onSearch(location, dates, guests);
-                              setShowDatePicker(false);
+                <Search className="w-5 h-5 text-white/60 flex-shrink-0" />
+                <div className="relative w-full">
+                  <input
+                    type="text"
+                    value={location}
+                    onChange={(e) => {
+                      setLocation(e.target.value);
+                      setShowLocationSuggestions(true);
+                    }}
+                    onFocus={() => setShowLocationSuggestions(true)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                    placeholder="Where to next?"
+                    className="bg-transparent border-none focus:ring-0 text-white placeholder:text-white/40 w-full text-base p-0 font-medium"
+                  />
+                  <AnimatePresence>
+                    {showLocationSuggestions && locationSuggestions.length > 0 && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 8 }}
+                        className="absolute left-0 top-[calc(100%+0.8rem)] z-[120] w-[280px] rounded-2xl border border-slate-200 bg-white p-2 shadow-2xl dark:border-slate-700 dark:bg-slate-950"
+                      >
+                        {locationSuggestions.map((option) => (
+                          <button
+                            key={option}
+                            type="button"
+                            onMouseDown={(event) => {
+                              event.preventDefault();
+                              setLocation(option);
+                              setShowLocationSuggestions(false);
                             }}
-                            disabled={!dates.start || !dates.end}
-                            className="flex-1 sm:flex-none bg-white text-slate-900 px-10 py-4 rounded-2xl text-xs font-bold hover:bg-blue-50 transition-all shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="block w-full rounded-xl px-4 py-3 text-left text-sm font-medium text-slate-900 transition-colors hover:bg-slate-100 dark:text-white dark:hover:bg-slate-900"
                           >
-                            Confirm Dates
+                            {option}
                           </button>
-                        </div>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-
-              <div className="relative px-8 py-4 w-full md:w-auto">
-                <button 
+                        ))}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+                <button
+                  type="button"
                   onClick={() => {
-                    setShowGuestPicker(!showGuestPicker);
-                    setShowDatePicker(false);
+                    setLocation('');
+                    setShowLocationSuggestions(true);
                   }}
-                  className="text-sm font-bold text-white whitespace-nowrap flex items-center gap-3"
+                  className="text-white/35 hover:text-white transition-colors text-lg leading-none"
+                  aria-label="Clear destination"
                 >
-                  <Users className="w-4 h-4 text-white/60" />
-                  {guests.adults + guests.children} Guests
+                  ×
                 </button>
-
-                <AnimatePresence>
-                  {showGuestPicker && (
-                    <motion.div 
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: 10 }}
-                      className="absolute top-full right-0 mt-4 w-72 bg-slate-900/95 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/10 p-6 z-[100]"
-                    >
-                      <div className="space-y-6">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-sm font-bold text-white text-left">Adults</p>
-                            <p className="text-[10px] text-white/40 text-left">Ages 13+</p>
-                          </div>
-                          <div className="flex items-center gap-4">
-                            <button 
-                              onClick={() => setGuests({...guests, adults: Math.max(1, guests.adults - 1)})}
-                              className="w-8 h-8 rounded-full border border-white/10 flex items-center justify-center text-white hover:bg-white/10"
-                            >-</button>
-                            <span className="text-sm font-bold text-white w-4 text-center">{guests.adults}</span>
-                            <button 
-                              onClick={() => setGuests({...guests, adults: guests.adults + 1})}
-                              className="w-8 h-8 rounded-full border border-white/10 flex items-center justify-center text-white hover:bg-white/10"
-                            >+</button>
-                          </div>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-sm font-bold text-white text-left">Children</p>
-                            <p className="text-[10px] text-white/40 text-left">Ages 2–12</p>
-                          </div>
-                          <div className="flex items-center gap-4">
-                            <button 
-                              onClick={() => setGuests({...guests, children: Math.max(0, guests.children - 1)})}
-                              className="w-8 h-8 rounded-full border border-white/10 flex items-center justify-center text-white hover:bg-white/10"
-                            >-</button>
-                            <span className="text-sm font-bold text-white w-4 text-center">{guests.children}</span>
-                            <button 
-                              onClick={() => setGuests({...guests, children: guests.children + 1})}
-                              className="w-8 h-8 rounded-full border border-white/10 flex items-center justify-center text-white hover:bg-white/10"
-                            >+</button>
-                          </div>
-                        </div>
-                        <div className="flex items-center justify-between pt-4 border-t border-white/10">
-                          <button 
-                            onClick={() => setGuests({ adults: 2, children: 0 })}
-                            className="text-[10px] font-bold text-white/40 hover:text-white transition-colors uppercase tracking-widest"
-                          >
-                            Reset
-                          </button>
-                          <button 
-                            onClick={() => {
-                              onSearch(location, dates, guests);
-                              setShowGuestPicker(false);
-                            }}
-                            className="bg-white text-slate-900 px-8 py-3 rounded-2xl text-xs font-bold hover:bg-blue-50 transition-colors"
-                          >
-                            Confirm
-                          </button>
-                        </div>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
               </div>
 
-              <button 
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDatePicker((previous) => !previous);
+                }}
+                className="flex-1 md:flex-[0.95] flex items-center gap-4 px-8 py-4 w-full border-b md:border-b-0 md:border-r border-white/10 text-left"
+              >
+                <MapPin className="w-5 h-5 text-blue-500 flex-shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-white/45">View on Map</p>
+                  <p className="truncate text-sm font-semibold text-white">{location.trim() || 'Seim Reap'}</p>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDatePicker((previous) => !previous);
+                }}
+                className="flex-1 md:flex-[0.95] flex items-center gap-4 px-8 py-4 w-full border-b md:border-b-0 md:border-r border-white/10 text-left"
+              >
+                <Calendar className="w-5 h-5 text-blue-500 flex-shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-white/45">Check-in / Check-out</p>
+                  <p className="truncate text-sm font-semibold text-white">
+                    {dates.start && dates.end
+                      ? `${format(dates.start, 'MMM d')} - ${format(dates.end, 'MMM d')}`
+                      : 'Set dates'}
+                  </p>
+                </div>
+              </button>
+
+              <button
                 onClick={handleSearch}
                 disabled={isSearching}
                 className="bg-white text-slate-900 hover:bg-blue-50 px-10 py-4 rounded-[2rem] font-bold text-sm transition-all w-full md:w-auto flex items-center justify-center gap-2 min-w-[140px]"
               >
                 {isSearching ? (
-                  <motion.div 
+                  <motion.div
                     animate={{ rotate: 360 }}
-                    transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
+                    transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
                     className="w-4 h-4 border-2 border-slate-900/30 border-t-slate-900 rounded-full"
                   />
-                ) : 'Search'}
+                ) : 'Explore'}
               </button>
             </div>
+
+            <AnimatePresence>
+              {showDatePicker && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 10 }}
+                  className="mt-4 mx-auto w-[95vw] md:w-[720px] bg-slate-900/95 backdrop-blur-xl rounded-[2.5rem] shadow-2xl border border-white/10 p-8 md:p-10 z-[100] text-left"
+                >
+                  {renderCalendar()}
+
+                  <div className="mt-10 pt-8 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-6">
+                    <div className="flex items-center gap-8">
+                      <div className="flex flex-col">
+                        <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest mb-1 text-left">Duration</span>
+                        <span className="text-sm font-bold text-white">
+                          {dates.start && dates.end
+                            ? `${Math.ceil((dates.end.getTime() - dates.start.getTime()) / (1000 * 60 * 60 * 24))} Nights`
+                            : 'Select range'}
+                        </span>
+                      </div>
+                      <div className="w-px h-8 bg-white/10" />
+                      <div className="flex flex-col">
+                        <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest mb-1 text-left">Price Range</span>
+                        <span className="text-sm font-bold text-blue-400">Premium Selection</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4 w-full sm:w-auto">
+                      <button
+                        onClick={() => setDates({ start: null, end: null })}
+                        className="text-[11px] font-bold text-white/40 hover:text-white transition-colors uppercase tracking-widest"
+                      >
+                        Clear
+                      </button>
+                      <button
+                        onClick={() => {
+                          onSearch(location, dates, guests);
+                          setShowDatePicker(false);
+                        }}
+                        className="flex-1 sm:flex-none bg-white text-slate-900 px-10 py-4 rounded-2xl text-xs font-bold hover:bg-blue-50 transition-all shadow-xl"
+                      >
+                        Confirm Dates
+                      </button>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </motion.div>
         </div>
       </div>
@@ -1007,6 +1011,7 @@ interface DashboardProps {
   onRentalsClick: () => void;
   onActivitiesClick: () => void;
   onSearch?: (query: string, dates: { start: Date | null, end: Date | null }, guests: { adults: number, children: number }) => void;
+  onSearchDestination?: (query: string, dates: { start: Date | null, end: Date | null }, guests: { adults: number, children: number }) => void;
   onStartGroupBooking?: () => void;
   onOpenBookTrip?: () => void;
   onOpenMyBookings?: () => void;
@@ -1021,11 +1026,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
   onRentalsClick,
   onActivitiesClick,
   onSearch,
+  onSearchDestination,
   onStartGroupBooking,
   onOpenBookTrip,
   onOpenMyBookings,
 }) => {
-  const [location, setLocation] = useState(() => String(tripData?.destination?.name || ''));
+  const [location, setLocation] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
 const [searchResults, setSearchResults] = useState<any[]>([]);
 const [hasSearched, setHasSearched] = useState(false);
@@ -1072,10 +1078,6 @@ const [myBookingsLoading, setMyBookingsLoading] = useState(false);
     run();
   }, [isAuthenticated, user?.id, user?.role]);
 
-  useEffect(() => {
-    setLocation(String(tripData?.destination?.name || ''));
-  }, [tripData?.destination?.name]);
-
   const handleSearchInternal = (query: string, dates: { start: Date | null, end: Date | null }, guests: { adults: number, children: number }) => {
     const trimmedQuery = query.trim();
     setSearchQuery(trimmedQuery);
@@ -1084,6 +1086,10 @@ const [myBookingsLoading, setMyBookingsLoading] = useState(false);
     // Call external onSearch if provided to update global state
     if (onSearch) {
       onSearch(query, dates, guests);
+    }
+
+    if (trimmedQuery && onSearchDestination) {
+      onSearchDestination(trimmedQuery, dates, guests);
     }
 
     if (!trimmedQuery) {

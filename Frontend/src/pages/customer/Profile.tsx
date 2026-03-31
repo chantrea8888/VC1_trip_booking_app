@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'motion/react';
 import { 
   User, 
@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
-import { FileUpload } from '../../components/common/FileUpload';
+import { uploadImage } from '../../services/imageService';
 
 interface ProfileProps {
   initialTab?: 'profile' | 'settings' | 'notifications' | 'security' | 'documents';
@@ -39,9 +39,23 @@ export const Profile: React.FC<ProfileProps> = ({
 }) => {
   const { user, logout, updateUser } = useAuth();
   const { isDarkMode, toggleDarkMode } = useTheme();
+  const avatarInputId = 'customer-profile-avatar-input';
+  const avatarInputRef = useRef<HTMLInputElement>(null);
   const [activeTab, setActiveTab] = useState(initialTab);
   const [isEditing, setIsEditing] = useState(false);
+  const [isAvatarUploading, setIsAvatarUploading] = useState(false);
+  const readStoredAvatar = () => {
+    try {
+      return localStorage.getItem('customer_avatar') || '';
+    } catch {
+      return '';
+    }
+  };
+  const [avatarUrl, setAvatarUrl] = useState(user?.avatar || readStoredAvatar());
+  const [avatarLoadError, setAvatarLoadError] = useState(false);
+  const [profileMessage, setProfileMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [profileData, setProfileData] = useState({
+    name: user?.name || 'Traveler',
     phone: user?.phone || '+855 12 345 678',
     location: user?.location || 'Phnom Penh, Cambodia',
     language: (() => {
@@ -99,14 +113,16 @@ export const Profile: React.FC<ProfileProps> = ({
 
   const handleSaveProfile = () => {
     updateUser({
+      name: profileData.name,
       phone: profileData.phone,
       location: profileData.location,
+      avatar: avatarUrl || user?.avatar,
       // In a real app, these would be in the user object too
     });
     setIsEditing(false);
   };
 
-  React.useEffect(() => {
+  useEffect(() => {
     try {
       localStorage.setItem('customer_language', profileData.language);
     } catch {
@@ -114,9 +130,105 @@ export const Profile: React.FC<ProfileProps> = ({
     }
   }, [profileData.language]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     setActiveTab(initialTab);
   }, [initialTab]);
+
+  useEffect(() => {
+    const storedAvatar = readStoredAvatar();
+    setAvatarUrl(user?.avatar || '');
+    if (!user?.avatar && storedAvatar) {
+      setAvatarUrl(storedAvatar);
+    }
+    setAvatarLoadError(false);
+    setProfileMessage(null);
+    setProfileData({
+      name: user?.name || 'Traveler',
+      phone: user?.phone || '+855 12 345 678',
+      location: user?.location || 'Phnom Penh, Cambodia',
+      language: (() => {
+        try {
+          return localStorage.getItem('customer_language') || 'English (US)';
+        } catch {
+          return 'English (US)';
+        }
+      })(),
+      currency: 'USD ($)'
+    });
+  }, [user?.avatar, user?.location, user?.name, user?.phone]);
+
+  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file.');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Image must be smaller than 5MB.');
+      return;
+    }
+
+    const localPreview = await new Promise<string>((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ''));
+      reader.onerror = () => resolve('');
+      reader.readAsDataURL(file);
+    });
+
+    if (localPreview) {
+      setAvatarUrl(localPreview);
+      setAvatarLoadError(false);
+    }
+
+    setIsAvatarUploading(true);
+    setProfileMessage(null);
+    try {
+      const response = await uploadImage(file, 'profile-avatars');
+      if (response?.success && response?.url) {
+        setAvatarUrl(response.url);
+        try {
+          localStorage.setItem('customer_avatar', response.url);
+        } catch {
+          // ignore
+        }
+        updateUser({ avatar: response.url });
+        setProfileMessage({ type: 'success', text: 'Profile photo updated successfully.' });
+      } else {
+        if (localPreview) {
+          try {
+            localStorage.setItem('customer_avatar', localPreview);
+          } catch {
+            // ignore
+          }
+          updateUser({ avatar: localPreview });
+        }
+        setProfileMessage({ type: 'error', text: response?.message || 'Failed to upload image.' });
+      }
+    } catch (error: any) {
+      if (localPreview) {
+        try {
+          localStorage.setItem('customer_avatar', localPreview);
+        } catch {
+          // ignore
+        }
+        updateUser({ avatar: localPreview });
+      }
+      setProfileMessage({ type: 'error', text: error?.message || 'Error uploading image.' });
+    } finally {
+      setIsAvatarUploading(false);
+      event.target.value = '';
+    }
+  };
+
+  const getProfileInitials = () => {
+    const name = (profileData.name || user?.name || 'Traveler').trim();
+    const parts = name.split(/\s+/).filter(Boolean);
+    const initials = parts.slice(0, 2).map((part) => part[0]).join('');
+    return (initials || 'TR').toUpperCase();
+  };
 
   const tabs = [
     { id: 'profile', label: t('profile'), icon: User },
@@ -138,24 +250,78 @@ export const Profile: React.FC<ProfileProps> = ({
     <div className="space-y-8">
       <div className="flex flex-col md:flex-row items-center gap-8 bg-white dark:bg-slate-800 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-700 shadow-sm">
         <div className="relative group">
-          <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-blue-50 dark:border-blue-900/30">
-            <img 
-              src={`https://ui-avatars.com/api/?name=${user?.name}&background=0D8ABC&color=fff&size=128`} 
-              alt={user?.name} 
-              className="w-full h-full object-cover"
-            />
-          </div>
-          <button className="absolute bottom-0 right-0 p-2 bg-blue-600 text-white rounded-full shadow-lg hover:scale-110 transition-transform">
-            <Camera className="w-4 h-4" />
-          </button>
+          <label
+            htmlFor={avatarInputId}
+            className="block w-32 h-32 cursor-pointer rounded-full overflow-hidden border-4 border-blue-50 dark:border-blue-900/30"
+          >
+            {avatarUrl && !avatarLoadError ? (
+              <img
+                src={avatarUrl}
+                alt={profileData.name || user?.name || 'User'}
+                className="w-full h-full object-cover"
+                onError={() => setAvatarLoadError(true)}
+              />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-blue-600 via-cyan-500 to-sky-700 text-white">
+                <span className="text-4xl font-bold tracking-tight">{getProfileInitials()}</span>
+              </div>
+            )}
+          </label>
+          <label
+            htmlFor={avatarInputId}
+            className="absolute bottom-0 right-0 inline-flex h-11 w-11 items-center justify-center rounded-full border-2 border-slate-900 bg-blue-600 text-white shadow-lg shadow-blue-600/20 transition hover:scale-110 cursor-pointer"
+            aria-label="Upload profile photo"
+          >
+            <Camera className="h-4 w-4" />
+          </label>
+          <input
+            id={avatarInputId}
+            ref={avatarInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleAvatarUpload}
+          />
         </div>
         <div className="text-center md:text-left flex-1">
-          <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-1">{user?.name}</h2>
+          {isEditing ? (
+            <input
+              type="text"
+              value={profileData.name}
+              onChange={(e) => setProfileData({ ...profileData, name: e.target.value })}
+              className="mb-2 w-full max-w-md rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-2xl font-bold text-slate-900 outline-none focus:border-blue-500 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+            />
+          ) : (
+            <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-1">{profileData.name}</h2>
+          )}
           <p className="text-slate-500 dark:text-slate-400 mb-4">Explorer Member since 2024</p>
           <div className="flex flex-wrap justify-center md:justify-start gap-3">
             <span className="px-4 py-1.5 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 text-xs font-bold rounded-full">Pro Traveler</span>
             <span className="px-4 py-1.5 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 text-xs font-bold rounded-full">Verified Account</span>
           </div>
+          <div className="mt-4 flex flex-wrap items-center justify-center md:justify-start gap-3">
+            <button
+              type="button"
+              onClick={() => avatarInputRef.current?.click()}
+              disabled={isAvatarUploading}
+              className="inline-flex items-center gap-2 rounded-2xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              <Camera className="h-4 w-4" />
+              {isAvatarUploading ? 'Uploading...' : 'Upload Photo'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsEditing(true)}
+              className="inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-100"
+            >
+              Edit Profile
+            </button>
+          </div>
+          {profileMessage && (
+            <p className={`mt-3 text-sm font-medium ${profileMessage.type === 'success' ? 'text-emerald-600' : 'text-rose-600'}`}>
+              {profileMessage.text}
+            </p>
+          )}
         </div>
         <button 
           onClick={() => isEditing ? handleSaveProfile() : setIsEditing(true)}
@@ -173,20 +339,20 @@ export const Profile: React.FC<ProfileProps> = ({
         <div className="bg-white dark:bg-slate-800 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-700 shadow-sm">
           <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-6">{t('contact_information')}</h3>
           <div className="space-y-6">
-            <div className="flex items-center gap-4">
-              <div className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-700/50 flex items-center justify-center text-slate-400">
-                <Mail className="w-5 h-5" />
-              </div>
-              <div>
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-700/50 flex items-center justify-center text-slate-400">
+                  <Mail className="w-5 h-5" />
+                </div>
+                <div>
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{t('email_address')}</p>
                 <p className="text-sm font-medium text-slate-700 dark:text-slate-200">{user?.email}</p>
               </div>
             </div>
-            <div className="flex items-center gap-4">
-              <div className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-700/50 flex items-center justify-center text-slate-400">
-                <Phone className="w-5 h-5" />
-              </div>
-              <div className="flex-1">
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-700/50 flex items-center justify-center text-slate-400">
+                  <Phone className="w-5 h-5" />
+                </div>
+                <div className="flex-1">
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{t('phone_number')}</p>
                 {isEditing ? (
                   <input 
@@ -200,11 +366,11 @@ export const Profile: React.FC<ProfileProps> = ({
                 )}
               </div>
             </div>
-            <div className="flex items-center gap-4">
-              <div className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-700/50 flex items-center justify-center text-slate-400">
-                <MapPin className="w-5 h-5" />
-              </div>
-              <div className="flex-1">
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-700/50 flex items-center justify-center text-slate-400">
+                  <MapPin className="w-5 h-5" />
+                </div>
+                <div className="flex-1">
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{t('location')}</p>
                 {isEditing ? (
                   <input 

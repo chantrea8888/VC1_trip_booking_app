@@ -1720,7 +1720,7 @@ const Bookings = () => {
 
                 <div className="bg-slate-50 dark:bg-slate-800/40 p-3 text-center">
                   <p className="text-[10px] text-slate-400 font-medium uppercase tracking-widest">
-                    Thank you for using Komrong Explorer.
+                    Thank you for using Komrong.
                   </p>
                 </div>
               </div>

@@ -116,7 +116,7 @@ export const ImageUpload: React.FC<ImageUploadProps> = ({
             </div>
             <span className="mt-2 text-sm text-slate-500 dark:text-slate-400">
               {isUploading ? 'Uploading...' : 'Click to upload or drag and drop'}
-            </div>
+            </span>
             <span className="text-xs text-slate-400 dark:text-slate-500 mt-1">
               PNG, JPG or GIF (max. 5MB)
             </span>

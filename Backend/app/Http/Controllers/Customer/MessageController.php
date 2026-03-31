@@ -41,6 +41,7 @@ class MessageController extends Controller
                 $q->where('sender_id', $ownerId)
                   ->where('receiver_id', auth()->id());
             })
+            ->with('sender', 'receiver')
             ->orderBy('created_at', 'asc')
             ->get();
 

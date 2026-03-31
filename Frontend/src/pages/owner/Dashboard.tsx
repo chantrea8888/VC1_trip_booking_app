@@ -26,11 +26,11 @@ import {
   Area
 } from 'recharts';
 import { cn } from '@/utils/utils';
-import { MOCK_REVENUE_DATA } from '@/routes/constants';
 import type { AdminNotification } from '@/components/common/NotificationDropdown';
 import { bookingService } from '@/services/bookingService';
+import { apiRequest } from '@/services/api';
 
-const StatCard = ({ title, value, change, changeType, icon: Icon, subtitle }: any) => (
+const StatCard = ({ title, value, change, changeType, icon: Icon, subtitle, note }: any) => (
   <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-lg transition-shadow">
     <div className="flex items-center justify-between mb-4">
       <div className="p-3 bg-blue-50 dark:bg-blue-900/20 text-blue-600 rounded-xl">
@@ -51,43 +51,115 @@ const StatCard = ({ title, value, change, changeType, icon: Icon, subtitle }: an
     </div>
     <p className="text-[10px] uppercase font-bold tracking-[0.1em] text-slate-500 dark:text-slate-400 mb-1">{title}</p>
     <h3 className="text-3xl font-bold tracking-tight">{value}</h3>
-    {title === 'Total Revenue' && (
+    {note && (
       <p className="text-[11px] text-slate-400 mt-3 font-medium flex items-center gap-1">
-        <span className="w-1.5 h-1.5 rounded-full bg-slate-300"></span> vs. $11,248.00 last month
+        <span className="w-1.5 h-1.5 rounded-full bg-slate-300"></span> {note}
       </p>
     )}
-    {title === 'Total Bookings' && (
-      <p className="text-[11px] text-blue-600 mt-3 font-bold flex items-center gap-1">
-        <span className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse"></span> 24 bookings pending
-      </p>
-    )}
-    {title === 'Average Rating' && (
+    {title === 'Average Rating' && subtitle && (
       <div className="flex items-center gap-3 mt-3">
         <div className="flex text-amber-400">
           {[...Array(4)].map((_, i) => <Star key={i} size={14} fill="currentColor" />)}
           <Star size={14} />
         </div>
-        <p className="text-[11px] text-slate-400 font-medium">Based on 1,240 reviews</p>
+        <p className="text-[11px] text-slate-400 font-medium">{subtitle}</p>
       </div>
     )}
   </div>
 );
 
+const toNumber = (value: any) => {
+  const parsed = typeof value === 'number' ? value : Number.parseFloat(String(value ?? ''));
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const parseDate = (value: any) => {
+  if (!value) return null;
+  const d = value instanceof Date ? value : new Date(String(value));
+  return Number.isNaN(d.getTime()) ? null : d;
+};
+
+const formatCurrency = (value: number) =>
+  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(Number.isFinite(value) ? value : 0);
+
+const formatPercent = (current: number, previous: number) => {
+  if (!Number.isFinite(current) || !Number.isFinite(previous)) return '0.0%';
+  if (previous === 0) return current > 0 ? '100.0%' : '0.0%';
+  const delta = ((current - previous) / previous) * 100;
+  return `${Math.abs(delta).toFixed(1)}%`;
+};
+
+const getDeltaType = (current: number, previous: number) => (current >= previous ? 'positive' : 'negative');
+
+const buildRevenueSeries = (bookings: any[], range: 'weekly' | 'monthly') => {
+  const now = new Date();
+  const buckets =
+    range === 'weekly'
+      ? Array.from({ length: 7 }, (_, index) => {
+          const date = new Date(now);
+          date.setDate(now.getDate() - (6 - index));
+          return {
+            key: `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`,
+            name: date.toLocaleDateString('en-US', { weekday: 'short' }),
+            value: 0,
+          };
+        })
+      : Array.from({ length: 12 }, (_, index) => {
+          const date = new Date(now.getFullYear(), now.getMonth() - (11 - index), 1);
+          return {
+            key: `${date.getFullYear()}-${date.getMonth()}`,
+            name: date.toLocaleDateString('en-US', { month: 'short' }),
+            value: 0,
+          };
+        });
+
+  const source = Array.isArray(bookings) ? bookings : [];
+  source.forEach((booking: any) => {
+    const created = parseDate(booking?.createdAt ?? booking?.created_at ?? booking?.date ?? booking?.dateStart ?? booking?.date_start);
+    if (!created) return;
+
+    const amount = toNumber(booking?.totalAmount ?? booking?.total_amount ?? booking?.amount);
+    if (amount <= 0) return;
+
+    if (range === 'weekly') {
+      const key = `${created.getFullYear()}-${created.getMonth()}-${created.getDate()}`;
+      const bucket = buckets.find((entry) => entry.key === key);
+      if (bucket) bucket.value += amount;
+      return;
+    }
+
+    const key = `${created.getFullYear()}-${created.getMonth()}`;
+    const bucket = buckets.find((entry) => entry.key === key);
+    if (bucket) bucket.value += amount;
+  });
+
+  return buckets.map(({ name, value }) => ({ name, value: Number(value.toFixed(2)) }));
+};
+
+const buildAverageRating = (items: any[]) => {
+  const ratings = (Array.isArray(items) ? items : [])
+    .map((item) => toNumber(item?.rating ?? item?.stars_rating))
+    .filter((rating) => rating > 0);
+  if (ratings.length === 0) return { rating: 0, count: 0 };
+  const sum = ratings.reduce((acc, value) => acc + value, 0);
+  return { rating: sum / ratings.length, count: ratings.length };
+};
+
 interface OwnerDashboardProps {
   notifications?: AdminNotification[];
   onOpenBooking?: (bookingId: string) => void;
+  onOpenMessageThread?: (notification: AdminNotification) => void;
   onMarkNotificationRead?: (notificationId: string) => void;
   onViewAllActivities?: () => void;
 }
 
-const Dashboard: React.FC<OwnerDashboardProps> = ({ notifications, onOpenBooking, onMarkNotificationRead, onViewAllActivities }) => {
-  const defaultActivities = [
-    { icon: CalendarCheck, title: 'Booking from Siem Reap', desc: 'Shared Shuttle â€¢ 2 Guests', time: '10 mins ago' },
-    { icon: CreditCard, title: 'Payout successful', desc: 'ABA Bank â€¢ $1,240.00', time: '2 hours ago' },
-    { icon: MessageSquare, title: 'Message from Sopheap', desc: 'Route timing question', time: '5 hours ago' },
-    { icon: Star, title: 'New 5-star review', desc: '"Excellent service!"', time: 'Yesterday' },
-  ];
-
+const Dashboard: React.FC<OwnerDashboardProps> = ({
+  notifications,
+  onOpenBooking,
+  onOpenMessageThread,
+  onMarkNotificationRead,
+  onViewAllActivities,
+}) => {
   const getActivityIcon = (type: AdminNotification['type']) => {
     switch (type) {
       case 'booking':
@@ -111,17 +183,189 @@ const Dashboard: React.FC<OwnerDashboardProps> = ({ notifications, onOpenBooking
       time: n.time,
       bookingId: n.bookingId ?? null,
       notificationId: n.id,
+      type: n.type,
+      conversationId: n.data?.conversationId ?? n.conversationId ?? null,
+      conversationEmail: n.data?.conversationEmail ?? n.conversationEmail ?? null,
+      conversationName: n.data?.conversationName ?? n.conversationName ?? null,
+      conversationAvatar: n.data?.conversationAvatar ?? n.conversationAvatar ?? null,
       data: n.data ?? null,
       read: n.read,
     }));
 
-  const activities = notificationActivities.length > 0 ? notificationActivities : defaultActivities;
   const unreadCount = (notifications ?? []).filter((n) => !n.read).length;
+
+  const [overviewLoading, setOverviewLoading] = React.useState(true);
+  const [overviewError, setOverviewError] = React.useState('');
+  const [overviewStats, setOverviewStats] = React.useState({
+    totalRevenue: 0,
+    totalBookings: 0,
+    activeGuests: 0,
+    pendingPayments: '$0.00',
+    averageRating: 0,
+    ratedCount: 0,
+  });
+  const [bookings, setBookings] = React.useState<any[]>([]);
+  const [chartRange, setChartRange] = React.useState<'weekly' | 'monthly'>('weekly');
 
   const [selectedActivity, setSelectedActivity] = React.useState<any | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = React.useState(false);
   const [updatingStatus, setUpdatingStatus] = React.useState(false);
   const receiptRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    let cancelled = false;
+
+    const loadOverview = async () => {
+      setOverviewLoading(true);
+      setOverviewError('');
+
+      try {
+        const [bookingResponse, statsResponse, destinationsResponse, hotelsResponse] = await Promise.all([
+          bookingService.getBookings().catch(() => ({ data: [] })),
+          bookingService.getBookingStats().catch(() => null),
+          apiRequest('/destinations').catch(() => ({ data: [] })),
+          apiRequest('/hotels').catch(() => ({ data: [] })),
+        ]);
+
+        if (cancelled) return;
+
+        const bookingRows = Array.isArray(bookingResponse?.data) ? bookingResponse.data : [];
+        const destinationRows = Array.isArray((destinationsResponse as any)?.data)
+          ? (destinationsResponse as any).data
+          : Array.isArray(destinationsResponse)
+            ? destinationsResponse
+            : [];
+        const hotelRows = Array.isArray((hotelsResponse as any)?.data)
+          ? (hotelsResponse as any).data
+          : Array.isArray(hotelsResponse)
+            ? hotelsResponse
+            : [];
+
+        const paidBookings = bookingRows.filter((booking: any) => String(booking?.status ?? '').toLowerCase() === 'paid');
+        const totalRevenue = paidBookings.reduce((sum: number, booking: any) => sum + toNumber(booking?.totalAmount ?? booking?.total_amount ?? booking?.amount), 0);
+
+        const now = new Date();
+        const currentWindowStart = new Date(now);
+        currentWindowStart.setDate(now.getDate() - 30);
+        const previousWindowStart = new Date(now);
+        previousWindowStart.setDate(now.getDate() - 60);
+
+        const revenueInWindow = (start: Date, end: Date) =>
+          bookingRows
+            .filter((booking: any) => {
+              const created = parseDate(booking?.createdAt ?? booking?.created_at);
+              return created && created >= start && created < end && String(booking?.status ?? '').toLowerCase() === 'paid';
+            })
+            .reduce((sum: number, booking: any) => sum + toNumber(booking?.totalAmount ?? booking?.total_amount ?? booking?.amount), 0);
+
+        const bookingsInWindow = (start: Date, end: Date) =>
+          bookingRows.filter((booking: any) => {
+            const created = parseDate(booking?.createdAt ?? booking?.created_at);
+            return created && created >= start && created < end;
+          }).length;
+
+        const currentRevenue = revenueInWindow(currentWindowStart, now);
+        const previousRevenue = revenueInWindow(previousWindowStart, currentWindowStart);
+        const currentBookings = bookingsInWindow(currentWindowStart, now);
+        const previousBookings = bookingsInWindow(previousWindowStart, currentWindowStart);
+
+        const ratingData = buildAverageRating([...destinationRows, ...hotelRows]);
+        const backendStats = statsResponse ?? {};
+
+        setBookings(bookingRows);
+        setOverviewStats({
+          totalRevenue,
+          totalBookings: toNumber(backendStats?.total_bookings ?? bookingRows.length),
+          activeGuests: toNumber(backendStats?.active_guests ?? 0),
+          pendingPayments: String(backendStats?.pending_payments ?? '$0.00'),
+          averageRating: ratingData.rating,
+          ratedCount: ratingData.count,
+        });
+
+        setOverviewError('');
+
+        // keep derived values available to the card labels via local calculation
+        // (the card values themselves are computed below from the fetched data)
+        (loadOverview as any).currentRevenue = currentRevenue;
+        (loadOverview as any).previousRevenue = previousRevenue;
+        (loadOverview as any).currentBookings = currentBookings;
+        (loadOverview as any).previousBookings = previousBookings;
+      } catch (error) {
+        if (!cancelled) {
+          console.error('Failed to load owner overview data', error);
+          setOverviewError('Failed to load real overview data.');
+          setBookings([]);
+          setOverviewStats({
+            totalRevenue: 0,
+            totalBookings: 0,
+            activeGuests: 0,
+            pendingPayments: '$0.00',
+            averageRating: 0,
+            ratedCount: 0,
+          });
+        }
+      } finally {
+        if (!cancelled) {
+          setOverviewLoading(false);
+        }
+      }
+    };
+
+    void loadOverview();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const revenueSeries = React.useMemo(() => buildRevenueSeries(bookings, chartRange), [bookings, chartRange]);
+
+  const revenueChange = React.useMemo(() => {
+    const now = new Date();
+    const currentWindowStart = new Date(now);
+    currentWindowStart.setDate(now.getDate() - 30);
+    const previousWindowStart = new Date(now);
+    previousWindowStart.setDate(now.getDate() - 60);
+
+    const revenueInWindow = (start: Date, end: Date) =>
+      bookings
+        .filter((booking: any) => {
+          const created = parseDate(booking?.createdAt ?? booking?.created_at);
+          return created && created >= start && created < end && String(booking?.status ?? '').toLowerCase() === 'paid';
+        })
+        .reduce((sum: number, booking: any) => sum + toNumber(booking?.totalAmount ?? booking?.total_amount ?? booking?.amount), 0);
+
+    const currentRevenue = revenueInWindow(currentWindowStart, now);
+    const previousRevenue = revenueInWindow(previousWindowStart, currentWindowStart);
+    return {
+      value: formatPercent(currentRevenue, previousRevenue),
+      type: getDeltaType(currentRevenue, previousRevenue),
+      currentRevenue,
+    };
+  }, [bookings]);
+
+  const bookingsChange = React.useMemo(() => {
+    const now = new Date();
+    const currentWindowStart = new Date(now);
+    currentWindowStart.setDate(now.getDate() - 30);
+    const previousWindowStart = new Date(now);
+    previousWindowStart.setDate(now.getDate() - 60);
+
+    const bookingsInWindow = (start: Date, end: Date) =>
+      bookings.filter((booking: any) => {
+        const created = parseDate(booking?.createdAt ?? booking?.created_at);
+        return created && created >= start && created < end;
+      }).length;
+
+    const currentBookings = bookingsInWindow(currentWindowStart, now);
+    const previousBookings = bookingsInWindow(previousWindowStart, currentWindowStart);
+    return {
+      value: formatPercent(currentBookings, previousBookings),
+      type: getDeltaType(currentBookings, previousBookings),
+    };
+  }, [bookings]);
+
+  const activities = notificationActivities;
 
   const closeDetails = () => {
     setIsDetailsOpen(false);
@@ -148,6 +392,24 @@ const Dashboard: React.FC<OwnerDashboardProps> = ({ notifications, onOpenBooking
   };
 
   const openActivityDetails = (activity: any) => {
+    if (activity?.type === 'message' && activity?.conversationId && onOpenMessageThread) {
+      onOpenMessageThread({
+        id: String(activity.notificationId ?? activity.conversationId),
+        title: String(activity.title ?? 'New message'),
+        description: String(activity.desc ?? ''),
+        time: String(activity.time ?? ''),
+        type: 'message',
+        read: Boolean(activity.read),
+        data: {
+          conversationId: activity.conversationId,
+          conversationEmail: activity.conversationEmail,
+          conversationName: activity.conversationName,
+          conversationAvatar: activity.conversationAvatar,
+        },
+      });
+      return;
+    }
+
     if (!activity?.bookingId) return;
     setSelectedActivity(activity);
     setIsDetailsOpen(true);
@@ -259,25 +521,37 @@ const Dashboard: React.FC<OwnerDashboardProps> = ({ notifications, onOpenBooking
 
   return (
     <div className="p-8 max-w-[1440px] mx-auto space-y-8">
+      {overviewLoading && (
+        <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-medium text-blue-700 dark:border-blue-900/30 dark:bg-blue-900/20 dark:text-blue-200">
+          Loading live overview data...
+        </div>
+      )}
+      {overviewError && !overviewLoading && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-700 dark:border-amber-900/30 dark:bg-amber-900/20 dark:text-amber-200">
+          {overviewError}
+        </div>
+      )}
       <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <StatCard 
           title="Total Revenue" 
-          value="$12,845.50" 
-          change="14.2%" 
-          changeType="positive" 
+          value={overviewLoading ? '—' : formatCurrency(overviewStats.totalRevenue)} 
+          change={overviewLoading ? null : revenueChange.value} 
+          changeType={revenueChange.type} 
           icon={CreditCard} 
+          note={overviewLoading ? 'Loading...' : 'Based on paid bookings'}
         />
         <StatCard 
           title="Total Bookings" 
-          value="342" 
-          change="8.1%" 
-          changeType="positive" 
+          value={overviewLoading ? '—' : overviewStats.totalBookings.toLocaleString()} 
+          change={overviewLoading ? null : bookingsChange.value} 
+          changeType={bookingsChange.type} 
           icon={Ticket} 
+          note={overviewLoading ? 'Loading...' : `${overviewStats.activeGuests.toLocaleString()} active guests · ${overviewStats.pendingPayments} pending`}
         />
         <StatCard 
           title="Average Rating" 
-          value="4.8" 
-          subtitle="Stable" 
+          value={overviewLoading ? '—' : (overviewStats.averageRating > 0 ? overviewStats.averageRating.toFixed(1) : '0.0')} 
+          subtitle={overviewLoading ? 'Loading...' : `Based on ${overviewStats.ratedCount} rated listings`} 
           icon={Star} 
         />
       </section>
@@ -290,13 +564,35 @@ const Dashboard: React.FC<OwnerDashboardProps> = ({ notifications, onOpenBooking
               <p className="text-xs text-slate-500 font-medium mt-1">Real-time revenue stream analysis</p>
             </div>
             <div className="flex p-1 bg-slate-100 dark:bg-slate-800 rounded-lg">
-              <button className="px-4 py-1.5 bg-white dark:bg-slate-700 text-[11px] font-bold rounded-md shadow-sm text-blue-600">WEEKLY</button>
-              <button className="px-4 py-1.5 text-[11px] font-bold text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors">MONTHLY</button>
+              <button
+                type="button"
+                onClick={() => setChartRange('weekly')}
+                className={cn(
+                  'px-4 py-1.5 text-[11px] font-bold rounded-md shadow-sm transition-colors',
+                  chartRange === 'weekly'
+                    ? 'bg-white dark:bg-slate-700 text-blue-600'
+                    : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300',
+                )}
+              >
+                WEEKLY
+              </button>
+              <button
+                type="button"
+                onClick={() => setChartRange('monthly')}
+                className={cn(
+                  'px-4 py-1.5 text-[11px] font-bold rounded-md shadow-sm transition-colors',
+                  chartRange === 'monthly'
+                    ? 'bg-white dark:bg-slate-700 text-blue-600'
+                    : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300',
+                )}
+              >
+                MONTHLY
+              </button>
             </div>
           </div>
           <div className="h-[380px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={MOCK_REVENUE_DATA}>
+              <AreaChart data={revenueSeries}>
                 <defs>
                   <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.2}/>
@@ -357,15 +653,15 @@ const Dashboard: React.FC<OwnerDashboardProps> = ({ notifications, onOpenBooking
               </button>
             </div>
             <div className="space-y-3">
-              {(activities.length > 0 ? activities : [
-                { icon: CalendarCheck, title: 'Booking from Siem Reap', desc: 'Shared Shuttle • 2 Guests', time: '10 mins ago' },
-                { icon: CreditCard, title: 'Payout successful', desc: 'ABA Bank • $1,240.00', time: '2 hours ago' },
-                { icon: MessageSquare, title: 'Message from Sopheap', desc: 'Route timing question', time: '5 hours ago' },
-                { icon: Star, title: 'New 5-star review', desc: '"Excellent service!"', time: 'Yesterday' },
-              ]).map((activity, i) => (
-                <div
+              {activities.length > 0 ? activities.map((activity, i) => (
+                <button
                   key={i}
+                  type="button"
                   onClick={() => {
+                    if (activity?.type === 'message') {
+                      openActivityDetails(activity);
+                      return;
+                    }
                     if (activity?.data) {
                       openActivityDetails(activity);
                       return;
@@ -373,10 +669,11 @@ const Dashboard: React.FC<OwnerDashboardProps> = ({ notifications, onOpenBooking
                     if (activity?.bookingId && onOpenBooking) onOpenBooking(String(activity.bookingId));
                   }}
                   className={cn(
-                    "flex items-center gap-3 group rounded-xl px-2.5 py-2.5 -mx-2 transition-colors",
-                    activity?.bookingId ? "cursor-pointer" : "cursor-default",
+                    "w-full flex items-center gap-3 group rounded-xl px-2.5 py-2.5 -mx-2 transition-colors text-left",
+                    (activity?.bookingId || activity?.type === 'message') ? "cursor-pointer" : "cursor-default",
                     i !== 3 && "border-b border-slate-50 dark:border-slate-800/50",
                     activity?.read === false && "bg-blue-50/80 dark:bg-blue-900/20",
+                    activity?.type === 'message' && "hover:bg-blue-50/60 dark:hover:bg-blue-900/15",
                   )}
                 >
                   <div className="w-9 h-9 rounded-lg bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center text-blue-600 flex-shrink-0">
@@ -392,8 +689,12 @@ const Dashboard: React.FC<OwnerDashboardProps> = ({ notifications, onOpenBooking
                     <span className="text-[9px] font-bold text-slate-400 uppercase whitespace-nowrap">{activity.time}</span>
                     {activity?.read === false && <div className="w-2.5 h-2.5 rounded-full bg-blue-600" />}
                   </div>
+                </button>
+              )) : (
+                <div className="rounded-xl border border-slate-100 bg-slate-50 px-4 py-6 text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-400">
+                  No recent activity yet.
                 </div>
-              ))}
+              )}
             </div>
           </div>
 
@@ -547,7 +848,7 @@ const Dashboard: React.FC<OwnerDashboardProps> = ({ notifications, onOpenBooking
 
                   <div className="bg-slate-50 dark:bg-slate-800/40 p-3 text-center">
                     <p className="text-[10px] text-slate-400 font-medium uppercase tracking-widest">
-                      Thank you for using Komrong Explorer.
+                      Thank you for using Komrong.
                     </p>
                   </div>
                 </div>

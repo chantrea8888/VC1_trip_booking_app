@@ -67,6 +67,7 @@ interface AppRoutesProps {
   setView: (view: string) => void;
   onSelectRecommendation: (item: any) => void;
   onSelectDestination: (dest: any) => void;
+  onSearchDestination?: (query: string, dates: { start: Date | null; end: Date | null }, guests: { adults: number; children: number }) => void;
   onPromotionsClick: () => void;
   onHotelsClick: () => void;
   onRentalsClick: () => void;
@@ -210,6 +211,22 @@ const OwnerShellInner: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
     }
   };
 
+  const openOwnerMessageThread = (notification: any) => {
+    const thread = {
+      ownerId: notification?.data?.conversationId ?? notification?.conversationId ?? '',
+      ownerEmail: notification?.data?.conversationEmail ?? notification?.conversationEmail ?? '',
+      ownerName:
+        notification?.data?.conversationName ??
+        notification?.conversationName ??
+        notification?.title?.replace(/^New message from\s+/i, '') ??
+        'Owner',
+      ownerAvatar: notification?.data?.conversationAvatar ?? notification?.conversationAvatar ?? '',
+    };
+
+    sessionStorage.setItem('pending_message_thread', JSON.stringify(thread));
+    navigate('/messages');
+  };
+
   const renderOwnerPage = () => {
     const path = location.pathname;
     const openBookingDetails = (bookingId: string) => {
@@ -221,6 +238,7 @@ const OwnerShellInner: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
       <OwnerDashboard
         notifications={ownerNotifications}
         onOpenBooking={openBookingDetails}
+        onOpenMessageThread={openOwnerMessageThread}
         onMarkNotificationRead={markOwnerNotificationRead}
         onViewAllActivities={viewAllActivities}
       />
@@ -246,6 +264,7 @@ const OwnerShellInner: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
       <OwnerDashboard
         notifications={ownerNotifications}
         onOpenBooking={openBookingDetails}
+        onOpenMessageThread={openOwnerMessageThread}
         onMarkNotificationRead={markOwnerNotificationRead}
         onViewAllActivities={viewAllActivities}
       />
@@ -498,6 +517,7 @@ export const AppRoutes: React.FC<AppRoutesProps> = ({
   setView,
   onSelectRecommendation,
   onSelectDestination,
+  onSearchDestination,
   onPromotionsClick,
   onHotelsClick,
   onRentalsClick,
@@ -536,6 +556,8 @@ export const AppRoutes: React.FC<AppRoutesProps> = ({
     if (!requireAuth()) return;
     setTripData((prev: any) => {
       const next = { ...(prev || {}) };
+      const startDate = selection?.checkInDate ? new Date(selection.checkInDate) : null;
+      const endDate = selection?.checkOutDate ? new Date(selection.checkOutDate) : null;
       const destinationId =
         selectedHotel?.destination_id ??
         selectedHotel?.destinationId ??
@@ -563,10 +585,21 @@ export const AppRoutes: React.FC<AppRoutesProps> = ({
         originalPrice: selection?.originalPrice ?? next.hotel?.originalPrice,
         discountedPrice: selection?.discountedPrice ?? next.hotel?.discountedPrice,
         discountPercentage: selection?.discountPercentage ?? next.hotel?.discountPercentage,
+        checkInDate: selection?.checkInDate ?? next.hotel?.checkInDate,
+        checkOutDate: selection?.checkOutDate ?? next.hotel?.checkOutDate,
       };
+      if (startDate && !Number.isNaN(startDate.getTime())) {
+        next.startDate = startDate;
+      }
+      if (endDate && !Number.isNaN(endDate.getTime())) {
+        next.endDate = endDate;
+      }
+      if (selection?.stayDates) {
+        next.dates = selection.stayDates;
+      }
       return next;
     });
-    setView('trip-planner');
+    setView('bookings');
   };
 
   const handleSelectVehicle = (vehicle: any) => {
@@ -751,13 +784,18 @@ export const AppRoutes: React.FC<AppRoutesProps> = ({
           onMarkAsRead={onMarkAsRead}
           onMarkAllAsRead={onMarkAllAsRead}
           onNotificationClick={(notification) => {
-            if (String(notification?.type) === 'message' && notification?.conversationId) {
+            const conversationId = notification?.conversationId ?? notification?.data?.conversationId ?? null;
+            if (String(notification?.type) === 'message' && conversationId) {
               sessionStorage.setItem(
                 'pending_message_thread',
                 JSON.stringify({
-                  ownerId: notification.conversationId,
-                  ownerEmail: notification.conversationEmail || '',
-                  ownerName: notification.title?.replace(/^New message from\s+/i, '') || 'Owner',
+                  ownerId: conversationId,
+                  ownerEmail: notification?.conversationEmail ?? notification?.data?.conversationEmail ?? '',
+                  ownerName:
+                    notification?.conversationName ??
+                    notification?.data?.conversationName ??
+                    (notification.title?.replace(/^New message from\s+/i, '') || 'Owner'),
+                  ownerAvatar: notification?.conversationAvatar ?? notification?.data?.conversationAvatar ?? '',
                 }),
               );
               setView('messages');
@@ -772,6 +810,8 @@ export const AppRoutes: React.FC<AppRoutesProps> = ({
           browseDestination={browseDestination}
           onBack={() => setView(hotelBackView || 'landing')}
           onSelectHotel={handleSelectHotel}
+          setTripData={setTripData}
+          onOpenMessages={() => setView('messages')}
         />
       );
     case 'hotel-details':
@@ -957,6 +997,7 @@ export const AppRoutes: React.FC<AppRoutesProps> = ({
           tripData={tripData}
           onSelectRecommendation={onSelectRecommendation}
           onSelectDestination={onSelectDestination}
+          onSearchDestination={onSearchDestination}
           onPromotionsClick={onPromotionsClick}
           onHotelsClick={onHotelsClick}
           onRentalsClick={onRentalsClick}
@@ -974,6 +1015,7 @@ export const AppRoutes: React.FC<AppRoutesProps> = ({
           tripData={tripData}
           onSelectRecommendation={onSelectRecommendation}
           onSelectDestination={onSelectDestination}
+          onSearchDestination={onSearchDestination}
           onPromotionsClick={onPromotionsClick}
           onHotelsClick={onHotelsClick}
           onRentalsClick={onRentalsClick}

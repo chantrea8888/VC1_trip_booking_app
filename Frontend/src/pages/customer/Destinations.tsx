@@ -22,11 +22,14 @@ import {
 } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
+import { format } from 'date-fns';
 
 import { getHotels, type Hotel } from '@/data/hotels';
+import { apiRequest } from '@/services/api';
 import { getPublicDestinations } from '@/services/destinationService';
+import { getPublicPromotions } from '@/services/promotionService';
 
-export default function Destinations() {
+export default function Destinations({ onOpenMessages }: { onOpenMessages?: () => void }) {
   const [searchTerm, setSearchTerm] = React.useState('');
   const [destinations, setDestinations] = React.useState<any[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
@@ -178,6 +181,26 @@ export default function Destinations() {
     return firstLocation.split(',')[0]?.trim() || 'Cambodia';
   }, [destinations, selectedAreas, sortedDestinations]);
 
+  const openChatWithOwner = (owner: any) => {
+    if (!owner?.id) {
+      return;
+    }
+
+    const threadData = {
+      ownerId: owner.id,
+      ownerName: owner.name || owner.email || 'Owner',
+      ownerEmail: owner.email || '',
+      ownerAvatar: owner.avatar || '',
+    };
+    sessionStorage.setItem('pending_message_thread', JSON.stringify(threadData));
+
+    if (onOpenMessages) {
+      onOpenMessages();
+    } else {
+      console.warn('onOpenMessages callback not provided; please use the Messages view manually.');
+    }
+  };
+
   const toggleArea = (area: string) => {
     setSelectedAreas((previous) => (previous.includes(area) ? previous.filter((item) => item !== area) : [...previous, area]));
   };
@@ -201,7 +224,7 @@ export default function Destinations() {
                 <span>&gt;</span>
                 <span>{regionLabel}</span>
               </nav>
-              <h1 className="text-4xl font-bold tracking-tight text-slate-900 dark:text-slate-100">Available Stays in {regionLabel}</h1>
+              <h1 className="text-4xl font-bold tracking-tight text-slate-900 dark:text-slate-100">All Hotels</h1>
               <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">{sortedDestinations.length} properties found for your dates</p>
             </div>
 
@@ -329,6 +352,11 @@ export default function Destinations() {
                                 <MapPin className="h-4 w-4" />
                                 {destination.location}
                               </p>
+                              {destination.owner ? (
+                                <p className="mt-2 text-xs font-semibold text-slate-600 dark:text-slate-300">
+                                  Owner: {destination.owner.name || destination.owner.email || 'Unknown'}
+                                </p>
+                              ) : null}
                             </div>
 
                             <div className="text-left md:text-right">
@@ -356,7 +384,7 @@ export default function Destinations() {
                           ) : null}
                         </div>
 
-                        <div className="mt-5 flex flex-col gap-4 border-t border-slate-100 pt-4 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="mt-5 flex flex-col gap-3 border-t border-slate-100 pt-4 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between">
                           <div className="flex items-center gap-3">
                             <div className="flex -space-x-2">
                               {[0, 1, 2].map((avatar) => (
@@ -366,9 +394,18 @@ export default function Destinations() {
                             <p className="text-xs font-medium text-blue-600 dark:text-blue-400">{interestCount} friends interested</p>
                           </div>
 
-                          <button className={`rounded-xl px-6 py-3 text-sm font-semibold text-white transition-colors ${buttonClass}`}>
-                            View Selection
-                          </button>
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => openChatWithOwner(destination.owner)}
+                              className="rounded-xl px-6 py-3 text-sm font-semibold bg-emerald-600 text-white transition-colors hover:bg-emerald-700"
+                            >
+                              Chat with Owner
+                            </button>
+                            <button className={`rounded-xl px-6 py-3 text-sm font-semibold text-white transition-colors ${buttonClass}`}>
+                              View Selection
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -531,6 +568,7 @@ interface HotelsPageProps {
   browseDestination?: any;
   onBack: () => void;
   onSelectHotel: (hotel: any) => void;
+  setTripData?: React.Dispatch<React.SetStateAction<any>>;
 }
 
 const normalizeSearchText = (value: string): string =>
@@ -538,6 +576,18 @@ const normalizeSearchText = (value: string): string =>
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase();
+
+const isPromoActive = (promotion: any) => {
+  const statusValue = String(promotion?.status ?? '').toLowerCase();
+  const isActive = promotion?.is_active ?? statusValue === 'active';
+  if (!isActive) return false;
+
+  const endDate = promotion?.end_date || promotion?.expiry;
+  if (!endDate) return true;
+
+  const parsed = new Date(endDate);
+  return !Number.isNaN(parsed.getTime()) && parsed.getTime() >= Date.now();
+};
 
 const parsePrice = (price: string | number): number => {
   if (typeof price === 'number') return price;
@@ -604,7 +654,20 @@ const formatHotelDate = (value?: string): string => {
   if (!value) return 'Unknown date';
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return 'Unknown date';
-  return parsed.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+  return format(parsed, 'dd/MM/yyyy');
+};
+
+const formatDateInputValue = (value?: string | null): string => {
+  if (!value) return '';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return '';
+  return format(parsed, 'yyyy-MM-dd');
+};
+
+const parseDateInputValue = (value: string): Date | null => {
+  if (!value) return null;
+  const parsed = new Date(`${value}T00:00:00`);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
 };
 
 const getTripNights = (tripData?: any): number => {
@@ -742,7 +805,7 @@ const parseHotelCreatedAt = (value?: string | null): number => {
   return Number.isFinite(time) ? time : 0;
 };
 
-export const Hotels: React.FC<HotelsPageProps> = ({ tripData, browseDestination, onBack, onSelectHotel }) => {
+export const Hotels: React.FC<HotelsPageProps> = ({ tripData, browseDestination, onBack, onSelectHotel, setTripData }) => {
   const [priceRange, setPriceRange] = useState(2000);
   const [searchQuery, setSearchQuery] = useState(() => String(browseDestination?.location || browseDestination?.name || '').trim());
   const [mapLocationQuery, setMapLocationQuery] = useState(
@@ -762,7 +825,12 @@ export const Hotels: React.FC<HotelsPageProps> = ({ tripData, browseDestination,
   const [searchDestinations, setSearchDestinations] = useState<any[]>([]);
   const [isDestinationPickerOpen, setIsDestinationPickerOpen] = useState(false);
   const [destinationPickerQuery, setDestinationPickerQuery] = useState('');
+  const [isStayDatePickerOpen, setIsStayDatePickerOpen] = useState(false);
+  const [checkInDate, setCheckInDate] = useState(() => formatDateInputValue(tripData?.startDate));
+  const [checkOutDate, setCheckOutDate] = useState(() => formatDateInputValue(tripData?.endDate));
+  const [stayDateError, setStayDateError] = useState('');
   const destinationPickerRef = React.useRef<HTMLDivElement | null>(null);
+  const stayDatePickerRef = React.useRef<HTMLDivElement | null>(null);
 
   const t = (key: string): string => {
     const en: Record<string, string> = {
@@ -807,10 +875,37 @@ export const Hotels: React.FC<HotelsPageProps> = ({ tripData, browseDestination,
     setHotelsError('');
 
     (async () => {
+      const loadingStartedAt = Date.now();
       try {
-        const data = await getPublicDestinations();
+        const [data, promotionResponse] = await Promise.all([
+          getPublicDestinations(),
+          getPublicPromotions().catch(() => []),
+        ]);
         if (cancelled) return;
-        const normalized = (Array.isArray(data) ? data : []).map(mapDestinationToHotel);
+        const promotions = Array.isArray(promotionResponse) ? promotionResponse : [];
+        const activePromotions = promotions.filter(isPromoActive);
+
+        const promotionByDestinationId = new Map<number, any>();
+        activePromotions.forEach((promotion: any) => {
+          const linkedDestinations = Array.isArray(promotion?.linked_destinations) ? promotion.linked_destinations : [];
+          linkedDestinations.forEach((linkedId: any) => {
+            const numericId = Number(linkedId);
+            if (Number.isFinite(numericId) && !promotionByDestinationId.has(numericId)) {
+              promotionByDestinationId.set(numericId, promotion);
+            }
+          });
+        });
+
+        const normalized = (Array.isArray(data) ? data : []).map(mapDestinationToHotel).map((hotel: any) => {
+          const promo = promotionByDestinationId.get(Number(hotel.id));
+          return promo
+            ? {
+                ...hotel,
+                has_promotion: true,
+                promotion: promo,
+              }
+            : hotel;
+        });
         if (!cancelled) {
           setHotels(normalized.length > 0 ? normalized : getHotels());
           setSearchDestinations(Array.isArray(data) ? data : []);
@@ -821,9 +916,13 @@ export const Hotels: React.FC<HotelsPageProps> = ({ tripData, browseDestination,
           setHotels(getHotels());
         }
       } finally {
-        if (!cancelled) {
-          setHotelsLoading(false);
-        }
+        const elapsed = Date.now() - loadingStartedAt;
+        const remaining = Math.max(0, 1000 - elapsed);
+        window.setTimeout(() => {
+          if (!cancelled) {
+            setHotelsLoading(false);
+          }
+        }, remaining);
       }
     })();
 
@@ -862,11 +961,20 @@ export const Hotels: React.FC<HotelsPageProps> = ({ tripData, browseDestination,
     setMapLocationQuery(destinationQuery);
   }, [browseDestination?.location, browseDestination?.name]);
 
-  const tripNights = getTripNights(tripData);
+  const tripNights =
+    checkInDate && checkOutDate
+      ? Math.max(
+          1,
+          Math.ceil(
+            (new Date(`${checkOutDate}T00:00:00`).getTime() - new Date(`${checkInDate}T00:00:00`).getTime()) /
+              (1000 * 60 * 60 * 24),
+          ),
+        )
+      : getTripNights(tripData);
   const stayWindowLabel =
-    tripData?.startDate && tripData?.endDate
-      ? `${formatHotelDate(tripData.startDate)} - ${formatHotelDate(tripData.endDate)}`
-      : 'your selected dates';
+    checkInDate && checkOutDate
+      ? `${formatHotelDate(`${checkInDate}T00:00:00`)} - ${formatHotelDate(`${checkOutDate}T00:00:00`)}`
+      : 'Set dates';
   const priceCeiling = React.useMemo(() => {
     const highestPrice = hotels.reduce((max, hotel) => Math.max(max, parsePrice(hotel.price)), 0);
     return Math.max(500, Math.ceil(highestPrice / 50) * 50);
@@ -919,7 +1027,24 @@ export const Hotels: React.FC<HotelsPageProps> = ({ tripData, browseDestination,
   }, [searchDestinations]);
 
   const queryTokens = normalizeSearchText(searchQuery).trim().split(/\s+/).filter(Boolean);
-  const filteredHotels = React.useMemo(() => hotels.filter((hotel) => {
+  const matchesHotelQuery = React.useCallback((hotel: CustomerHotel | Hotel) => {
+    if (queryTokens.length === 0) return true;
+
+    const hotelAreaKey = normalizeSearchText(getHotelArea(hotel.location));
+    const hotelLocationKey = normalizeSearchText(String(hotel.location || ''));
+    const relatedDestinationText = [
+      destinationSearchIndex.byArea.get(hotelAreaKey) || '',
+      destinationSearchIndex.byExactLocation.get(hotelLocationKey) || '',
+    ].join(' ');
+
+    const searchableText = normalizeSearchText(
+      [hotel.name, hotel.location, getHotelArea(hotel.location), relatedDestinationText].join(' ')
+    );
+
+    return queryTokens.every((token) => searchableText.includes(token));
+  }, [destinationSearchIndex, queryTokens]);
+
+  const matchesCurrentFilters = React.useCallback((hotel: CustomerHotel | Hotel) => {
     if (parsePrice(hotel.price) > priceRange) return false;
 
     if (selectedStars !== null) {
@@ -941,21 +1066,20 @@ export const Hotels: React.FC<HotelsPageProps> = ({ tripData, browseDestination,
       if (!matchesAmenities) return false;
     }
 
-    if (queryTokens.length === 0) return true;
+    return matchesHotelQuery(hotel);
+  }, [matchesHotelQuery, priceRange, selectedAmenities, selectedAreas, selectedStars]);
 
-    const hotelAreaKey = normalizeSearchText(getHotelArea(hotel.location));
-    const hotelLocationKey = normalizeSearchText(String(hotel.location || ''));
-    const relatedDestinationText = [
-      destinationSearchIndex.byArea.get(hotelAreaKey) || '',
-      destinationSearchIndex.byExactLocation.get(hotelLocationKey) || '',
-    ].join(' ');
+  const filteredHotels = React.useMemo(() => {
+    const primaryMatches = hotels.filter(matchesCurrentFilters);
+    if (primaryMatches.length > 0 || queryTokens.length === 0) {
+      return primaryMatches;
+    }
 
-    const searchableText = normalizeSearchText(
-      [hotel.location, getHotelArea(hotel.location), relatedDestinationText].join(' ')
-    );
-
-    return queryTokens.every((token) => searchableText.includes(token));
-  }), [destinationSearchIndex, hotels, priceRange, queryTokens, selectedAmenities, selectedAreas, selectedStars]);
+    // If the live API data doesn't have a city match, fall back to the curated hotel set
+    // so searched locations like Siem Reap still show real stays instead of an empty page.
+    const fallbackMatches = getHotels().filter(matchesCurrentFilters);
+    return fallbackMatches.length > 0 ? fallbackMatches : primaryMatches;
+  }, [hotels, matchesCurrentFilters, queryTokens.length]);
 
   const sortedHotels = React.useMemo(() => {
     const items = [...filteredHotels];
@@ -1022,6 +1146,31 @@ export const Hotels: React.FC<HotelsPageProps> = ({ tripData, browseDestination,
       document.removeEventListener('mousedown', handleOutsideClick);
     };
   }, [isDestinationPickerOpen]);
+
+  useEffect(() => {
+    const nextCheckIn = formatDateInputValue(tripData?.startDate);
+    const nextCheckOut = formatDateInputValue(tripData?.endDate);
+    setCheckInDate(nextCheckIn);
+    setCheckOutDate(nextCheckOut);
+  }, [tripData?.startDate, tripData?.endDate]);
+
+  useEffect(() => {
+    if (!isStayDatePickerOpen) return;
+
+    const handleOutsideClick = (event: MouseEvent) => {
+      const target = event.target as Node | null;
+      if (!target) return;
+
+      if (stayDatePickerRef.current && !stayDatePickerRef.current.contains(target)) {
+        setIsStayDatePickerOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+    };
+  }, [isStayDatePickerOpen]);
 
   const destinationPickerOptions = React.useMemo(() => {
     const fromDestinations = searchDestinations.flatMap((destination) => [
@@ -1140,6 +1289,45 @@ export const Hotels: React.FC<HotelsPageProps> = ({ tripData, browseDestination,
     setDestinationPickerQuery(selectedLocation);
     setIsDestinationPickerOpen(false);
     document.getElementById('hotel-results')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  const applyStayDates = () => {
+    const nextCheckIn = parseDateInputValue(checkInDate);
+    const nextCheckOut = parseDateInputValue(checkOutDate);
+
+    if (!nextCheckIn || !nextCheckOut) {
+      setStayDateError('Please choose both check-in and check-out before applying.');
+      return;
+    }
+
+    const startDate = nextCheckIn <= nextCheckOut ? nextCheckIn : nextCheckOut;
+    const endDate = nextCheckIn <= nextCheckOut ? nextCheckOut : nextCheckIn;
+    const nextDatesLabel = `${format(startDate, 'dd/MM/yyyy')} - ${format(endDate, 'dd/MM/yyyy')}`;
+    setStayDateError('');
+
+    setTripData?.((previous: any) => {
+      const next = { ...(previous || {}) };
+      next.startDate = startDate.toISOString();
+      next.endDate = endDate.toISOString();
+      next.dates = nextDatesLabel;
+      return next;
+    });
+
+    try {
+      const stored = sessionStorage.getItem('customer_trip_data');
+      const parsed = stored ? JSON.parse(stored) : {};
+      const nextStored = {
+        ...(parsed || {}),
+        startDate: startDate.toISOString(),
+        endDate: endDate.toISOString(),
+        dates: nextDatesLabel,
+      };
+      sessionStorage.setItem('customer_trip_data', JSON.stringify(nextStored));
+    } catch {
+      /* ignore storage errors */
+    }
+
+    setIsStayDatePickerOpen(false);
   };
 
   const openMapForQuery = (query: string) => {
@@ -1364,12 +1552,92 @@ export const Hotels: React.FC<HotelsPageProps> = ({ tripData, browseDestination,
                     ) : null}
                   </div>
 
-                  <div className="flex min-w-0 items-center gap-3 rounded-xl px-4 py-3">
-                    <Calendar className="h-5 w-5 text-blue-600" />
-                    <div className="min-w-0">
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">Stay Window</p>
-                      <p className="truncate text-sm font-semibold text-slate-900 dark:text-white">{stayWindowLabel}</p>
-                    </div>
+                  <div ref={stayDatePickerRef} className="relative min-w-0">
+                    <button
+                      type="button"
+                      onClick={() => setIsStayDatePickerOpen((previous) => !previous)}
+                      className="flex min-w-0 items-center gap-3 rounded-xl px-4 py-3 text-left transition-colors hover:bg-slate-100/80 dark:hover:bg-slate-900"
+                    >
+                      <Calendar className="h-5 w-5 text-blue-600" />
+                      <div className="min-w-0">
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">Check-in / Check-out</p>
+                        <p className="truncate text-sm font-semibold text-slate-900 dark:text-white">{stayWindowLabel}</p>
+                      </div>
+                    </button>
+
+                    {isStayDatePickerOpen ? (
+                      <div className="absolute left-0 top-[calc(100%+0.5rem)] z-[70] w-[320px] rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl dark:border-slate-700 dark:bg-slate-950">
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <label className="block">
+                            <span className="mb-2 block text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+                              Check-in
+                            </span>
+                            <input
+                              type="date"
+                              value={checkInDate}
+                              onChange={(event) => {
+                                setCheckInDate(event.target.value);
+                                setStayDateError('');
+                              }}
+                              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-900 outline-none transition focus:border-blue-500 focus:bg-white dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                            />
+                          </label>
+                          <label className="block">
+                            <span className="mb-2 block text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+                              Check-out
+                            </span>
+                            <input
+                              type="date"
+                              value={checkOutDate}
+                              onChange={(event) => {
+                                setCheckOutDate(event.target.value);
+                                setStayDateError('');
+                              }}
+                              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-900 outline-none transition focus:border-blue-500 focus:bg-white dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                            />
+                          </label>
+                        </div>
+
+                        {stayDateError ? (
+                          <p className="mt-3 text-xs font-medium text-red-500">{stayDateError}</p>
+                        ) : (
+                          <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
+                            Choose both dates before applying.
+                          </p>
+                        )}
+
+                        <div className="mt-4 flex items-center justify-between gap-3">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setCheckInDate('');
+                              setCheckOutDate('');
+                              setStayDateError('');
+                            }}
+                            className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
+                          >
+                            Clear
+                          </button>
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setIsStayDatePickerOpen(false)}
+                              className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-900"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              type="button"
+                              onClick={applyStayDates}
+                              disabled={!checkInDate || !checkOutDate}
+                              className="rounded-xl bg-blue-600 px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
+                            >
+                              Apply Dates
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
 
                   <button
@@ -1537,7 +1805,7 @@ export const Hotels: React.FC<HotelsPageProps> = ({ tripData, browseDestination,
                     <span>{regionLabel}</span>
                   </div>
                   <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-900 dark:text-white sm:text-4xl">
-                    Available Stays in {regionLabel}
+                    All Hotels
                   </h1>
                   <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
                     {sortedHotels.length} {sortedHotels.length === 1 ? 'property' : 'properties'} found for {stayWindowLabel}
@@ -1562,8 +1830,10 @@ export const Hotels: React.FC<HotelsPageProps> = ({ tripData, browseDestination,
 
               <div className="space-y-4">
                 {hotelsLoading && (
-                  <div className="rounded-[1.6rem] border border-slate-200 bg-white px-5 py-10 text-center text-slate-500 shadow-sm dark:border-slate-800 dark:bg-slate-950 dark:text-slate-400">
-                    Loading hotels...
+                  <div className="flex items-center justify-center rounded-[1.6rem] border border-slate-200 bg-white px-5 py-10 shadow-sm dark:border-slate-800 dark:bg-slate-950">
+                    <div className="flex flex-col items-center gap-3 text-slate-500 dark:text-slate-400">
+                      <div className="h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-blue-600 dark:border-slate-700 dark:border-t-blue-500" />
+                    </div>
                   </div>
                 )}
 

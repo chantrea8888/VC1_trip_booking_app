@@ -795,7 +795,7 @@ const Transport = () => {
                   </select>
                 </div>
                 <div className="space-y-1 sm:col-span-2">
-                  <label className="text-xs font-medium text-slate-700 dark:text-slate-300">Price per KM</label>
+                  <label className="text-xs font-medium text-slate-700 dark:text-slate-300">Price per day</label>
                   <div className="grid grid-cols-2 gap-3">
                     {priceOptions.map((option) => (
                       <label

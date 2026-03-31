@@ -1,21 +1,5 @@
 import React from 'react';
-import { 
-  LayoutDashboard, 
-  MapPin, 
-  Bus, 
-  CalendarCheck, 
-  MessageSquare, 
-  Tag, 
-  BarChart3, 
-  Wallet, 
-  Settings,
-  CreditCard,
-  Star,
-  TrendingUp,
-  Clock,
-  CheckCircle2,
-  AlertCircle
-} from 'lucide-react';
+import { LayoutDashboard, MapPin, Bus, CalendarCheck, MessageSquare, Tag, BarChart3, Wallet, Settings } from 'lucide-react';
 
 export const NAV_ITEMS = [
   { id: 'overview', label: 'Overview', icon: LayoutDashboard, path: '/' },
@@ -42,17 +26,3 @@ export const MOCK_REVENUE_DATA = [
   { name: 'Sun', value: 3200 },
 ];
 
-export const MOCK_ANALYTICS_REVENUE = [
-  { name: 'Jan', value: 4500 },
-  { name: 'Feb', value: 5200 },
-  { name: 'Mar', value: 4800 },
-  { name: 'Apr', value: 6100 },
-  { name: 'May', value: 7200 },
-  { name: 'Jun', value: 8500 },
-  { name: 'Jul', value: 7900 },
-  { name: 'Aug', value: 9200 },
-  { name: 'Sep', value: 11000 },
-  { name: 'Oct', value: 10500 },
-  { name: 'Nov', value: 12500 },
-  { name: 'Dec', value: 14800 },
-];

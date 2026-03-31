@@ -10,7 +10,7 @@ import {
   CheckCircle2,
   Percent
 } from 'lucide-react';
-import { apiRequest } from '@/services/api';
+import { getPublicPromotions } from '@/services/promotionService';
 
 interface Promotion {
   id: number;
@@ -37,17 +37,17 @@ const DEFAULT_PROMOTION_IMAGES: Record<'hotel' | 'transport' | 'all', string> = 
 const mapPromotion = (raw: any): Promotion => {
   const linkedDestinations = Array.isArray(raw?.linked_destinations) ? raw.linked_destinations : [];
   const linkedTransports = Array.isArray(raw?.linked_transports) ? raw.linked_transports : [];
+  const isActive = raw?.is_active ?? String(raw?.status ?? '').toLowerCase() === 'active';
 
   let inferredType: Promotion['type'] = 'hotel';
-  if (
+  if (linkedDestinations.length && linkedTransports.length) {
+    inferredType = 'all';
+  } else if (
     raw?.service_category === 'transport' ||
     (!raw?.service_category && !linkedDestinations.length && linkedTransports.length)
   ) {
     inferredType = 'transport';
-  } else if (
-    raw?.service_category === 'all' ||
-    (linkedDestinations.length && linkedTransports.length)
-  ) {
+  } else if (raw?.service_category === 'all') {
     inferredType = 'all';
   }
 
@@ -72,7 +72,7 @@ const mapPromotion = (raw: any): Promotion => {
     color: raw?.color ?? badgeColor,
     originalPrice: raw?.original_price ? `$${raw.original_price}` : 'Ask for price',
     promoPrice: raw?.discount ?? 'Special rate',
-    status: raw?.is_active ? 'active' : 'expired',
+    status: isActive ? 'active' : 'expired',
     reach: raw?.reach ?? '0',
   };
 };
@@ -96,8 +96,7 @@ export const Promotions: React.FC<PromotionsProps> = ({ onBack, onClaim }) => {
     const loadPromotions = async () => {
       setLoadingPromotions(true);
       try {
-        const response = await apiRequest('/promotions/public');
-        const payload = Array.isArray(response?.data) ? response.data : [];
+        const payload = await getPublicPromotions();
         if (!didCancel) {
           setPromotions(payload.map(mapPromotion));
         }

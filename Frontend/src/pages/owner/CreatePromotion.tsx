@@ -19,7 +19,7 @@ import { cn } from '@/utils/utils';
 import { apiRequest } from '@/services/api';
 import { createPromotion } from '@/services/promotionService';
 
-type PromotionServiceCategory = 'hotel' | 'transport';
+type PromotionServiceCategory = 'hotel' | 'transport' | 'all';
 
 type PromotionType = 'Percentage Discount' | 'Fixed Amount Off' | 'Bundle Offer' | 'Early Bird Special';
 
@@ -36,6 +36,15 @@ interface Transport {
   route: string;
   type: string;
 }
+
+const dedupeById = <T extends { id: string }>(items: T[]) => {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    if (seen.has(item.id)) return false;
+    seen.add(item.id);
+    return true;
+  });
+};
 
 const CreatePromotion = () => {
   const navigate = useNavigate();
@@ -71,6 +80,8 @@ const CreatePromotion = () => {
 
   const showDestinationsSection = serviceCategory === 'hotel' || showAdditionalLinkedItems;
   const showTransportsSection = serviceCategory === 'transport' || showAdditionalLinkedItems;
+  const effectiveServiceCategory: PromotionServiceCategory =
+    linkedDestinations.length > 0 && linkedTransports.length > 0 ? 'all' : serviceCategory;
 
   // Load destinations and transports when entering step 3
   React.useEffect(() => {
@@ -89,12 +100,13 @@ const CreatePromotion = () => {
     try {
       const response = await apiRequest('/destinations');
       const data = Array.isArray(response?.data) ? response.data : [];
-      setDestinations(data.map((d: any) => ({
-        id: String(d.id),
+      const mapped = data.map((d: any, index: number) => ({
+        id: String(d.id ?? d.destination_id ?? d._id ?? `${d.name || 'destination'}-${d.location || 'location'}-${index}`),
         name: d.name || 'Untitled',
         location: d.location || '',
         type: d.type || 'Hotel'
-      })));
+      }));
+      setDestinations(dedupeById(mapped));
     } catch (error) {
       console.error('Failed to load destinations:', error);
     } finally {
@@ -107,12 +119,13 @@ const CreatePromotion = () => {
     try {
       const response = await apiRequest('/owner/transports');
       const data = Array.isArray(response?.data) ? response.data : [];
-      setTransports(data.map((t: any) => ({
-        id: String(t.transport_id || t.id),
+      const mapped = data.map((t: any, index: number) => ({
+        id: String(t.transport_id ?? t.id ?? t.transportId ?? `${t.service_name || 'transport'}-${t.route_description || 'route'}-${index}`),
         name: t.service_name || 'Untitled',
         route: t.route_description || '',
         type: t.transport_type || 'Car Rental'
-      })));
+      }));
+      setTransports(dedupeById(mapped));
     } catch (error) {
       console.error('Failed to load transports:', error);
     } finally {
@@ -121,19 +134,11 @@ const CreatePromotion = () => {
   };
 
   const toggleDestination = (id: string) => {
-    setLinkedDestinations(prev => 
-      prev.includes(id) 
-        ? prev.filter(d => d !== id)
-        : [...prev, id]
-    );
+    setLinkedDestinations((prev) => (prev[0] === id ? [] : [id]));
   };
 
   const toggleTransport = (id: string) => {
-    setLinkedTransports(prev => 
-      prev.includes(id) 
-        ? prev.filter(t => t !== id)
-        : [...prev, id]
-    );
+    setLinkedTransports((prev) => (prev[0] === id ? [] : [id]));
   };
 
   const filteredDestinations = destinations.filter(d => 
@@ -180,9 +185,9 @@ const CreatePromotion = () => {
       end_date: endDate || null,
       expiry: endDate || null,
       is_active: true,
-      service_category: serviceCategory,
-      linked_destinations: linkedDestinations.map(id => parseInt(id)),
-      linked_transports: linkedTransports.map(id => parseInt(id)),
+      service_category: effectiveServiceCategory,
+      linked_destinations: linkedDestinations.map((id) => Number(id)).filter(Number.isFinite),
+      linked_transports: linkedTransports.map((id) => Number(id)).filter(Number.isFinite),
     };
 
     try {
@@ -547,7 +552,7 @@ const CreatePromotion = () => {
                 </div>
                 <div className="text-right">
                   <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Category</p>
-                  <p className="text-sm font-bold capitalize">{serviceCategory}</p>
+                  <p className="text-sm font-bold capitalize">{effectiveServiceCategory}</p>
                 </div>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

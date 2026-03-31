@@ -59,13 +59,13 @@ const Promotions = () => {
           const linkedDestinations = Array.isArray(p?.linked_destinations) ? p.linked_destinations : [];
           const linkedTransports = Array.isArray(p?.linked_transports) ? p.linked_transports : [];
           const normalizedCategory =
-            typeof p?.service_category === 'string' && ['hotel', 'transport', 'all'].includes(p.service_category)
-              ? p.service_category
-              : linkedDestinations.length && linkedTransports.length
+            linkedDestinations.length && linkedTransports.length
                 ? 'all'
-                : linkedTransports.length
-                  ? 'transport'
-                  : 'hotel';
+                : typeof p?.service_category === 'string' && ['hotel', 'transport', 'all'].includes(p.service_category)
+                  ? p.service_category
+                  : linkedTransports.length
+                    ? 'transport'
+                    : 'hotel';
 
           return {
             ...p,

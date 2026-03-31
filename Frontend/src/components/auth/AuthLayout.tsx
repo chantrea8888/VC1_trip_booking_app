@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
+import { BrandLogo } from '../common/BrandLogo';
 
 interface Slide {
   id: number;
@@ -149,19 +150,8 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({
                 
                 <div className="absolute inset-0 flex flex-col justify-between p-8 lg:p-10">
                   <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-lg overflow-hidden">
-                      <img 
-                        src="/logos/logoBookingTrip.png"
-                        alt="Komrong Logo" 
-                        className="w-full h-full object-contain p-1"
-                        onError={(e) => {
-                          const target = e.target as HTMLImageElement;
-                          target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%230052CC'/%3E%3Ctext x='50' y='50' text-anchor='middle' dy='.3em' fill='white' font-family='Arial' font-size='40' font-weight='bold'%3EK%3C/text%3E%3C/svg%3E";
-                        }}
-                      />
-                    </div>
-                    <span className="text-white font-bold text-xl">Komrong</span>
-                  </div>
+                  <BrandLogo variant="full" className="h-16 w-[280px] max-w-[45vw]" />
+                </div>
 
                   <div className="max-w-[300px]">
                     <motion.h1 

@@ -46,7 +46,7 @@ export const LogoutConfirmModal: React.FC<LogoutConfirmModalProps> = ({
               <p className={`mt-4 text-sm leading-relaxed text-center ${
                 isDarkMode ? 'text-slate-300' : 'text-slate-600'
               }`}>
-                Are you sure you want to log out from Komrong Trip Booking?
+                Are you sure you want to log out from Komrong?
               </p>
               <div className="mt-5 flex items-center justify-center gap-6">
                 <button

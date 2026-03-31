@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { apiRequest } from '@/services/api';
+import { getPublicPromotions } from '@/services/promotionService';
 import { 
   Search, 
   MapPin, 
@@ -38,6 +39,18 @@ const toNumericValue = (value: unknown, fallback = 0): number => {
   return Number.isFinite(parsed) ? parsed : fallback;
 };
 
+const isPromoActive = (promotion: any) => {
+  const statusValue = String(promotion?.status ?? '').toLowerCase();
+  const isActive = promotion?.is_active ?? statusValue === 'active';
+  if (!isActive) return false;
+
+  const endDate = promotion?.end_date || promotion?.expiry;
+  if (!endDate) return true;
+
+  const parsed = new Date(endDate);
+  return !Number.isNaN(parsed.getTime()) && parsed.getTime() >= Date.now();
+};
+
 type CustomerVehicle = {
   id: number;
   name: string;
@@ -64,163 +77,45 @@ type CustomerVehicle = {
   isAvailable?: boolean;
 };
 
-const FALLBACK_VEHICLES: CustomerVehicle[] = [
-  {
-    id: 1,
-    name: "Tesla Model Y",
-    type: "Electric",
-    price: 18,
-    rating: 4.9,
-    seats: 5,
-    transmission: "Auto",
-    mileage: "Unlim.",
-    image: "https://images.unsplash.com/photo-1619767886558-efdc259cde1a?auto=format&fit=crop&q=80&w=800",
-    badge: "ELECTRIC",
-    instantBook: true,
-  },
-  {
-    id: 2,
-    name: "Toyota RAV4",
-    type: "SUV",
-    price: 15,
-    rating: 4.7,
-    seats: 5,
-    bags: 3,
-    ac: "A/C",
-    image: "https://images.unsplash.com/photo-1568844293986-8d0400bd4745?auto=format&fit=crop&q=80&w=800",
-    instantBook: false,
-  },
-  {
-    id: 3,
-    name: "BMW 4 Series",
-    type: "Luxury",
-    price: 20,
-    rating: 5.0,
-    seats: 4,
-    performance: "Performance",
-    transmission: "Sport Auto",
-    image: "https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&q=80&w=800",
-    badge: "LUXURY",
-    instantBook: true,
-  },
-  {
-    id: 4,
-    name: "Hyundai Accent",
-    type: "Economy",
-    price: 12,
-    rating: 4.5,
-    seats: 5,
-    engine: "Hybrid",
-    bags: 2,
-    image: "https://images.unsplash.com/photo-1619767886558-efdc259cde1a?auto=format&fit=crop&q=80&w=800",
-    instantBook: true,
-  },
-  {
-    id: 5,
-    name: "Jeep Wrangler",
-    type: "SUV",
-    price: 16,
-    rating: 4.8,
-    drive: "4x4",
-    style: "Convertible",
-    seats: 4,
-    image: "https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&q=80&w=800",
-    instantBook: false,
-  },
-  {
-    id: 6,
-    name: "Polestar 2",
-    type: "Electric",
-    price: 19,
-    rating: 4.9,
-    engine: "Electric",
-    insurance: "Insurance Incl.",
-    seats: 5,
-    image: "https://images.unsplash.com/photo-1621135802920-133df287f89c?auto=format&fit=crop&q=80&w=800",
-    badge: "NEW",
-    instantBook: true,
-  },
-  {
-    id: 7,
-    name: "Ford Mustang",
-    type: "Sport",
-    price: 17,
-    rating: 4.8,
-    seats: 4,
-    transmission: "Auto",
-    style: "Coupe",
-    image: "https://images.unsplash.com/photo-1494976388531-d1058494cdd8?auto=format&fit=crop&q=80&w=800",
-    badge: "POPULAR",
-    instantBook: true,
-  },
-  {
-    id: 8,
-    name: "Mercedes GLC",
-    type: "Luxury SUV",
-    price: 20,
-    rating: 4.9,
-    seats: 5,
-    transmission: "Auto",
-    bags: 4,
-    image: "https://images.unsplash.com/photo-1549924231-f129b911e442?auto=format&fit=crop&q=80&w=800",
-    instantBook: true,
-  },
-  {
-    id: 9,
-    name: "Nissan Leaf",
-    type: "Electric",
-    price: 14,
-    rating: 4.6,
-    seats: 5,
-    transmission: "Auto",
-    mileage: "Unlim.",
-    image: "https://images.unsplash.com/photo-1553440569-bcc63803a83d?auto=format&fit=crop&q=80&w=800",
-    instantBook: false,
-  },
-];
+const parsePromotionDiscount = (promotion: any, basePrice: number) => {
+  const discount = String(promotion?.discount ?? '').trim();
+  if (discount.endsWith('%')) {
+    const percent = Number.parseFloat(discount.replace('%', ''));
+    if (Number.isFinite(percent)) {
+      const discountedPrice = Math.max(0, basePrice - (basePrice * percent) / 100);
+      return { discountedPrice, originalPrice: basePrice, discountPercentage: percent };
+    }
+  }
 
-const FALLBACK_STAYS = [
-  {
-    id: 1,
-    name: "Oceanfront Modern Villa",
-    location: "Malibu, California",
-    price: 20,
-    rating: 4.9,
-    guests: 8,
-    image: "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&q=80&w=800",
-    instantBook: true,
-  },
-  {
-    id: 2,
-    name: "Highland Forest Cabin",
-    location: "Lake Tahoe, Nevada",
-    price: 14,
-    rating: 4.7,
-    guests: 4,
-    image: "https://images.unsplash.com/photo-1449156001437-3a1621acda2e?auto=format&fit=crop&q=80&w=800",
-    instantBook: false,
-  },
-  {
-    id: 3,
-    name: "Sunset Mediterranean Villa",
-    location: "Santorini, Greece",
-    price: 18,
-    rating: 4.8,
-    guests: 6,
-    image: "https://images.unsplash.com/photo-1518780664697-55e3ad937233?auto=format&fit=crop&q=80&w=800",
-    instantBook: true,
-  },
-  {
-    id: 4,
-    name: "Downtown Minimalist Loft",
-    location: "Berlin, Germany",
-    price: 12,
-    rating: 4.6,
-    guests: 3,
-    image: "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&q=80&w=800",
-    instantBook: false,
-  },
-];
+  if (discount.startsWith('$')) {
+    const amount = Number.parseFloat(discount.replace('$', ''));
+    if (Number.isFinite(amount)) {
+      const discountedPrice = Math.max(0, basePrice - amount);
+      const discountPercentage = basePrice > 0 ? Math.round((amount / basePrice) * 100) : 0;
+      return { discountedPrice, originalPrice: basePrice, discountPercentage };
+    }
+  }
+
+  const discountPercentage = toNumericValue(promotion?.discount_percentage ?? 0);
+  return {
+    discountedPrice: basePrice,
+    originalPrice: basePrice,
+    discountPercentage,
+  };
+};
+
+const FALLBACK_VEHICLES: CustomerVehicle[] = [];
+
+const FALLBACK_STAYS: Array<{
+  id: number;
+  name: string;
+  location: string;
+  price: number;
+  rating: number;
+  guests: number;
+  image: string;
+  instantBook: boolean;
+}> = [];
 
 const mapTransportToVehicle = (transport: any): CustomerVehicle => {
   const rawId = Number(transport?.transport_id ?? transport?.id ?? transport?.transportId ?? Date.now());
@@ -264,14 +159,14 @@ export const Rentals: React.FC<RentalsProps> = ({ onBack, onSelectVehicle }) => 
   const ITEMS_PER_PAGE = 6;
   const vehicleClasses = ['Economy', 'SUV', 'Luxury', 'Electric', 'Sport'];
   const [activeTab, setActiveTab] = useState<'vehicles' | 'homes'>('vehicles');
-  const [priceRange, setPriceRange] = useState(20);
+  const [priceRange, setPriceRange] = useState(100);
   const [showInstantOnly, setShowInstantOnly] = useState(false);
   const [selectedVehicleClasses, setSelectedVehicleClasses] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'recommended' | 'price-low' | 'price-high' | 'rating'>('recommended');
   const [currentPage, setCurrentPage] = useState(1);
 
-  const [vehicles, setVehicles] = useState<CustomerVehicle[]>(FALLBACK_VEHICLES);
+  const [vehicles, setVehicles] = useState<CustomerVehicle[]>([]);
   const [transportLoading, setTransportLoading] = useState(true);
   const [transportError, setTransportError] = useState('');
   const stays = FALLBACK_STAYS;
@@ -282,17 +177,55 @@ export const Rentals: React.FC<RentalsProps> = ({ onBack, onSelectVehicle }) => 
     setTransportError('');
 
     (async () => {
-      try {
-        const response = await apiRequest('/transports');
+    try {
+        const [response, promotionResponse] = await Promise.all([
+          apiRequest('/transports'),
+          getPublicPromotions().catch(() => []),
+        ]);
         const records = Array.isArray(response?.data) ? response.data : [];
-        const normalized = records.map(mapTransportToVehicle).filter((item) => Number.isFinite(item.id));
+        const promotions = Array.isArray(promotionResponse) ? promotionResponse : [];
+        const activePromotions = promotions.filter(isPromoActive);
+
+        const promotionByTransportId = new Map<number, any>();
+        activePromotions.forEach((promotion: any) => {
+          const linkedTransports = Array.isArray(promotion?.linked_transports) ? promotion.linked_transports : [];
+          linkedTransports.forEach((linkedId: any) => {
+            const numericId = Number(linkedId);
+            if (Number.isFinite(numericId) && !promotionByTransportId.has(numericId)) {
+              promotionByTransportId.set(numericId, promotion);
+            }
+          });
+        });
+
+        const normalized = records.map((record) => {
+          const vehicle = mapTransportToVehicle(record);
+          const promotion = promotionByTransportId.get(vehicle.id);
+
+          if (!promotion) {
+            return vehicle;
+          }
+
+          const basePrice = toNumericValue(vehicle.originalPrice ?? vehicle.price);
+          const discount = parsePromotionDiscount(promotion, basePrice);
+
+          return {
+            ...vehicle,
+            price: discount.discountedPrice,
+            discountedPrice: discount.discountedPrice,
+            originalPrice: discount.originalPrice,
+            discountPercentage: discount.discountPercentage,
+            hasPromotion: true,
+            badge: discount.discountPercentage > 0 ? `${discount.discountPercentage}% OFF` : vehicle.badge,
+            promotion,
+          };
+        }).filter((item) => Number.isFinite(item.id));
         if (!cancelled) {
-          setVehicles(normalized.length > 0 ? normalized : FALLBACK_VEHICLES);
+          setVehicles(normalized);
         }
       } catch (error) {
         if (!cancelled) {
-          setTransportError('Failed to load transports. Showing curated selection.');
-          setVehicles(FALLBACK_VEHICLES);
+          setTransportError('Failed to load transports.');
+          setVehicles([]);
         }
       } finally {
         if (!cancelled) {
@@ -468,14 +401,14 @@ export const Rentals: React.FC<RentalsProps> = ({ onBack, onSelectVehicle }) => 
               <MapPin className="w-5 h-5 text-blue-500 group-hover:scale-110 transition-transform" />
               <div className="flex-1">
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Location</p>
-                <p className="text-sm font-bold text-slate-900 dark:text-white">Paris, France</p>
+                <p className="text-sm font-bold text-slate-300 dark:text-slate-600">Select location</p>
               </div>
             </div>
             <div className="flex items-center gap-3 px-6 py-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-2xl transition-colors cursor-pointer group border-l border-slate-100 dark:border-slate-800">
               <Calendar className="w-5 h-5 text-blue-500 group-hover:scale-110 transition-transform" />
               <div className="flex-1">
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Check in - out</p>
-                <p className="text-sm font-bold text-slate-900 dark:text-white">12 Oct - 15 Oct 2026</p>
+                <p className="text-sm font-bold text-slate-300 dark:text-slate-600">Set dates</p>
               </div>
             </div>
           </div>

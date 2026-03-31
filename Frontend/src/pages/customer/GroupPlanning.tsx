@@ -129,7 +129,7 @@ interface GroupPlanningProps {
   tripTitle?: string;
 }
 
-export const GroupPlanning: React.FC<GroupPlanningProps> = ({ onBack, tripTitle = "Adventure in Siem Reap" }) => {
+export const GroupPlanning: React.FC<GroupPlanningProps> = ({ onBack, tripTitle = 'My trip' }) => {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'itinerary' | 'polls'>('dashboard');
   const [newMessage, setNewMessage] = useState('');
   const chatEndRef = useRef<HTMLDivElement>(null);

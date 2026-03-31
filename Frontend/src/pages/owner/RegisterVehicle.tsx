@@ -45,7 +45,7 @@ const RegisterVehicle = () => {
     if (!formData.name.trim()) newErrors.name = 'Service name is required';
     if (!formData.route.trim()) newErrors.route = 'Route is required';
     if (!formData.is_free && (!formData.price_per_KM || parseFloat(formData.price_per_KM) <= 0)) {
-      newErrors.price_per_KM = 'Valid price per KM is required';
+      newErrors.price_per_KM = 'Valid price per day is required';
     }
     if (!imageFile && !formData.image) {
       newErrors.vehicle_photo = 'Vehicle photo is required';
@@ -185,7 +185,7 @@ const RegisterVehicle = () => {
                   </select>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] uppercase font-bold tracking-widest text-slate-400">Price per KM</label>
+                  <label className="text-[10px] uppercase font-bold tracking-widest text-slate-400">Price per day</label>
                   <input
                     name="price_per_KM"
                     type="number"
@@ -198,7 +198,7 @@ const RegisterVehicle = () => {
                       "w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border-transparent rounded-xl text-sm focus:bg-white dark:focus:bg-slate-900 focus:ring-2 focus:ring-blue-600/10 transition-all font-medium disabled:opacity-60 disabled:cursor-not-allowed",
                       errors.price_per_KM && 'border border-red-500'
                     )}
-                    placeholder="e.g. 1.50"
+                    placeholder="e.g. 100.00"
                   />
                   {errors.price_per_KM && <p className="text-xs text-red-500 mt-1">{errors.price_per_KM}</p>}
                 </div>

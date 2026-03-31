@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Compass, Send } from 'lucide-react';
+import { Send } from 'lucide-react';
 import { SupportModal } from '../common/SupportModal';
+import { BrandLogo } from '../common/BrandLogo';
 
 interface FooterProps {
   onLoginClick: () => void;
@@ -41,19 +42,9 @@ export const Footer: React.FC<FooterProps> = ({
       <div className="max-w-7xl mx-auto">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-20">
           <div className="space-y-6">
-            <div className="flex items-center gap-2">
-              <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0 bg-white p-0.5 border border-slate-100 dark:border-slate-800">
-                <img 
-                  src="https://files.oaiusercontent.com/file-Xf6YF7K3G9H2J5L8M1N4P7Q0" 
-                  alt="Komrong Logo" 
-                  className="w-full h-full object-contain"
-                  referrerPolicy="no-referrer"
-                />
-              </div>
-              <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0 bg-slate-900 dark:bg-white p-2 shadow-md">
-                <Compass className="w-full h-full text-white dark:text-slate-900" />
-              </div>
-              <span className="text-lg font-bold text-slate-900 dark:text-white">Komrong Explorer</span>
+            <div className="flex items-center gap-3">
+              <BrandLogo variant="mark" className="w-10 h-10 rounded-lg overflow-hidden" />
+              <BrandLogo variant="full" className="h-14 w-[220px] max-w-[55vw]" />
             </div>
             <p className="text-slate-500 dark:text-slate-400 text-sm leading-relaxed">
               Discover the hidden gems of Komrong. The all-in-one booking platform for your tropical getaway.
@@ -154,7 +145,7 @@ export const Footer: React.FC<FooterProps> = ({
         
         <div className="pt-10 border-t border-slate-100 dark:border-slate-800 flex flex-col md:flex-row justify-between items-center gap-4">
           <p className="text-xs text-slate-400 dark:text-slate-500">
-            © 2024 Komrong Explorer. All rights reserved. Made for adventure.
+            © 2024 Komrong. All rights reserved. Made for adventure.
           </p>
           <div className="flex items-center gap-6">
             <div className="flex items-center gap-2">
@@ -166,7 +157,7 @@ export const Footer: React.FC<FooterProps> = ({
                   referrerPolicy="no-referrer"
                 />
               </div>
-              <span className="text-sm font-bold text-slate-900 dark:text-white">Komrong Explorer</span>
+              <span className="text-sm font-bold text-slate-900 dark:text-white">Komrong</span>
             </div>
             <div className="hidden md:flex items-center gap-6">
               <button

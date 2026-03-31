@@ -41,6 +41,9 @@ export interface HotelReservationSelection {
   cleaningFee: number;
   serviceFee: number;
   totalPrice: number;
+  checkInDate: string;
+  checkOutDate: string;
+  stayDates: string;
 }
 
 interface HotelDetailsProps {
@@ -66,11 +69,27 @@ const resolveDateValue = (value: unknown): Date | null => {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 };
 
+const toDateInputValue = (value: unknown) => {
+  const parsed = resolveDateValue(value);
+  if (!parsed) return '';
+
+  const tzOffsetMs = parsed.getTimezoneOffset() * 60000;
+  return new Date(parsed.getTime() - tzOffsetMs).toISOString().slice(0, 10);
+};
+
+const formatDateRange = (start: Date, end: Date) =>
+  `${format(start, 'dd/MM/yyyy')} - ${format(end, 'dd/MM/yyyy')}`;
+
 export const HotelDetails: React.FC<HotelDetailsProps> = ({ tripData, hotel: initialHotel, onBack, onReserve }) => {
   const [isGroupMode, setIsGroupMode] = useState(false);
   const [selectedRoomId, setSelectedRoomId] = useState('');
   const defaultGuestCount = parseGuestCount(tripData?.guests);
   const [guests, setGuests] = useState(defaultGuestCount);
+  const [checkInDate, setCheckInDate] = useState(toDateInputValue(tripData?.startDate) || toDateInputValue(addDays(new Date(), 7)));
+  const [checkOutDate, setCheckOutDate] = useState(
+    toDateInputValue(tripData?.endDate) ||
+      toDateInputValue(addDays(resolveDateValue(tripData?.startDate) || addDays(new Date(), 7), 1))
+  );
   
   // Default data if none provided (matching the screenshot)
   const today = new Date('2026-03-03T00:34:03-08:00');
@@ -218,6 +237,17 @@ export const HotelDetails: React.FC<HotelDetailsProps> = ({ tripData, hotel: ini
   }, [selectedRoom]);
 
   useEffect(() => {
+    const nextCheckIn = toDateInputValue(tripData?.startDate) || toDateInputValue(addDays(new Date(), 7));
+    const nextCheckOut =
+      toDateInputValue(tripData?.endDate) ||
+      toDateInputValue(addDays(resolveDateValue(tripData?.startDate) || addDays(new Date(), 7), 1));
+
+    setCheckInDate(nextCheckIn);
+    setCheckOutDate(nextCheckOut);
+    setGuests(parseGuestCount(tripData?.guests));
+  }, [tripData?.startDate, tripData?.endDate, tripData?.guests]);
+
+  useEffect(() => {
     const booking = initialHotel?.selectedBooking;
     if (!booking || roomOptions.length === 0) return;
 
@@ -231,8 +261,8 @@ export const HotelDetails: React.FC<HotelDetailsProps> = ({ tripData, hotel: ini
     setGuests(Math.min(Math.max(bookingGuests, 1), matchedRoom.maxOccupancy));
   }, [defaultGuestCount, initialHotel?.id, initialHotel?.selectedBooking, roomOptions]);
 
-  const plannedCheckInDate = resolveDateValue(tripData?.startDate) || addDays(new Date(), 7);
-  const requestedCheckOutDate = resolveDateValue(tripData?.endDate);
+  const plannedCheckInDate = resolveDateValue(checkInDate) || resolveDateValue(tripData?.startDate) || addDays(new Date(), 7);
+  const requestedCheckOutDate = resolveDateValue(checkOutDate) || resolveDateValue(tripData?.endDate);
   const plannedCheckOutDate =
     requestedCheckOutDate && requestedCheckOutDate.getTime() > plannedCheckInDate.getTime()
       ? requestedCheckOutDate
@@ -248,6 +278,11 @@ export const HotelDetails: React.FC<HotelDetailsProps> = ({ tripData, hotel: ini
   const handleReserveClick = () => {
     if (!selectedRoom) return;
 
+    const checkIn = resolveDateValue(checkInDate) || plannedCheckInDate;
+    const checkOut = resolveDateValue(checkOutDate) || plannedCheckOutDate;
+    const start = checkIn <= checkOut ? checkIn : checkOut;
+    const end = checkIn <= checkOut ? checkOut : checkIn;
+
     onReserve?.({
       roomType: selectedRoom.name,
       roomCategory: selectedRoom.category,
@@ -258,7 +293,10 @@ export const HotelDetails: React.FC<HotelDetailsProps> = ({ tripData, hotel: ini
       roomSubtotal,
       cleaningFee,
       serviceFee,
-      totalPrice: total
+      totalPrice: total,
+      checkInDate: start.toISOString(),
+      checkOutDate: end.toISOString(),
+      stayDates: formatDateRange(start, end),
     });
   };
 
@@ -451,13 +489,31 @@ export const HotelDetails: React.FC<HotelDetailsProps> = ({ tripData, hotel: ini
                 {/* Date/Guest Picker */}
                 <div className="rounded-2xl border border-slate-100 dark:border-slate-800 overflow-hidden">
                   <div className="grid grid-cols-2 border-b border-slate-100 dark:border-slate-800">
-                    <div className="p-4 border-r border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer transition-colors">
+                    <div className="p-4 border-r border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Check-in</p>
-                      <p className="text-xs font-bold text-slate-900 dark:text-white">{format(plannedCheckInDate, 'MMM d, yyyy')}</p>
+                      <input
+                        type="date"
+                        value={checkInDate}
+                        onChange={(e) => {
+                          const next = e.target.value;
+                          setCheckInDate(next);
+                          if (checkOutDate && checkOutDate <= next) {
+                            const nextOut = format(addDays(resolveDateValue(next) || plannedCheckInDate, 1), 'yyyy-MM-dd');
+                            setCheckOutDate(nextOut);
+                          }
+                        }}
+                        className="w-full bg-transparent text-xs font-bold text-slate-900 dark:text-white outline-none"
+                      />
                     </div>
-                    <div className="p-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer transition-colors">
+                    <div className="p-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Check-out</p>
-                      <p className="text-xs font-bold text-slate-900 dark:text-white">{format(plannedCheckOutDate, 'MMM d, yyyy')}</p>
+                      <input
+                        type="date"
+                        min={checkInDate || undefined}
+                        value={checkOutDate}
+                        onChange={(e) => setCheckOutDate(e.target.value)}
+                        className="w-full bg-transparent text-xs font-bold text-slate-900 dark:text-white outline-none"
+                      />
                     </div>
                   </div>
                   <div className="p-4 flex items-center justify-between">
@@ -579,7 +635,7 @@ export const HotelDetails: React.FC<HotelDetailsProps> = ({ tripData, hotel: ini
                   onClick={handleReserveClick}
                   className="w-full bg-blue-600 hover:bg-blue-700 text-white py-5 rounded-2xl text-sm font-bold shadow-xl shadow-blue-600/20 transition-all active:scale-[0.98]"
                 >
-                  Reserve Now
+                  Booking
                 </button>
                 <p className="text-[10px] text-center text-slate-400 font-medium uppercase tracking-widest">You won't be charged yet</p>
 

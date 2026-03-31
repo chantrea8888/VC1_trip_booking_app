@@ -77,9 +77,9 @@ export const Payment: React.FC<PaymentProps> = ({ tripData, onBackToHome, select
   };
 
   const formatStayRange = (start: Date, end: Date) => {
-    const fmt: Intl.DateTimeFormatOptions = { year: 'numeric', month: 'short', day: 'numeric' };
-    const startLabel = start.toLocaleDateString('en-US', fmt);
-    const endLabel = end.toLocaleDateString('en-US', fmt);
+    const fmt: Intl.DateTimeFormatOptions = { year: 'numeric', month: '2-digit', day: '2-digit' };
+    const startLabel = start.toLocaleDateString('en-GB', fmt);
+    const endLabel = end.toLocaleDateString('en-GB', fmt);
     return startLabel === endLabel ? startLabel : `${startLabel} - ${endLabel}`;
   };
 
@@ -157,14 +157,14 @@ export const Payment: React.FC<PaymentProps> = ({ tripData, onBackToHome, select
   const checkIn = coerceDate(tripData?.startDate) ?? coerceDate(tripData?.dateStart);
   const checkOut = coerceDate(tripData?.endDate) ?? coerceDate(tripData?.dateEnd);
   const stayDatesLabel =
-    checkIn && checkOut ? formatStayRange(checkIn, checkOut) : (tripData?.dates || "Oct 12 - Oct 19, 2024");
+    checkIn && checkOut ? formatStayRange(checkIn, checkOut) : String(tripData?.dates || 'Check-in / Check-out not set');
 
   const bookingData = {
-    title: tripData?.title || "Adventure in Siem Reap",
-    location: tripData?.hotel?.location || "Siem Reap, Cambodia",
+    title: tripData?.title || tripData?.destination?.name || tripData?.hotel?.name || 'Your trip',
+    location: tripData?.hotel?.location || tripData?.destination?.name || '',
     dates: stayDatesLabel,
     details: `${tripData?.guests || '2 Adults'} • ${tripData?.hotel?.roomType || 'Deluxe Room'}`,
-    image: tripData?.hotel?.image || "https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?auto=format&fit=crop&q=80&w=800",
+    image: tripData?.hotel?.image || tripData?.destination?.image || '',
     pricing: {
       subtotal,
       taxes,
