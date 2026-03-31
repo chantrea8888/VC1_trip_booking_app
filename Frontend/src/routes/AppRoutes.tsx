@@ -111,6 +111,8 @@ type AdminView =
 
 const normalizeAdminView = (view: string): AdminView => {
   switch (view) {
+    case 'customers':
+      return 'users';
     case 'users':
     case 'owners':
     case 'owners-applications':

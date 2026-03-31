@@ -48,10 +48,10 @@ export const MAIN_MENU_ITEMS: MenuItem[] = [
     path: '/payments'
   },
   {
-    id: 'customers',
+    id: 'users',
     label: 'Customers',
     icon: Users,
-    path: '/customers'
+    path: '/users'
   },
   {
     id: 'reports',
