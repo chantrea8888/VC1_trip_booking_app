@@ -97,8 +97,39 @@ const createEmptyTripData = () => ({
   },
 });
 
+const PERSISTED_VIEW_KEY = 'app_active_view';
+const NON_PERSISTED_VIEWS = new Set(['login', 'register', 'hotel-details']);
+
+const deriveViewFromPathname = (pathname: string): string | null => {
+  if (pathname === '/map') return 'map';
+  if (pathname === '/customer/book') return 'customer-book';
+  if (pathname === '/customer/bookings') return 'customer-bookings';
+  if (pathname.startsWith('/destinations') || pathname.startsWith('/hotels')) return 'hotels';
+  if (pathname.startsWith('/rentals')) return 'rentals';
+  if (pathname.startsWith('/activities')) return 'activities';
+  if (pathname.startsWith('/trip-planner')) return 'trip-planner';
+  if (pathname.startsWith('/bookings')) return 'bookings';
+  if (pathname.startsWith('/messages')) return 'messages';
+  if (pathname.startsWith('/profile')) return 'profile';
+  return null;
+};
+
+const readPersistedView = () => {
+  try {
+    return sessionStorage.getItem(PERSISTED_VIEW_KEY);
+  } catch {
+    return null;
+  }
+};
+
 const AppContent = () => {
-  const [view, setView] = useState('landing');
+  const [view, setView] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const pathView = deriveViewFromPathname(window.location.pathname);
+      if (pathView) return pathView;
+    }
+    return readPersistedView() || 'landing';
+  });
   const [activeProfileTab, setActiveProfileTab] = useState<any>('profile');
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -287,6 +318,17 @@ const AppContent = () => {
   const handleAuthSuccess = (nextView: string) => {
     setView(nextView);
   };
+
+  useEffect(() => {
+    const pathView = deriveViewFromPathname(location.pathname);
+    if (pathView || NON_PERSISTED_VIEWS.has(view)) return;
+
+    try {
+      sessionStorage.setItem(PERSISTED_VIEW_KEY, view);
+    } catch {
+      /* ignore storage quota issues */
+    }
+  }, [location.pathname, view]);
 
   useEffect(() => {
     if (isAdminUser || isOwnerUser) return;
