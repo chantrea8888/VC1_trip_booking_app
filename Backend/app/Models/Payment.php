@@ -2,9 +2,25 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Payment extends Model
 {
-    // Payment model placeholder
+    use HasFactory;
+
+    protected $fillable = [
+        'booking_id',
+        'amount',
+        'payment_method',
+        'status',
+        'transaction_id',
+        'payment_date',
+        'notes',
+    ];
+
+    protected $casts = [
+        'amount' => 'decimal:2',
+        'payment_date' => 'datetime',
+    ];
 }

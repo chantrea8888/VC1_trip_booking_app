@@ -31,6 +31,7 @@ use App\Http\Controllers\Api\PromotionController as ApiPromotionController;
 use App\Http\Controllers\Api\TripGroupController;
 use App\Http\Controllers\Api\OwnerRecentActivityController;
 use App\Http\Controllers\Admin\AdminDashboardController;
+use App\Http\Controllers\Admin\PaymentController as AdminPaymentController;
 
 // Simple health check (useful for confirming API + DB connectivity from the frontend).
 Route::get('/health', function () {
@@ -218,6 +219,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('/admin/dashboard/recent-users', [AdminDashboardController::class, 'getRecentUsers']);
         Route::get('/admin/dashboard/pending-owners', [AdminDashboardController::class, 'getPendingOwners']);
         Route::get('/admin/dashboard/pending-owners-count', [AdminDashboardController::class, 'getPendingOwnersCount']);
+        Route::get('/payments', [AdminPaymentController::class, 'index']);
     });
     
     // Customer routes
@@ -244,6 +246,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
 if (app()->environment('local')) {
     // Allow listing users in the browser during local development without auth.
     Route::get('/users', [AuthController::class, 'index']);
+    Route::get('/payments', [AdminPaymentController::class, 'index']);
     Route::middleware(['auth:sanctum'])->apiResource('users', AuthController::class)->except(['index']);
 } else {
     Route::middleware(['auth:sanctum', 'role:admin'])->apiResource('users', AuthController::class);
