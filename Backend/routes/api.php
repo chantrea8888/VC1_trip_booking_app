@@ -2,6 +2,7 @@
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Schema;
 
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\LogoutController;
@@ -36,13 +37,17 @@ use App\Http\Controllers\Admin\AdminDashboardController;
 Route::get('/health', function () {
     try {
         DB::connection()->getPdo();
+        $usersTableExists = Schema::hasTable('users');
 
         return response()->json([
             'ok' => true,
             'db' => true,
             'driver' => DB::connection()->getDriverName(),
             'database' => method_exists(DB::connection(), 'getDatabaseName') ? DB::connection()->getDatabaseName() : null,
-            'demo_owner_exists' => \App\Models\User::query()->where('email', 'owner@test.com')->exists(),
+            'users_table_exists' => $usersTableExists,
+            'demo_owner_exists' => $usersTableExists
+                ? \App\Models\User::query()->where('email', 'owner@test.com')->exists()
+                : false,
         ]);
     } catch (\Throwable $e) {
         return response()->json([
@@ -73,12 +78,15 @@ Route::get('/hotels-public', [HotelController::class, 'index']);
 Route::prefix('auth')->group(function () {
 
     Route::get('/test', function () {
+        $usersTableExists = Schema::hasTable('users');
+
         return response()->json([
             'message' => 'Laravel API is working!',
             'database' => 'Connected',
             'timestamp' => now()->toDateTimeString(),
             'environment' => app()->environment(),
-            'users_count' => \App\Models\User::count()
+            'users_table_exists' => $usersTableExists,
+            'users_count' => $usersTableExists ? \App\Models\User::count() : null,
         ]);
     });
 
@@ -117,9 +125,6 @@ Route::get('/promotions/public', [ApiPromotionController::class, 'index']);
 Route::get('/destinations/public', [DestinationController::class, 'getAllPublic']);
 Route::get('/destinations/public/all', [DestinationController::class, 'getAllPublic']);
 
-Route::middleware(['auth:sanctum', 'role:admin'])->get('/admin/access', function () {
-    return response()->json(['message' => 'Admin access granted']);
-});
 /*
 |--------------------------------------------------------------------------
 | Role Protected Routes
@@ -159,9 +164,6 @@ Route::middleware(['auth:sanctum', 'role:owner'])->post('/owner/transports', [Tr
 Route::middleware(['auth:sanctum', 'role:owner'])->put('/owner/transports/{transport}', [TransportController::class, 'update']);
 Route::middleware(['auth:sanctum', 'role:owner'])->patch('/owner/transports/{transport}', [TransportController::class, 'update']);
 Route::middleware(['auth:sanctum', 'role:owner'])->delete('/owner/transports/{transport}', [TransportController::class, 'destroy']);
-
-Route::apiResource('users', AuthController::class);
-
 
 // PROTECTED ROUTES (require authentication)
 Route::middleware(['auth:sanctum'])->group(function () {
