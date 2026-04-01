@@ -67,7 +67,7 @@ const resolveGoogleAuthUrl = (activeTab: 'login' | 'register'): string => {
     normalizeBackendOrigin(env.VITE_API_BASE_URL) ||
     'http://127.0.0.1:8000';
 
-  const target = new URL('/auth/google/redirect', `${backendOrigin}/`);
+  const target = new URL('/api/auth/google/redirect', `${backendOrigin}/`);
   target.searchParams.set('auth', activeTab);
   return target.toString();
 };

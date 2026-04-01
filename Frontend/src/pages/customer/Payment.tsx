@@ -16,6 +16,7 @@ interface PaymentProps {
   tripData?: any;
   onBackToHome?: () => void;
   selectedActivityIds?: number[];
+  onOpenMessages?: () => void;
 }
 
 const ProcessingStep: React.FC<{ label: string; delay: number }> = ({ label, delay }) => {
@@ -376,6 +377,14 @@ export const Payment: React.FC<PaymentProps> = ({ tripData, onBackToHome, select
                 >
                   View Receipt
                 </button>
+                {onOpenMessages && (
+                  <button
+                    onClick={onOpenMessages}
+                    className="w-full sm:w-auto px-8 py-4 bg-slate-900 dark:bg-white text-white dark:text-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl font-bold hover:bg-slate-800 dark:hover:bg-slate-900 transition-all shadow-sm"
+                  >
+                    Open Messages
+                  </button>
+                )}
                 <button 
                   onClick={handleDone}
                   className="w-full sm:w-auto px-8 py-4 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 dark:shadow-none"
