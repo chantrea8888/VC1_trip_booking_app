@@ -94,8 +94,8 @@ Route::prefix('auth')->group(function () {
     Route::post('/login', [LoginController::class, 'login']);
 
     // Google OAuth routes (public, no auth required)
-    Route::get('/google/redirect', [GoogleAuthController::class, 'redirect']);
-    Route::get('/google/callback', [GoogleAuthController::class, 'callbackGoogle']);
+    // Route::get('/google/redirect', [GoogleAuthController::class, 'redirect']);
+    // Route::get('/google/callback', [GoogleAuthController::class, 'callbackGoogle']);
 
     Route::middleware('auth:sanctum')->group(function () {
 
