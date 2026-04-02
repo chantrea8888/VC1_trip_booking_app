@@ -1,0 +1,74 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Backend/Dockerfile
+    container_name: laravel_backend
+    expose:
+      - "9000"
+    volumes:
+      - ./Backend/storage:/var/www/Backend/storage
+    environment:
+      APP_ENV: production
+      APP_KEY: ${APP_KEY}
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_DATABASE: booking_db
+      DB_USERNAME: root
+      DB_PASSWORD: root
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - app_network
+
+  frontend:
+    build:
+      context: ./Frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api}
+    container_name: react_frontend
+    expose:
+      - "80"
+    networks:
+      - app_network
+
+  nginx:
+    image: nginx:alpine
+    container_name: nginx_proxy
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./Backend:/var/www/Backend:ro    # 👈 added
+    depends_on:
+      - backend
+      - frontend
+    networks:
+      - app_network
+
+  db:
+    image: mysql:8
+    container_name: mysql_db
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: booking_db
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app_network
+
+volumes:
+  db_data:
+
+networks:
+  app_network:
+    driver: bridge
