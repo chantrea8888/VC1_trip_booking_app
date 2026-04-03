@@ -9,6 +9,8 @@ This guide explains how to deploy the **VC1 Trip Booking App** on a **single AWS
 
 This setup is good for a small production deployment, staging server, or portfolio/demo environment. Everything runs on one EC2 instance.
 
+Live domain: `https://www.publicationweb.site/`
+
 ## 1. Deployment Architecture
 
 The deployed server will host everything in one place:
@@ -40,7 +42,174 @@ Make sure you have:
 
 If you are using a domain name, point it to your EC2 public IP before configuring Nginx.
 
-## 3. Connect to the EC2 Instance
+## 3. Domain Name Configuration
+
+If you first deploy with an EC2 public IP and later move to a real domain such as `www.publicationweb.site`, you must update the app configuration in a few places.
+
+### What should point to your domain
+
+Update these values when your domain changes:
+
+- Laravel `APP_URL`
+- Laravel `FRONTEND_URLS`
+- Laravel `SANCTUM_STATEFUL_DOMAINS`
+- Laravel `GOOGLE_REDIRECT_URI`
+- Frontend `VITE_BACKEND_ORIGIN`
+- Frontend `VITE_ASSET_ORIGIN`
+- Nginx `server_name`
+
+### Example values
+
+If you are using:
+
+- Domain: `www.publicationweb.site`
+- Protocol: `https`
+
+Then your values should look like this:
+
+```env
+APP_URL=https://www.publicationweb.site
+FRONTEND_URLS=https://www.publicationweb.site
+SANCTUM_STATEFUL_DOMAINS=www.publicationweb.site
+GOOGLE_REDIRECT_URI=https://www.publicationweb.site/auth/google/callback
+VITE_BACKEND_ORIGIN=https://www.publicationweb.site
+VITE_ASSET_ORIGIN=https://www.publicationweb.site
+VITE_API_BASE_URL=/api
+```
+
+### DNS step
+
+In your domain provider or DNS manager, create an `A` record:
+
+- Host: `@` or your subdomain such as `app`
+- Value: `YOUR_EC2_PUBLIC_IP`
+
+You can verify DNS after saving:
+
+```bash
+nslookup www.publicationweb.site
+```
+
+### Backend domain settings
+
+Open:
+
+```bash
+cd /var/www/VC1_trip_booking_app/Backend
+nano .env
+```
+
+Use domain-based values like this:
+
+```env
+APP_URL=https://www.publicationweb.site
+FRONTEND_URLS=https://www.publicationweb.site
+SANCTUM_STATEFUL_DOMAINS=www.publicationweb.site
+SESSION_DOMAIN=.publicationweb.site
+SESSION_SECURE_COOKIE=true
+GOOGLE_REDIRECT_URI=https://www.publicationweb.site/auth/google/callback
+```
+
+Notes:
+
+- Use `SESSION_SECURE_COOKIE=true` only after HTTPS is enabled
+- `SESSION_DOMAIN=.publicationweb.site` is useful if you later serve parts of the app from subdomains
+- If you only use one domain and are unsure, you can leave `SESSION_DOMAIN=` empty
+
+After updating the backend config:
+
+```bash
+php artisan optimize:clear
+php artisan config:cache
+```
+
+### Frontend domain settings
+
+Open:
+
+```bash
+cd /var/www/VC1_trip_booking_app/Frontend
+nano .env
+```
+
+Use:
+
+```env
+VITE_API_BASE_URL=/api
+VITE_BACKEND_ORIGIN=https://www.publicationweb.site
+VITE_ASSET_ORIGIN=https://www.publicationweb.site
+VITE_GOOGLE_MAPS_API_KEY=your_google_maps_key
+```
+
+Then rebuild the frontend:
+
+```bash
+npm ci
+npm run build
+```
+
+### Nginx domain settings
+
+Open your Nginx site config:
+
+```bash
+sudo nano /etc/nginx/sites-available/vc1_trip_booking_app
+```
+
+Change:
+
+```nginx
+server_name YOUR_DOMAIN_OR_PUBLIC_IP;
+```
+
+To:
+
+```nginx
+server_name www.publicationweb.site;
+```
+
+Then test and reload Nginx:
+
+```bash
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+### Google OAuth domain settings
+
+If Google login is enabled, make sure the callback URL in Google Cloud Console exactly matches:
+
+```text
+https://www.publicationweb.site/auth/google/callback
+```
+
+If this value does not match, Google login will fail even if the rest of the deployment is correct.
+
+### Quick checklist when changing domain
+
+When moving from IP to domain, update all of these:
+
+- `Backend/.env`
+- `Frontend/.env`
+- `/etc/nginx/sites-available/vc1_trip_booking_app`
+- Google Cloud OAuth redirect URL
+- SSL certificate configuration if using HTTPS
+
+After that, run:
+
+```bash
+cd /var/www/VC1_trip_booking_app/Backend
+php artisan optimize:clear
+php artisan config:cache
+
+cd /var/www/VC1_trip_booking_app/Frontend
+npm run build
+
+sudo systemctl restart php8.3-fpm
+sudo systemctl reload nginx
+```
+
+## 4. Connect to the EC2 Instance
 
 From your local machine:
 
@@ -54,7 +223,7 @@ Explanation:
 - `chmod 400` protects your SSH key so SSH will accept it
 - `ubuntu` is the default user for Ubuntu EC2 images
 
-## 4. Update the Server
+## 5. Update the Server
 
 Start from a clean server and install updates first:
 
@@ -66,7 +235,7 @@ Explanation:
 
 - This refreshes package lists and installs the latest security updates
 
-## 5. Install System Dependencies
+## 6. Install System Dependencies
 
 Install Nginx, Git, MySQL, PHP, Composer prerequisites, and build tools:
 
@@ -101,7 +270,7 @@ Explanation:
 - `composer` installs Laravel PHP dependencies
 - `nodejs` and `npm` build the React frontend
 
-## 6. Prepare MySQL
+## 7. Prepare MySQL
 
 Run the MySQL security script:
 
@@ -130,7 +299,7 @@ Explanation:
 - `booking_db` matches the Laravel default database name in this project
 - A dedicated MySQL user is safer than using MySQL root from the app
 
-## 7. Clone the Project
+## 8. Clone the Project
 
 Create a web root and clone the repository:
 
@@ -146,7 +315,7 @@ Explanation:
 
 - This guide uses `/var/www/VC1_trip_booking_app` as the project path
 
-## 8. Set Up the Laravel Backend
+## 9. Set Up the Laravel Backend
 
 Go to the backend directory and install dependencies:
 
@@ -169,7 +338,7 @@ APP_NAME="VC1 Trip Booking App"
 APP_ENV=production
 APP_KEY=
 APP_DEBUG=false
-APP_URL=http://YOUR_DOMAIN_OR_PUBLIC_IP
+APP_URL=https://www.publicationweb.site
 
 DB_CONNECTION=mysql
 DB_HOST=127.0.0.1
@@ -178,14 +347,14 @@ DB_DATABASE=booking_db
 DB_USERNAME=booking_user
 DB_PASSWORD=ChangeThisStrongPassword!
 
-FRONTEND_URLS=http://YOUR_DOMAIN_OR_PUBLIC_IP
-SANCTUM_STATEFUL_DOMAINS=YOUR_DOMAIN_OR_PUBLIC_IP
-SESSION_DOMAIN=
+FRONTEND_URLS=https://www.publicationweb.site
+SANCTUM_STATEFUL_DOMAINS=www.publicationweb.site
+SESSION_DOMAIN=.publicationweb.site
 SESSION_SECURE_COOKIE=false
 
 GOOGLE_CLIENT_ID=your_google_client_id
 GOOGLE_CLIENT_SECRET=your_google_client_secret
-GOOGLE_REDIRECT_URI=http://YOUR_DOMAIN_OR_PUBLIC_IP/auth/google/callback
+GOOGLE_REDIRECT_URI=https://www.publicationweb.site/auth/google/callback
 ```
 
 Generate the Laravel application key:
@@ -216,7 +385,7 @@ Explanation:
 - `storage:link` is required for uploaded files and public assets
 - `storage` and `bootstrap/cache` must be writable by the web server
 
-## 9. Import Data or Run Migrations
+## 10. Import Data or Run Migrations
 
 You have two common options.
 
@@ -258,7 +427,7 @@ Important:
 - The seeder creates demo users such as `admin@example.com`, `customer@example.com`, and `owner@example.com`
 - Change or remove demo accounts before using this in real production
 
-## 10. Optimize the Laravel App
+## 11. Optimize the Laravel App
 
 Clear old cache and rebuild safe caches:
 
@@ -274,7 +443,7 @@ Explanation:
 - This clears stale cache files and caches config/views for better performance
 - Skip `php artisan route:cache` for this project because it still contains closure routes
 
-## 11. Set Up the React Frontend
+## 12. Set Up the React Frontend
 
 Go to the frontend directory:
 
@@ -288,8 +457,8 @@ Use values like these:
 
 ```env
 VITE_API_BASE_URL=/api
-VITE_BACKEND_ORIGIN=http://YOUR_DOMAIN_OR_PUBLIC_IP
-VITE_ASSET_ORIGIN=http://YOUR_DOMAIN_OR_PUBLIC_IP
+VITE_BACKEND_ORIGIN=https://www.publicationweb.site
+VITE_ASSET_ORIGIN=https://www.publicationweb.site
 VITE_GOOGLE_MAPS_API_KEY=your_google_maps_key
 ```
 
@@ -303,10 +472,11 @@ npm run build
 Explanation:
 
 - `VITE_API_BASE_URL=/api` matches the Nginx reverse proxy in this guide
+- Do not set `VITE_API_BASE_URL=http://34.231.70.39/api` when the site is served from `https://www.publicationweb.site`, because the browser may block that request as mixed content and it also bypasses your same-origin Nginx proxy
 - `VITE_BACKEND_ORIGIN` is important for backend-served images and Google login redirects
 - The build output is generated in `Frontend/dist`
 
-## 12. Configure Nginx
+## 13. Configure Nginx
 
 Create a new Nginx site config:
 
@@ -314,7 +484,7 @@ Create a new Nginx site config:
 sudo tee /etc/nginx/sites-available/vc1_trip_booking_app > /dev/null <<'EOF'
 server {
     listen 80;
-    server_name YOUR_DOMAIN_OR_PUBLIC_IP;
+    server_name www.publicationweb.site;
 
     root /var/www/VC1_trip_booking_app/Frontend/dist;
     index index.html;
@@ -381,7 +551,7 @@ Explanation:
 ls /run/php/
 ```
 
-## 13. Start and Enable Services
+## 14. Start and Enable Services
 
 Check the PHP-FPM service name:
 
@@ -410,7 +580,7 @@ Explanation:
 - This makes sure the database, PHP-FPM, and Nginx start automatically after reboot
 - Replace `php8.3-fpm` if your installed version is different
 
-## 14. Verify the Deployment
+## 15. Verify the Deployment
 
 Run these checks on the server:
 
@@ -434,7 +604,7 @@ sudo systemctl status mysql
 Open your browser and visit:
 
 ```text
-http://YOUR_DOMAIN_OR_PUBLIC_IP
+https://www.publicationweb.site
 ```
 
 You should see:
@@ -443,7 +613,7 @@ You should see:
 - API requests working through `/api`
 - Laravel authentication routes such as Google OAuth available through `/auth/...`
 
-## 15. Recommended Post-Deployment Steps
+## 16. Recommended Post-Deployment Steps
 
 For a more production-ready server, do these next:
 
@@ -454,7 +624,7 @@ For a more production-ready server, do these next:
 - Set up regular MySQL backups
 - Use a process for future deployments, such as pulling from GitHub and rebuilding on release
 
-## 16. Updating the Application Later
+## 17. Updating the Application Later
 
 When you deploy new code later, this is the usual update flow:
 
@@ -477,7 +647,7 @@ sudo systemctl restart php8.3-fpm
 sudo systemctl reload nginx
 ```
 
-## 17. Common Issues and Troubleshooting
+## 18. Common Issues and Troubleshooting
 
 ### 502 Bad Gateway
 
@@ -536,6 +706,70 @@ Also confirm:
 - `Frontend/.env` has `VITE_API_BASE_URL=/api`
 - `Backend/.env` has the correct `DB_*` values
 
+### Failed to reach API at `http://34.231.70.39/api`
+
+If the frontend shows:
+
+```text
+Failed to reach API at http://34.231.70.39/api. Make sure the Laravel backend is running and CORS allows this origin.
+```
+
+This usually means one of these:
+
+- The frontend was built with a hardcoded API URL pointing to the EC2 public IP
+- The browser is blocking an `http://` API call from an `https://` website as mixed content
+- Nginx is not forwarding `/api` to Laravel
+- Laravel CORS settings do not include your frontend origin
+
+For this project, the recommended production setup is:
+
+- Frontend URL: `https://www.publicationweb.site`
+- API base URL: `/api`
+- Backend/public origin: `https://www.publicationweb.site`
+
+Use these values:
+
+```env
+# Frontend/.env
+VITE_API_BASE_URL=/api
+VITE_BACKEND_ORIGIN=https://www.publicationweb.site
+VITE_ASSET_ORIGIN=https://www.publicationweb.site
+```
+
+```env
+# Backend/.env
+APP_URL=https://www.publicationweb.site
+FRONTEND_URLS=https://www.publicationweb.site
+SANCTUM_STATEFUL_DOMAINS=www.publicationweb.site
+GOOGLE_REDIRECT_URI=https://www.publicationweb.site/auth/google/callback
+```
+
+Then rebuild and reload everything:
+
+```bash
+cd /var/www/VC1_trip_booking_app/Backend
+php artisan optimize:clear
+php artisan config:cache
+
+cd /var/www/VC1_trip_booking_app/Frontend
+npm run build
+
+sudo systemctl restart php8.3-fpm
+sudo systemctl reload nginx
+```
+
+Quick checks:
+
+```bash
+curl http://127.0.0.1/api/health
+curl -I https://www.publicationweb.site/api/health
+sudo nginx -t
+sudo systemctl status nginx
+sudo systemctl status php8.3-fpm
+```
+
+If `https://www.publicationweb.site/api/health` works but the browser still shows the error, rebuild the frontend again and make sure the deployed build does not contain `http://34.231.70.39/api`.
+
 ### Database connection errors
 
 Cause:
@@ -572,7 +806,7 @@ sudo chmod -R 775 storage bootstrap/cache public/storage
 
 Also check:
 
-- `Frontend/.env` has `VITE_BACKEND_ORIGIN=http://YOUR_DOMAIN_OR_PUBLIC_IP`
+- `Frontend/.env` has `VITE_BACKEND_ORIGIN=https://www.publicationweb.site`
 
 ### Google login fails or redirects incorrectly
 
@@ -590,7 +824,7 @@ Fix:
 Example:
 
 ```text
-http://YOUR_DOMAIN_OR_PUBLIC_IP/auth/google/callback
+https://www.publicationweb.site/auth/google/callback
 ```
 
 ### Nginx config changes do not apply
@@ -614,7 +848,7 @@ sudo journalctl -u php8.3-fpm -f
 sudo journalctl -u mysql -f
 ```
 
-## 18. Deployment Summary
+## 19. Deployment Summary
 
 After following this guide:
 
