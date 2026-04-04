@@ -727,38 +727,117 @@ For this project, the recommended production setup is:
 - API base URL: `/api`
 - Backend/public origin: `https://www.publicationweb.site`
 
-Use these values:
+Follow these steps on the EC2 server.
+
+#### Step 1: Check whether Laravel is responding locally
+
+```bash
+curl http://127.0.0.1/api/health
+```
+
+If this fails, Laravel, PHP-FPM, routing, or the database setup is still broken. Check:
+
+```bash
+sudo systemctl status php8.3-fpm
+sudo systemctl status nginx
+sudo systemctl status mysql
+tail -n 100 /var/www/VC1_trip_booking_app/Backend/storage/logs/laravel.log
+```
+
+#### Step 2: Make sure the frontend is not pointing to the EC2 IP
+
+Open the frontend environment file:
+
+```bash
+cd /var/www/VC1_trip_booking_app/Frontend
+nano .env
+```
+
+Use exactly:
 
 ```env
-# Frontend/.env
 VITE_API_BASE_URL=/api
 VITE_BACKEND_ORIGIN=https://www.publicationweb.site
 VITE_ASSET_ORIGIN=https://www.publicationweb.site
 ```
 
+Important:
+
+- Do not use `VITE_API_BASE_URL=http://34.231.70.39/api`
+- Do not use `http://34.231.70.39` anywhere in the production frontend config
+- Using `/api` keeps the frontend and backend on the same origin through Nginx
+
+#### Step 3: Make sure Laravel allows your frontend origin
+
+Open the backend environment file:
+
+```bash
+cd /var/www/VC1_trip_booking_app/Backend
+nano .env
+```
+
+Use these values:
+
 ```env
-# Backend/.env
 APP_URL=https://www.publicationweb.site
 FRONTEND_URLS=https://www.publicationweb.site
 SANCTUM_STATEFUL_DOMAINS=www.publicationweb.site
 GOOGLE_REDIRECT_URI=https://www.publicationweb.site/auth/google/callback
 ```
 
-Then rebuild and reload everything:
+Then clear and rebuild Laravel config:
 
 ```bash
 cd /var/www/VC1_trip_booking_app/Backend
 php artisan optimize:clear
 php artisan config:cache
+```
 
-cd /var/www/VC1_trip_booking_app/Frontend
-npm run build
+#### Step 4: Make sure Nginx forwards `/api` to Laravel
 
-sudo systemctl restart php8.3-fpm
+Open the Nginx site config:
+
+```bash
+sudo nano /etc/nginx/sites-available/vc1_trip_booking_app
+```
+
+Make sure it includes:
+
+```nginx
+server_name www.publicationweb.site;
+
+location ~ ^/(api|auth|sanctum)(/.*)?$ {
+    root /var/www/VC1_trip_booking_app/Backend/public;
+    try_files $uri $uri/ /index.php?$query_string;
+}
+```
+
+Then test and reload Nginx:
+
+```bash
+sudo nginx -t
 sudo systemctl reload nginx
 ```
 
-Quick checks:
+#### Step 5: Rebuild the frontend
+
+```bash
+cd /var/www/VC1_trip_booking_app/Frontend
+npm run build
+```
+
+If you installed dependencies earlier with `npm ci`, `npm run build` is enough for rebuilds after `.env` changes.
+
+#### Step 6: Restart services
+
+```bash
+sudo systemctl restart php8.3-fpm
+sudo systemctl restart nginx
+```
+
+#### Step 7: Verify from the server
+
+Run these commands:
 
 ```bash
 curl http://127.0.0.1/api/health
@@ -768,7 +847,37 @@ sudo systemctl status nginx
 sudo systemctl status php8.3-fpm
 ```
 
-If `https://www.publicationweb.site/api/health` works but the browser still shows the error, rebuild the frontend again and make sure the deployed build does not contain `http://34.231.70.39/api`.
+Expected result:
+
+- `curl http://127.0.0.1/api/health` should return JSON
+- `curl -I https://www.publicationweb.site/api/health` should return an HTTP status from your live domain
+- `nginx -t` should say the config test is successful
+
+#### Step 8: Confirm the old IP is not baked into the built frontend
+
+Search the built files:
+
+```bash
+cd /var/www/VC1_trip_booking_app/Frontend
+grep -R "34.231.70.39" dist
+```
+
+If this command prints matches, the frontend was built with the wrong API URL. Fix `.env`, then run:
+
+```bash
+cd /var/www/VC1_trip_booking_app/Frontend
+npm run build
+sudo systemctl reload nginx
+```
+
+#### Step 9: If it still fails, inspect logs live
+
+```bash
+tail -f /var/www/VC1_trip_booking_app/Backend/storage/logs/laravel.log
+sudo tail -f /var/log/nginx/error.log
+```
+
+Then reload the website in the browser and watch which error appears first.
 
 ### Database connection errors
 
